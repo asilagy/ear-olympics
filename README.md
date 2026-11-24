@@ -13,10 +13,7 @@ note that sounds first, so it trains relative pitch, never perfect pitch.
 
 They are kept apart on purpose.
 
-**Simon** is follow the lights. A sequence plays, lit as it sounds, and you play it back. Each round adds one note;
-a wrong note ends the game and your score is the longest sequence you got right. There is no root note, because
-there is nothing to establish. It speeds up as the sequence grows. The levels set how many keys are in play: 4, 5, 8
-(the major scale) and 13 (every key of the octave).
+**Simon** a place-holder for now, building more games later
 
 **Copycat** is ear training. You hear a root note alone (the screen says ROOT and its key lights), then a melody
 over it, and you play the melody back. The root is a foundation, not a note of the melody: it is a soft, round drone
