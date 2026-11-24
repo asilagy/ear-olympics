@@ -5,7 +5,7 @@
   "author": "asilagy",
   "license": "MPL-2.0",
   "tagline": "a WarioWare-style ear-training arcade for the FM-1",
-  "description": "Ear Olympics turns the M-VAVE FM-1 into a fast, shuffled ear-training arcade. Two games so far: Simon, a classic follow-the-lights memory game, and Copycat, where you hear a root note and a melody over it and play the melody back by ear. More skills, a shuffled arcade mode, and levels that rise as you get things right are on the way, and every mistake plays the right answer so you learn from it.",
+  "description": "Ear Olympics turns the M-VAVE FM-1 into a fast ear-training arcade, run by a cat called Meow. In Copycat you hear a root note and a melody over it and play the melody back by ear. Levels rise as you get things right, and every mistake plays the right answer so you learn from it. More skills and a shuffled arcade mode are on the way.",
   "tags": ["game"],
   "install": "https://asilagy.github.io/ear-olympics/install/",
   "site": "https://asilagy.github.io/ear-olympics/",
