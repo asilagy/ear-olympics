@@ -14,13 +14,11 @@ pitch arrives the lights come back for a level to introduce it, then go out agai
 
 ![The cat celebrating a level up in sunglasses](img/celebrate.png "A level up")
 
-This is version {{VERSION}}. You install it at your own risk, and the installer can put M-VAVE's own firmware back.
+This is version {{VERSION}}. Installing on a real FM-1 isn't open yet, so for now you can play it in your browser.
 
 - [Try it in the browser](emu/). Play it right here, with sound. It runs the same code as the FM-1, so you don't
-  need one.
-- [Install](install/) it from Chrome or Edge, with the FM-1 connected by USB.
+  need one. A MIDI keyboard works too.
 - The [Manual](manual/) explains the screen, the controls, the levels and the cat's moods.
-- [Download {{PKG}}](firmware/{{PKG}}) to use the command-line installer: `python3 tools/fm1_install.py {{PKG}}`.
 - The [Source](https://github.com/asilagy/ear-olympics) is under MPL-2.0. It's built on fm1-base and
   felucca-bsp, which come from Felucca by Leo Kuroshita, Hügelton Instruments.
 

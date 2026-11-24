@@ -10,7 +10,7 @@ right one, and levels rise by themselves as you get things right.
 
 ## Contents
 
-1. Install
+1. Trying it
 2. Starting up
 3. Playing Copycat
 4. The controls
@@ -22,17 +22,11 @@ right one, and levels rise by themselves as you get things right.
 
 ---
 
-## 1. Install
+## 1. Trying it
 
-To try it first, open the emulator. It runs the same code in your browser, with sound, and you can play it with a
-mouse, a touch screen or your computer keyboard.
-
-To install it from the browser, use Chrome or Edge. Connect the FM-1 by USB, open the installer and press Install.
-The browser asks once to allow MIDI, so allow it. Don't unplug the cable while it writes.
-
-To install it from a terminal, run `python3 tools/fm1_install.py earolympics-VERSION.fwsc`.
-
-To go back to the stock firmware, use the installer's last section, which writes M-VAVE's own firmware back.
+For now Ear Olympics runs in your browser. Open the emulator: it runs the same code as the FM-1, with sound, and
+you can play it with a mouse, a touch screen or your computer keyboard. Click the panel once, and the shortcuts
+listed under the controls work. "MIDI ports" lets a MIDI keyboard play it too. Installing on a real FM-1 isn't open yet.
 
 ---
 
@@ -170,7 +164,6 @@ ending, or moving up a level. Nothing is written to the FM-1's flash between rou
 
 | Problem | What to do |
 | --- | --- |
-| The installer can't find the FM-1 | Use a USB data cable straight into the computer, and close other MIDI apps and browser tabs that use MIDI. If it still isn't found, switch the FM-1 off, hold OCT- while you switch it on (it then waits for an update), and install again. |
 | The notes are hard to hear | Turn the volume up, or change the voice with knob 2. The FM-1's speaker is small, so headphones help. |
 | A level is locked | Finish more levels first. You can play up to three above the highest you've completed. |
 | It's too hard | Turn knob 3 to slow the melody down, or knob 4 to Practice. There's no shame in either. |
