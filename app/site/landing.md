@@ -1,9 +1,8 @@
 # Ear Olympics
 
 Ear Olympics turns the M-VAVE FM-1 into an ear-training arcade, run by a cat called Meow who has perfect pitch and
-is not shy about it. Two games so far: **Copycat**, where you hear a root note and a short melody over it and play the
-melody back by ear, and **Simon**, the classic follow-the-lights memory game. Levels rise as you get things right, and
-every mistake plays the right answer, so you learn from it.
+is not shy about it. In **Copycat**, you hear a root note and a short melody over it, then play the melody back by ear.
+Levels rise as you get things right, and every mistake plays the right answer, so you learn from it.
 
 ![Ear Olympics ready to start: the cat at left, PRESS PLAY TO START. Meow.](img/screen.png "The ready screen")
 
