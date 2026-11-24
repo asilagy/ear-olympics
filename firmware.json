@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "earolympics",
+  "name": "Ear Olympics",
+  "author": "asilagy",
+  "license": "MPL-2.0",
+  "tagline": "a WarioWare-style ear-training arcade for the FM-1",
+  "description": "Ear Olympics turns the M-VAVE FM-1 into a fast, shuffled ear-training arcade. Two games so far: Simon, a classic follow-the-lights memory game, and Copycat, where you hear a root note and a melody over it and play the melody back by ear. More skills, a shuffled arcade mode, and levels that rise as you get things right are on the way, and every mistake plays the right answer so you learn from it.",
+  "tags": ["game"],
+  "install": "https://asilagy.github.io/ear-olympics/install/",
+  "site": "https://asilagy.github.io/ear-olympics/",
+  "source": "https://github.com/asilagy/ear-olympics",
+  "screenshot": "app/site/img/screen.png",
+  "hardware": {
+    "models": ["FM-1"],
+    "flash": ["856014", "B36014"],
+    "features": ["usb-audio-in", "screen-reader"]
+  },
+  "credits": "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments)."
+}

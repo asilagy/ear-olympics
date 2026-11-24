@@ -1,0 +1,106 @@
+# Simon in the host simulator: follow the lights, a sequence that grows, no root. The simulator's random state is fixed:
+# the sequence is keys 11, 14, 7 (E4 G4 C4). States: 0 ready, 1 watch, 2 your turn, 3 nice, 4 miss, 5 the pause.
+# Text: 3 WATCH, 4 YOUR TURN, 5 NICE!, 6 MISS, 7 GAME OVER.
+wait 600
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect mid 0
+# round 1: one note, lit as it sounds, no root, no drone
+tap PLAY
+wait 100
+expect state 1
+expect text 3
+expect drone -1
+expect len 1
+expect ans0 11
+expect note -1
+wait 400
+expect note 64
+expect bright 2048
+wait 400
+expect state 2
+expect text 4
+expect note -1
+shot turn.png
+# played right: a short high note, the pause, and the next round, one note longer
+key 11 down
+wait 50
+expect state 3
+expect text 5
+expect pending 1
+# the success sound does not cut your last note: it rings while you hold the key, and the ding waits for you to let go
+expect note 64
+shot nice.png
+key 11 up
+wait 100
+expect note -1
+wait 200
+# the ding is above the top key (key 31 = 84): not a note you could play
+expect note 84
+wait 1000
+expect state 1
+expect len 2
+expect ans0 11
+expect ans1 14
+wait 1700
+expect state 2
+# the sequence is played in order: the first note right, then the second
+key 11 down
+wait 30
+expect pos 1
+key 11 up
+key 14 down
+wait 30
+key 14 up
+wait 1400
+expect state 1
+expect len 3
+expect ans2 7
+expect score 0
+# the tempo has quickened by now, and the third round is three notes
+wait 2200
+expect state 2
+# a wrong note: MISS, the key you should have played sounds and lights, then the game is over
+key 26 down
+wait 50
+expect state 4
+expect text 6
+expect score 2
+expect note 64
+expect bright 2048
+shot miss.png
+key 26 up
+wait 900
+expect state 0
+expect text 7
+expect score 2
+expect best 2
+expect dirty 0
+expect store_writes 1
+shot over.png
+# PLAY starts a new game from one note
+tap PLAY
+wait 100
+expect state 1
+expect len 1
+# HOME stops
+tap HOME
+wait 50
+expect state 0
+expect text 0
+expect len 0
+expect note -1
+# a miss on the very first note is a score of 0, and does not lower the best
+tap PLAY
+wait 1000
+expect state 2
+key 26 down
+wait 50
+expect score 0
+key 26 up
+wait 900
+expect state 0
+expect best 2

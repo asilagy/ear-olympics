@@ -1,0 +1,285 @@
+# Copycat in the host simulator: a root note, then a melody over it, played back by ear. The root is a foundation: it
+# is introduced alone (ROOT, its key lit bright) and then it is a soft drone under the melody, not a note of it.
+# The simulator's random state is fixed: round 1 at level 1 is keys 7, 9, 11 (C4 D4 E4) over the root C4
+# (key 7). States: 0 ready, 1 listen, 2 your turn, 3 nice, 4 miss, 5 the pause.
+# Text: 1 ROOT, 2 LISTEN, 4 YOUR TURN, 5 NICE!, 6 MISS.
+wait 600
+tap HOME
+wait 50
+expect unlock 34
+turn PRESET 1
+wait 30
+expect game 1
+expect level 1
+# level 1: the root (key 7) mid, the level's other notes (keys 9, 11, 12, 14) glow
+expect mid 128
+expect dim 2560
+master 4096
+peakreset
+# round 1. First the root alone: ROOT on the screen, its key bright, the drone sounding, no melody note yet
+tap PLAY
+wait 200
+expect state 1
+expect text 1
+expect drone 60
+expect note -1
+expect bright 128
+expect len 3
+expect ans0 7
+expect ans1 9
+expect ans2 11
+shot cat_root.png
+# then the melody over the drone: LISTEN; at level 1 its keys light as they sound
+wait 1000
+expect text 2
+expect drone 60
+expect note 60
+expect bright 128
+shot cat_dance.png
+wait 600
+expect note 62
+expect bright 512
+wait 600
+expect note 64
+# your turn (the drone stays under you at this level)
+wait 600
+expect state 2
+expect text 4
+expect drone 60
+expect note -1
+expect bright 0
+expect peak_db_min -20
+expect peak_db_max -3
+shot cat_turn.png
+# the first note right, then PLAY plays it all again, root first, from the start
+key 7 down
+wait 30
+expect pos 1
+expect note 60
+key 7 up
+tap PLAY
+wait 200
+expect state 1
+expect text 1
+expect pos 0
+expect bright 128
+wait 3000
+expect state 2
+# the whole melody right: NICE!, a streak of 1, the drone stops, the chime plays; the new best is kept in the pause
+key 7 down
+wait 30
+key 7 up
+key 9 down
+wait 30
+key 9 up
+key 11 down
+wait 30
+expect state 3
+expect text 5
+expect streak 1
+expect best 1
+expect pending 1
+expect prog 1
+# NICE! shows at once, but the sound does not cut your last note, and the root keeps sounding until the ding
+expect note 64
+expect drone 60
+shot cat_win.png
+peakreset
+key 11 up
+wait 100
+expect note -1
+expect drone 60
+wait 200
+# the success sound is the cat: two meows above the top key (keys 26 and 31 = notes 79 and 84), and the root stops
+expect note 79
+expect drone -1
+wait 400
+expect note 84
+wait 400
+expect peak_db_min -14
+expect peak_db_max -3
+wait 0
+# then the pause; nothing is written to flash between rounds (the best is kept when the streak ends)
+wait 840
+expect store_writes 0
+expect dirty 1
+# the next round starts by itself, with the root introduced again
+expect state 1
+expect text 1
+expect drone 60
+# a wrong note (G5 is outside every level's notes): MISS, the right melody plays lit over its root
+wait 3200
+expect state 2
+key 26 down
+wait 50
+expect state 4
+expect text 6
+expect streak 0
+expect best 1
+# a miss takes a quarter of the 8 rounds (two points) off the progress toward the next level (1 right so far: back to 0)
+expect prog 0
+expect drone 60
+shot cat_fail.png
+peakreset
+key 26 up
+wait 300
+# the fail sound first (the cat's sad yowl: high, not lit), then the right melody, lit
+expect note >0
+expect bright 0
+wait 500
+expect peak_db_min -14
+expect peak_db_max -3
+wait 400
+expect note >0
+expect bright >0
+# the streak has ended: when the answer is over, the new best is kept, in the quiet
+wait 1700
+expect drone -1
+expect state 5
+expect store_writes 1
+expect dirty 0
+# HOME stops it all
+tap HOME
+wait 50
+expect state 0
+expect drone -1
+expect note -1
+expect streak 0
+# level 2: the same pool and root, but nothing lights while it plays: you must hear it
+turn K1 1
+wait 30
+expect level 2
+tap PLAY
+wait 1300
+expect text 2
+expect drone 60
+expect note >0
+expect bright 0
+wait 600
+expect note >0
+expect bright 0
+shot level2.png
+tap HOME
+wait 50
+# level 3: fa and sol arrive, with the lights back on: five notes (keys 9 11 12 14 glow), a new one in every melody
+turn K1 1
+wait 30
+expect level 3
+expect dim 23040
+tap PLAY
+wait 200
+expect len 3
+# the lights are back at this level: the melody's keys glow as they sound
+wait 1000
+expect bright >0
+wait 2400
+expect state 2
+expect drone 60
+tap HOME
+wait 50
+# level 5: four notes (level 4 was the same five notes with the lights off); level 7: la arrives, lit (keys 9 11 12 14 16 glow)
+turn K1 2
+wait 30
+expect level 5
+tap PLAY
+wait 200
+expect len 4
+wait 3400
+expect state 2
+tap HOME
+wait 50
+turn K1 2
+wait 30
+expect level 7
+expect dim 88576
+tap PLAY
+wait 200
+expect len 3
+tap HOME
+wait 50
+# level 10: ti and the octave arrive, lit (keys 9 11 12 14 16 18 19 glow), three notes
+turn K1 3
+wait 30
+expect level 10
+expect dim 875008
+tap PLAY
+wait 200
+expect len 3
+wait 2800
+expect state 2
+tap HOME
+wait 50
+# level 13: the first semitones, C through G, and the chromatic notes light as they sound
+turn K1 3
+wait 30
+expect level 13
+expect dim 32512
+tap PLAY
+wait 200
+expect len 3
+tap HOME
+wait 50
+# level 15: the first leap (a chord tone); level 22: no drone and no glow, and the melody starts on the root
+turn K1 2
+wait 30
+expect level 15
+tap PLAY
+wait 200
+expect len 3
+tap HOME
+wait 50
+turn K1 7
+wait 30
+expect level 22
+expect dim 0
+expect mid 128
+tap PLAY
+wait 200
+expect len 4
+expect ans0 7
+expect drone 60
+expect bright 128
+wait 3300
+expect state 2
+expect drone -1
+expect bright 0
+shot level22.png
+tap HOME
+wait 50
+# level 26: notes below the root, by ear (level 25 brought them in with the lights on), five notes
+turn K1 4
+wait 30
+expect level 26
+tap PLAY
+wait 200
+expect len 5
+wait 4200
+expect state 2
+shot level26.png
+tap HOME
+wait 50
+# level 29: the root moves (C G D): nothing is lit while ready, a round's root is lit, and it starts on the root
+turn K1 3
+wait 30
+expect level 29
+expect mid 0
+expect dim 0
+tap PLAY
+wait 200
+expect round_root >0
+expect len 4
+expect mid >0
+expect drone >0
+shot level29.png
+tap HOME
+wait 50
+expect mid 0
+# level 34: the boss: six notes
+turn K1 5
+wait 30
+expect level 34
+tap PLAY
+wait 200
+expect len 6
+shot level34.png
+tap HOME

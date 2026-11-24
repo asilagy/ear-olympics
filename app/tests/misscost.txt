@@ -1,0 +1,84 @@
+# RECORDED by tests/gen_levelup.py: do not edit; run `python3 tests/gen_levelup.py` after changing how a game
+# draws its notes or its timing. States: 0 ready, 1 listen/watch, 2 your turn, 3 nice, 6 the GOOD JOB card.
+# Copycat: a miss takes two points off the progress toward the next level (3 right, a miss: 1).
+wait 600
+tap HOME
+wait 50
+turn PRESET 1
+wait 30
+expect game 1
+expect prog 0
+tap PLAY
+wait 100
+expect state 1
+wait 2650
+expect state 2
+expect pos 0
+key 7 down
+wait 30
+key 7 up
+key 9 down
+wait 30
+key 9 up
+key 11 down
+wait 30
+expect state 3
+expect prog 1
+key 11 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 11 down
+wait 30
+key 11 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+expect state 3
+expect prog 2
+key 9 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+key 11 down
+wait 30
+expect state 3
+expect prog 3
+key 11 up
+wait 1950
+expect state 1
+wait 2700
+expect state 2
+expect prog 3
+key 26 down
+wait 50
+expect state 4
+expect prog 1
+expect streak 0
+key 26 up
+wait 3000
+expect state 5
+expect store_writes 1
+expect dirty 0
+tap HOME
+wait 50
+reboot
+wait 600
+tap HOME
+wait 50
+expect game 1
+expect prog 1

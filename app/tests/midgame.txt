@@ -1,0 +1,63 @@
+# In the middle of a round: SELECT steps through the melody one note per notch (and wraps); voice, speed and mode can
+# be changed without leaving the round; the round carries on. Round 1 at Copycat level 1 is keys 7, 9, 11.
+wait 600
+tap HOME
+wait 50
+expect unlock 34
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+wait 2650
+expect state 2
+expect pos 0
+# the stepper: notch by notch, the notes of the melody (key 7 = note 60, 9 = 62, 11 = 64)
+turn SELECT 1
+wait 120
+expect note 60
+wait 500
+turn SELECT 1
+wait 120
+expect note 62
+wait 500
+turn SELECT 1
+wait 120
+expect note 64
+wait 500
+turn SELECT 1
+wait 120
+expect note 60
+wait 500
+turn SELECT -1
+wait 120
+expect note 64
+wait 500
+turn SELECT -1
+wait 120
+expect note 62
+wait 500
+expect state 2
+shot cat_step.png
+# voice, speed, mode: changed now, mid-round
+turn K2 1
+turn K3 1
+wait 30
+expect voice 1
+expect speed 105
+expect state 2
+expect pos 0
+turn K2 -1
+turn K3 -1
+wait 30
+expect voice 0
+expect speed 100
+# the round carries on: the melody played right is still NICE!
+key 7 down
+wait 30
+key 7 up
+key 9 down
+wait 30
+key 9 up
+key 11 down
+wait 30
+expect state 3

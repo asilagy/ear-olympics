@@ -1,0 +1,183 @@
+# RECORDED by tests/gen_levelup.py: do not edit; run `python3 tests/gen_levelup.py` after changing how a game
+# draws its notes or its timing. States: 0 ready, 1 listen/watch, 2 your turn, 3 nice, 6 the GOOD JOB card.
+# Copycat: eight melodies played right at level 1 graduate you to level 2, with the GOOD JOB card.
+wait 600
+tap HOME
+wait 50
+turn PRESET 1
+wait 30
+expect game 1
+expect level 1
+expect prog 0
+tap PLAY
+wait 100
+expect state 1
+wait 2650
+expect state 2
+expect pos 0
+key 7 down
+wait 30
+key 7 up
+key 9 down
+wait 30
+wait 150
+shot cat_sing.png
+key 9 up
+key 11 down
+wait 30
+expect state 3
+expect prog 1
+key 11 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 11 down
+wait 30
+key 11 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+expect state 3
+expect prog 2
+key 9 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+key 11 down
+wait 30
+expect state 3
+expect prog 3
+key 11 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 9 down
+wait 30
+key 9 up
+key 7 down
+wait 30
+key 7 up
+key 7 down
+wait 30
+expect state 3
+expect prog 4
+key 7 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 9 down
+wait 30
+key 9 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+expect state 3
+expect prog 5
+key 9 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 11 down
+wait 30
+key 11 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+expect state 3
+expect prog 6
+key 9 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+key 7 down
+wait 30
+expect state 3
+expect prog 7
+key 7 up
+wait 1950
+expect state 1
+expect text 1
+wait 2700
+expect state 2
+expect pos 0
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+key 11 down
+wait 30
+expect state 3
+expect prog 8
+key 11 up
+wait 1300
+expect state 6
+expect text 8
+expect level 2
+expect prog 0
+expect top 1
+expect open 4
+expect store_writes 1
+expect dirty 0
+expect len 0
+shot cat_celebrate.png
+expect note >0
+wait 2000
+expect note 53
+wait 1300
+expect state 6
+shot cat_levelup.png
+tap PLAY
+wait 100
+expect state 1
+expect level 2
+expect len 3
+expect text 1
+expect drone 60
+tap HOME
+wait 50
+expect state 0
+reboot
+wait 600
+tap HOME
+wait 50
+expect game 1
+expect level 2
+expect prog 0

@@ -1,0 +1,105 @@
+# The shell in the host simulator: the games, levels, root, keys, loudness and the settings. From the repo root:
+#   ./build.sh --host
+#   app/build/host/earolympics_host app/tests/shell.txt app/build/host
+# States: 0 ready, 1 listen, 2 your turn, 3 nice, 4 miss, 5 the pause before the next round.
+wait 600
+tap HOME
+wait 50
+shot boot.png
+# the defaults: Simon, level 1, Copycat's root C4 (key 7)
+# the default game is Copycat; PRESETS goes back to Simon
+expect game 1
+turn PRESET -1
+wait 30
+expect game 0
+expect level 1
+expect state 0
+expect best 0
+expect root 7
+# Simon has no root: nothing is mid; its four keys (C D E G = keys 7, 9, 11, 14) glow
+expect mid 0
+expect dim 19072
+# a key plays and lights, and it is loud enough without clipping
+master 4096
+peakreset
+key 7 down
+wait 150
+expect note 60
+expect bright 128
+expect peak_db_min -14
+expect peak_db_max -3
+key 7 up
+wait 50
+expect note -1
+# SELECT does nothing in Simon (no root there)
+turn SELECT 2
+wait 30
+expect root 7
+# K1 sets the level: Simon has four, and it stops at both ends
+turn K1 1
+wait 30
+expect level 2
+expect dim 84608
+turn K1 9
+wait 30
+expect level 3
+expect open 3
+turn K1 -9
+wait 30
+expect level 1
+# PRESETS picks the game: two, and it stops at both ends. Copycat has its own level and a root
+turn PRESET 1
+wait 30
+expect game 1
+expect level 1
+turn PRESET 5
+wait 30
+expect game 1
+shot copycat.png
+# Copycat: the root C4 (key 7) is mid, its level's other notes glow
+expect mid 128
+expect dim 2560
+turn SELECT 2
+wait 30
+expect root 9
+expect mid 512
+turn SELECT -9
+wait 30
+expect root 7
+turn SELECT 20
+wait 30
+expect root 14
+turn SELECT -7
+wait 30
+expect root 7
+turn K1 3
+wait 30
+expect level 3
+expect unlock 34
+turn K1 40
+wait 30
+expect level 34
+# the settings: Copycat, root D4 (9), Copycat level 2; Simon level 3 (kept for later)
+turn K1 -32
+turn SELECT 2
+turn PRESET -1
+turn K1 2
+turn PRESET 1
+wait 30
+expect dirty 1
+tap SAVE
+wait 30
+expect dirty 0
+expect store_writes 1
+reboot
+wait 600
+tap HOME
+wait 50
+expect game 1
+expect root 9
+expect level 2
+expect state 0
+turn PRESET -1
+wait 30
+expect level 3
+expect dirty 1

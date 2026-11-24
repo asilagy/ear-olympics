@@ -1,0 +1,259 @@
+# RECORDED by tests/gen_levelup.py: do not edit; run `python3 tests/gen_levelup.py` after changing how a game
+# draws its notes or its timing. States: 0 ready, 1 listen/watch, 2 your turn, 3 nice, 6 the GOOD JOB card.
+# Simon: a sequence of ten played right at level 1 graduates you to level 2, with the GOOD JOB card.
+wait 600
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect level 1
+tap PLAY
+wait 890
+expect state 2
+key 11 down
+wait 30
+expect state 3
+key 11 up
+wait 1100
+expect state 1
+expect len 2
+wait 1470
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+expect state 3
+key 14 up
+wait 1100
+expect state 1
+expect len 3
+wait 2120
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+expect state 3
+key 7 up
+wait 1100
+expect state 1
+expect len 4
+wait 2770
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+key 7 up
+key 11 down
+wait 30
+expect state 3
+key 11 up
+wait 1100
+expect state 1
+expect len 5
+wait 3282
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+key 7 up
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+expect state 3
+key 14 up
+wait 1100
+expect state 1
+expect len 6
+wait 3734
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+key 7 up
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 11 down
+wait 30
+expect state 3
+key 11 up
+wait 1100
+expect state 1
+expect len 7
+wait 4126
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+key 7 up
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+expect state 3
+key 9 up
+wait 1100
+expect state 1
+expect len 8
+wait 4458
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+key 7 up
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+key 7 down
+wait 30
+expect state 3
+key 7 up
+wait 1100
+expect state 1
+expect len 9
+wait 4730
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+key 7 up
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+key 7 down
+wait 30
+key 7 up
+key 9 down
+wait 30
+expect state 3
+key 9 up
+wait 1100
+expect state 1
+expect len 10
+wait 4942
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 7 down
+wait 30
+key 7 up
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+key 7 down
+wait 30
+key 7 up
+key 9 down
+wait 30
+key 9 up
+key 7 down
+wait 30
+expect state 3
+key 7 up
+wait 700
+expect state 6
+expect text 8
+expect level 2
+expect top 1
+expect open 4
+expect score 10
+expect store_writes 1
+expect dirty 0
+expect len 0
+shot levelup.png
+tap PLAY
+wait 100
+expect state 1
+expect level 2
+expect len 1
+expect dim 84608
+tap HOME
+wait 50
+expect state 0
+reboot
+wait 600
+tap HOME
+wait 50
+expect level 2
+expect best 10

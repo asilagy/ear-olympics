@@ -1,0 +1,45 @@
+# Copycat's round screen has no keyboard. After a miss with the lights off it slides in with the answer lit, and the
+# cat comments; it hides again when the next round starts. With the lights on there is nothing to reveal.
+wait 600
+tap HOME
+wait 50
+expect unlock 34
+turn PRESET 1
+wait 30
+# level 1 (lights on): a miss, and no keyboard
+tap PLAY
+wait 3000
+expect state 2
+shot round_turn.png
+key 26 down
+wait 50
+key 26 up
+expect state 4
+expect kb 0
+wait 300
+shot round_miss_lit.png
+tap HOME
+wait 50
+# level 2 (no lights): a miss slides the keyboard in
+turn K1 1
+wait 30
+expect level 2
+tap PLAY
+wait 3000
+expect state 2
+expect kb 0
+key 26 down
+wait 50
+key 26 up
+expect state 4
+expect kb 1
+wait 150
+shot round_kb_sliding.png
+wait 1900
+shot round_miss_unlit.png
+expect kb 1
+# the next round starts: the keyboard hides
+wait 4000
+expect state 1
+expect kb 0
+shot round_listen.png

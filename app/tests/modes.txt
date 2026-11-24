@@ -1,0 +1,105 @@
+# (Copycat level 8: three notes, heard once, as the timings below need.)
+# Playback speed (KNOB 3) and Challenge/Practice (KNOB 4). Speed scales the melody; practice lets you retry the same
+# melody after the cat's yowl and counts for nothing (no streak, no progress, no best, nothing saved).
+wait 600
+tap HOME
+wait 50
+expect unlock 34
+expect speed 100
+expect mode 0
+turn PRESET 1
+wait 30
+expect game 1
+turn K1 7
+wait 30
+expect level 8
+turn K3 -8
+wait 30
+expect speed 60
+tap PLAY
+wait 3500
+expect state 1
+wait 400
+expect state 2
+tap HOME
+wait 50
+turn K3 18
+wait 30
+expect speed 150
+tap PLAY
+wait 100
+wait 2200
+expect state 2
+tap HOME
+wait 50
+turn K3 -10
+wait 30
+expect speed 100
+turn K4 1
+wait 30
+expect mode 1
+shot cat_ready_practice.png
+tap PLAY
+wait 100
+wait 2650
+expect state 2
+expect tries 1
+key 11 down
+wait 30
+key 11 up
+key 26 down
+wait 50
+expect state 4
+expect tries 2
+key 26 up
+wait 4300
+expect state 2
+expect pos 0
+shot cat_practice.png
+expect ans0 11
+expect ans1 11
+expect ans2 9
+expect streak 0
+key 26 down
+wait 50
+expect state 4
+expect tries 3
+key 26 up
+wait 4300
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 11 down
+wait 30
+key 11 up
+key 9 down
+wait 30
+key 9 up
+wait 100
+expect state 3
+expect prog 0
+expect streak 0
+expect best 0
+wait 1900
+expect state 1
+expect tries 1
+tap HOME
+wait 50
+expect state 0
+turn K4 -1
+wait 30
+expect mode 0
+turn K3 1
+wait 30
+turn K4 1
+wait 30
+tap SAVE
+wait 50
+expect dirty 0
+reboot
+wait 600
+tap HOME
+wait 50
+expect speed 105
+expect mode 1

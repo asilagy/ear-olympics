@@ -1,0 +1,78 @@
+# The ready screen is clean; SEL shows the controls again; misses rotate their words; after three in a row the cat advises;
+# in practice, after three wrong tries on a no-lights melody, the cat lights the keys.
+wait 600
+tap HOME
+wait 50
+expect unlock 34
+turn PRESET 1
+wait 30
+turn K1 1
+wait 30
+expect level 2
+wait 2000
+shot ready_clean.png
+tap SEL
+wait 100
+expect state 8
+shot ready_sel_controls.png
+tap HOME
+wait 100
+expect state 0
+tap PLAY
+wait 3000
+key 26 down
+wait 50
+key 26 up
+wait 300
+shot miss_word1.png
+wait 6000
+wait 4000
+expect state 2
+key 26 down
+wait 50
+key 26 up
+wait 300
+shot miss_word2.png
+wait 6000
+wait 4000
+key 26 down
+wait 50
+key 26 up
+wait 300
+shot miss_tip1.png
+wait 6000
+wait 4000
+key 26 down
+wait 50
+key 26 up
+wait 300
+shot miss_tip2.png
+# practice: three wrong tries, then the lights
+wait 6000
+wait 4000
+tap HOME
+wait 50
+turn K4 1
+wait 100
+tap PLAY
+wait 3000
+expect state 2
+key 26 down
+wait 50
+key 26 up
+wait 8000
+expect state 2
+expect tries 2
+key 26 down
+wait 50
+key 26 up
+wait 8000
+expect tries 3
+key 26 down
+wait 50
+key 26 up
+wait 8000
+expect tries 4
+expect state 2
+shot practice_assist.png
+expect kb 1

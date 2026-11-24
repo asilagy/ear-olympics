@@ -1,0 +1,213 @@
+# The melody voices and the level lock, in the host simulator. KNOB 2 picks the voice (and plays a note to hear it);
+# every voice must be about as loud as the others and never clip; levels open three above the highest completed.
+wait 600
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+master 4096
+expect voice 0
+expect open 3
+# voice 0: MEOW
+expect voice 0
+peakreset
+key 0 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 0 up
+wait 150
+peakreset
+key 7 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 7 up
+wait 150
+peakreset
+key 26 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 26 up
+wait 150
+turn K2 1
+wait 100
+expect note 60
+wait 600
+tap HOME
+wait 50
+expect note -1
+# voice 1: WARM
+expect voice 1
+peakreset
+key 0 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 0 up
+wait 150
+peakreset
+key 7 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 7 up
+wait 150
+peakreset
+key 26 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 26 up
+wait 150
+turn K2 1
+wait 100
+expect note 60
+wait 600
+tap HOME
+wait 50
+expect note -1
+# voice 2: BELL
+expect voice 2
+peakreset
+key 0 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 0 up
+wait 150
+peakreset
+key 7 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 7 up
+wait 150
+peakreset
+key 26 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 26 up
+wait 150
+turn K2 1
+wait 100
+expect note 60
+wait 600
+tap HOME
+wait 50
+expect note -1
+# voice 3: E-PIANO
+expect voice 3
+peakreset
+key 0 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 0 up
+wait 150
+peakreset
+key 7 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 7 up
+wait 150
+peakreset
+key 26 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 26 up
+wait 150
+turn K2 1
+wait 100
+expect note 60
+wait 600
+tap HOME
+wait 50
+expect note -1
+# voice 4: TRIANGLE
+expect voice 4
+peakreset
+key 0 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 0 up
+wait 150
+peakreset
+key 7 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 7 up
+wait 150
+peakreset
+key 26 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 26 up
+wait 150
+turn K2 1
+wait 100
+expect note 60
+wait 600
+tap HOME
+wait 50
+expect note -1
+# voice 5: SQUARE
+expect voice 5
+peakreset
+key 0 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 0 up
+wait 150
+peakreset
+key 7 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 7 up
+wait 150
+peakreset
+key 26 down
+wait 450
+expect peak_db_min -16
+expect peak_db_max -6
+key 26 up
+wait 150
+# the ends: it stops at the last voice, and goes back
+turn K2 3
+wait 700
+expect voice 5
+turn K2 -9
+wait 700
+expect voice 0
+# the voice is kept: pick E-PIANO, save, reboot
+turn K2 3
+wait 700
+expect voice 3
+tap SAVE
+wait 50
+expect dirty 0
+reboot
+wait 600
+tap HOME
+wait 50
+expect voice 3
+# the level lock: nothing above 3 until you complete levels (Simon is the game now)
+expect game 0
+turn K1 9
+wait 30
+expect level 3
+expect open 3
+turn PRESET 1
+wait 30
+turn K1 9
+wait 30
+expect level 3

@@ -1,0 +1,37 @@
+# The cat's intro on every start: Intro, then Controls, then the game. Any key goes on, HOME skips to the game, the knobs
+# do nothing yet. States: 0 ready, 7 intro, 8 controls (three screens).
+wait 600
+expect state 7
+shot intro.png
+turn PRESET -1
+turn K3 5
+wait 30
+expect game 1
+expect speed 100
+expect state 7
+key 7 down
+wait 30
+expect note -1
+key 7 up
+wait 100
+expect state 8
+shot controls1.png
+tap PLAY
+wait 100
+expect state 8
+shot controls2.png
+tap PLAY
+wait 100
+expect state 8
+shot controls3.png
+tap PLAY
+wait 100
+expect state 0
+shot ready.png
+# the next start: HOME skips both screens
+reboot
+wait 600
+expect state 7
+tap HOME
+wait 100
+expect state 0

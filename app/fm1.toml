@@ -1,0 +1,22 @@
+# Ear Olympics' build settings (fm1-base's tools/build.py: ./build.sh)
+name = "EarOlympics"           # the build's files, in lower case: earolympics.fwsc, earolympics-X.Y.fwsc
+id_prefix = "FM-1_29"          # package identity: dev FM-1_2900, releases FM-1_29XXYYZZ (each firmware its own)
+usb_manufacturer = "Ear Olympics"
+usb_product = "Ear Olympics FM-1"
+ble = false                    # an arcade: no radio
+usb_audio_out = false          # nothing to play through it
+words = "words.tsv"
+emu = ["midi"]                 # the browser emulator: a MIDI keyboard can play it (a "MIDI ports" button on the page)
+# the site (set these before the first release)
+tagline = "a WarioWare-style ear-training arcade for the FM-1"
+repo = "https://github.com/asilagy/ear-olympics"
+licence = "MPL-2.0"
+credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments)."
+
+# firmware.json, for firmware hubs (fm1-base docs/FIRMWARE-JSON.md)
+author = "asilagy"
+description = "Ear Olympics turns the M-VAVE FM-1 into a fast, shuffled ear-training arcade. Two games so far: Simon, a classic follow-the-lights memory game, and Copycat, where you hear a root note and a melody over it and play the melody back by ear. More skills, a shuffled arcade mode, and levels that rise as you get things right are on the way, and every mistake plays the right answer so you learn from it."
+tags = ["game"]
+install = "https://asilagy.github.io/ear-olympics/install/"
+site = "https://asilagy.github.io/ear-olympics/"
+screenshot = "app/site/img/screen.png"

@@ -1,0 +1,16 @@
+/Users/asilagy/ear-olympics/base/host/plat_host.c:223:12: warning: unused variable 'host_busy_n' [-Wunused-variable]
+  223 | static int host_busy_n = -1, host_bta_n = -1, host_busy_left;
+      |            ^~~~~~~~~~~
+/Users/asilagy/ear-olympics/base/host/plat_host.c:223:47: warning: unused variable 'host_busy_left' [-Wunused-variable]
+  223 | static int host_busy_n = -1, host_bta_n = -1, host_busy_left;
+      |                                               ^~~~~~~~~~~~~~
+2 warnings generated.
+font T: BarlowSemiCondensed-SemiBold.ttf 10px h 12, digit adv 5, 3600 B
+font XS: BarlowSemiCondensed-SemiBold.ttf 12px h 15, digit adv 6, 7005 B
+font S: BarlowSemiCondensed-Medium.ttf 15px h 16, digit adv 7, 8576 B
+font B: BarlowSemiCondensed-Bold.ttf 15px h 16, digit adv 8, 8752 B
+font M: BarlowSemiCondensed-SemiBold.ttf 23px h 24, digit adv 12, 11832 B
+font L: BarlowSemiCondensed-Bold.ttf 31px h 32, digit adv 16, 19776 B
+font set barlow: 60782 B (approx)
+words: 17 own + 51 common -> /Users/asilagy/ear-olympics/app/web/words/729d719c0f.json (1319 B)
+host     /Users/asilagy/ear-olympics/app/build/host/earolympics_host
