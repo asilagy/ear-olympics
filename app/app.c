@@ -1215,13 +1215,13 @@ static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not soundi
         dt_vamp_on = 1;
     } else if (dt_vamp_on) {             /* between plucks, or when the chord, a sound or the answer takes over */
         dt_vamp_on = 0;
-        if (!seq_on) {
-            voice_note = -1;
-            voice_fx = 0xFFu;
-        }
+        if (!seq_on)
+            voice_note = -1;             /* the pluck keeps its own waveform while it fades: switching voices here made a blip */
     }
-    if (!want && !dt_vamp_on)
-        eo_soft_env = 0;                 /* the fade is over: the other sounds are quick again */
+    if (!want && !dt_vamp_on && !seq_on && voice_note < 0 && voice_level < 0.0004f) {
+        voice_fx = 0xFFu;                /* the fade is over: the chosen voice and the quick envelopes are back */
+        eo_soft_env = 0;
+    }
     if (!want)
         dt_vamp_t0 = now;                /* each time it comes back, it starts from the root */
 }
