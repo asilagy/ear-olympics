@@ -33,6 +33,16 @@ expect chord0 -1
 expect drone 48
 expect dim 20480
 shot dogtor_turn.png
+# SELECT walks the chord's notes (a coffee for the first; the rest of the round is free): C4, then E-flat4
+turn SELECT 1
+wait 100
+expect note 60
+expect cups 2
+turn SELECT 1
+wait 100
+expect note 63
+expect cups 2
+wait 700
 # a wrong answer (A, key 12): the right one is lit, the chord sounds again, the dog whimpers
 key 12 down
 wait 50

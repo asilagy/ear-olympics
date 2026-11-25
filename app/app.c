@@ -1089,7 +1089,11 @@ static const char *const dt_cliff[DOGTOR_LEVELS - 1u][2] = {
     {"He whispers: \"Diggie?\"", "...Who is he?!"}, {"The lights go out.", "A dog barks. Not mine."},
     {"I recognize that bark.", "It's... my own."}, {"The tape says: DIGGIE,", "AGE 3. Play it."},
     {"Dr. Copycat holds the", "other half of the tape."}};
-enum { DS_STORY = 6, DS_CLIFF };
+enum { DS_STORY = 6, DS_CLIFF, DS_COFFEE };
+#define DT_CUPS_START 3u                 /* coffees per level: each one buys a walk through the chord's notes for this round */
+#define DT_CUPS_MAX 5u
+static uint8_t dt_vamp_on;               /* the ostinato's note is sounding now */
+static uint8_t dt_cups, dt_cups_lv, dt_cup_spent, dt_step_n;   /* coffees left; the level they are for; spent this round; the note last heard */
 static uint8_t dt_line_lv;               /* the story's level, for the line on screen */
 
 
@@ -1134,6 +1138,12 @@ static void dogtor_round(uint32_t card)
     eo_seed_once();
     ui.result = 0;
     eo_tries = 1;
+    if (dt_cups_lv != eo_level()) {      /* a new level: a fresh pot */
+        dt_cups_lv = (uint8_t)eo_level();
+        dt_cups = DT_CUPS_START;
+    }
+    dt_cup_spent = 0;
+    dt_step_n = 0;
     eo_seed = eo_seed * 1664525u + 1013904223u;
     dt_choice_now = (uint8_t)((eo_seed >> 16) % lv->n);
     dt_q_now = lv->q[dt_choice_now];
@@ -1153,6 +1163,47 @@ static void dogtor_stop(void)
     dt_chord_until = 0;
     dt_chord_at = 0;
     eo_drone_set(-1, 0.0f);
+}
+
+static void dogtor_step(int32_t d)       /* SELECT while you decide: the chord's notes, one at a time (the first costs a coffee) */
+{
+    uint32_t n = 0, ix;
+    char t[12], b[8];
+    int32_t k;
+    while (n < 4u && dt_q_iv[dt_q_now][n] >= 0)
+        n++;
+    if (!dt_cup_spent) {
+        if (!dt_cups) {
+            app_say("NO COFFEE", "");
+            return;
+        }
+        dt_cups--;                       /* one cup for the whole round */
+        dt_cup_spent = 1;
+        dt_step_n = d > 0 ? (uint8_t)(n - 1u) : 0u;   /* so the first notch lands on the root, or the top note going down */
+        ui.redraw = 1;
+    }
+    ix = (uint32_t)(((int32_t)dt_step_n + d % (int32_t)n + (int32_t)n) % (int32_t)n);
+    dt_step_n = (uint8_t)ix;
+    k = (int32_t)dt_root_now + dt_q_iv[dt_q_now][ix];
+    seq_on = 0;
+    voice_note = -1;
+    seq_lit = 0;
+    eo_soft_env = 0;                     /* not through the ostinato's reverb and slow fade */
+    dt_vamp_on = 0;
+    seq_at[0] = 0;
+    seq_len[0] = 520;
+    seq_key[0] = (uint8_t)k;
+    seq_vo_stage[0] = V_WARM;
+    seq_n = 1;
+    seq_end = 600;
+    eo_seq_start(0, 0);
+    t[0] = 0;
+    int_text((int32_t)ix + 1, b);
+    text_cat(t, b);
+    text_cat(t, " OF ");
+    int_text((int32_t)n, b);
+    text_cat(t, b);
+    app_say("NOTE", t);
 }
 
 static void dogtor_win(void)
@@ -1187,6 +1238,10 @@ static void dogtor_miss(uint32_t pressed)
     dt_pressed_ix = pressed;
     eo_miss_run++;
     dogtor_say(DS_MISS, dt_line_ix++, 0u);
+    if (!set.mode && eo_miss_run == 2u && dt_cups < DT_CUPS_MAX) {   /* two misses running: the dog hands you a coffee */
+        dt_cups++;
+        dogtor_say(DS_COFFEE, 0u, 0u);
+    }
     if (set.mode) {                      /* practice: the same chord again, nothing counted */
         eo_tries++;
         dogtor_hear(0u);
@@ -1236,7 +1291,6 @@ static void dogtor_win_sound(void)       /* a soft bell, then a happy howl: ding
     eo_seq_start(0, 0);
 }
 
-static uint8_t dt_vamp_on;               /* the ostinato's note is sounding now */
 static uint32_t dt_vamp_t0;
 static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not sounding: C, G, C, G, plucked, in a loop; fixed, whatever the chord */
 {
@@ -1254,9 +1308,13 @@ static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not soundi
         if (!seq_on)
             voice_note = -1;             /* the pluck keeps its own waveform while it fades: switching voices here made a blip */
     }
-    if (!want && !dt_vamp_on && !seq_on && voice_note < 0 && voice_level < 0.0004f) {
-        voice_fx = 0xFFu;                /* the fade is over: the chosen voice and the quick envelopes are back */
-        eo_soft_env = 0;
+    if (!want && !dt_vamp_on) {
+        if (seq_on) {
+            eo_soft_env = 0;             /* another sound (the bell, the howl, a chord note) is playing: no reverb, quick envelopes */
+        } else if (voice_note < 0 && voice_level < 0.0004f) {
+            voice_fx = 0xFFu;            /* the fade is over: the chosen voice and the quick envelopes are back */
+            eo_soft_env = 0;
+        }
     }
     if (!want)
         dt_vamp_t0 = now;                /* each time it comes back, it starts from the root */
@@ -1661,6 +1719,8 @@ static void input(void)
             speed_step(e);
         else if (k == EN_K4)
             mode_step(e);
+        else if (k == EN_SELECT && ui.state == ST_TURN && set.game == GAME_DOGTOR)
+            dogtor_step(e);
         else if (k == EN_SELECT && ui.state == ST_TURN)
             melody_step(e);
         else if (ui.state == ST_READY) {
@@ -2196,6 +2256,22 @@ static void dt_band(int32_t band_y, uint32_t now, uint32_t pose)   /* the dog, t
     dog_paint(48, DT_Y + bob - band_y, pose);
     if (band_y == 0) {                       /* the header: whose game this is */
         cv_text(6, 4, &FONT_S, "CHORD DOGTOR", C_WHITE);
+        {   /* top right: a coffee cup and how many are left (steam while there are some) */
+            char cb[8];
+            uint16_t cc = dt_cups ? C_WHITE : C_GRAY;
+            cv_rect(188, 8, 11, 10, cc);
+            cv_rect(199, 10, 3, 6, cc);
+            cv_rect(200, 12, 1, 2, DT_TEAL);
+            cv_rect(186, 18, 15, 2, C_GRAY);
+            if (dt_cups) {
+                int32_t sh = (int32_t)((now / 500u) & 1u);
+                cv_rect(191 + sh, 2, 1, 4, C_GRAY);
+                cv_rect(195 - sh, 3, 1, 4, C_GRAY);
+            }
+            cb[0] = 'x';
+            int_text((int32_t)dt_cups, cb + 1);
+            cv_text(206, 4, &FONT_B, cb, dt_cups ? C_AMB : C_GRAY);
+        }
     } else if (band_y == 36) {               /* the margins: the level, and how far to the next */
         t[0] = 0;
         text_cat(t, "LV ");
@@ -2251,6 +2327,10 @@ static void dt_card_band(int32_t band_y)   /* a silent film's title card: black,
         l1 = dt_cliff[dt_line_n % (DOGTOR_LEVELS - 1u)][0];
         l2 = dt_cliff[dt_line_n % (DOGTOR_LEVELS - 1u)][1];
         tag = "TO BE CONTINUED...";
+    } else if (dt_line_set == DS_COFFEE) {
+        l1 = "Rough shift, doctor.";
+        l2 = "Here. Have a coffee.";
+        tag = "COFFEE +1";
     } else {
         l1 = dt_say[dt_line_set][dt_line_n][0];
         l2 = dt_say[dt_line_set][dt_line_n][1];
@@ -2262,7 +2342,17 @@ static void dt_card_band(int32_t band_y)   /* a silent film's title card: black,
     y = 78 - band_y;
     cv_text(120 - text_w(&FONT_B, l1) / 2, y, &FONT_B, l1, C_WHITE);
     cv_text(120 - text_w(&FONT_B, l2) / 2, y + 26, &FONT_B, l2, C_WHITE);
-    cv_text(120 - text_w(&FONT_XS, tag) / 2, 176 - band_y, &FONT_XS, tag, C_AMB);
+    if (tag[0] == '~') {                     /* the plain tag also says how many coffees are left */
+        char ct[40], cb[8];
+        ct[0] = 0;
+        text_cat(ct, tag);
+        text_cat(ct, "   COFFEE x");
+        int_text((int32_t)dt_cups, cb);
+        text_cat(ct, cb);
+        cv_text(120 - text_w(&FONT_XS, ct) / 2, 176 - band_y, &FONT_XS, ct, C_AMB);
+    } else {
+        cv_text(120 - text_w(&FONT_XS, tag) / 2, 176 - band_y, &FONT_XS, tag, C_AMB);
+    }
 }
 
 static void draw_dogtor(uint32_t now, uint32_t pct)
@@ -2977,6 +3067,8 @@ int app_expect(const char *what, int *got)
                 if (text_w(&FONT_B, dt_cliff[a][c]) > w)
                     w = text_w(&FONT_B, dt_cliff[a][c]);
         *got = w;
+    } else if (!strcmp(what, "cups")) {
+        *got = dt_cups;
     } else if (!strcmp(what, "dtkey"))
         *got = dt_key_now;
     else if (!strcmp(what, "dtq"))

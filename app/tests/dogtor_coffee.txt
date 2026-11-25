@@ -1,0 +1,29 @@
+# Chord Dogtor's coffee: three a level; two misses in a row hand you one more (the rounds are fixed: key 14, then key 12).
+wait 600
+tap HOME
+wait 50
+turn PRESET 1
+wait 30
+expect game 2
+wait 2300
+tap PLAY
+wait 3700
+expect state 2
+expect cups 3
+shot dogtor_cup3.png
+key 12 down
+wait 50
+key 12 up
+expect state 4
+expect cups 3
+wait 4000
+wait 2800
+expect state 2
+expect dtkey 12
+key 14 down
+wait 50
+key 14 up
+expect state 4
+expect cups 4
+wait 1500
+shot dogtor_coffee_card.png
