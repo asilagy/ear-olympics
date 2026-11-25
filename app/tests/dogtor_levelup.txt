@@ -1,52 +1,55 @@
-# Chord Dogtor level up: 8 rounds right at level 1 (the simulator's rounds are fixed: keys [14, 12, 12, 14, 14, 14, 12, 12]) gives the GOOD JOB card.
+# Chord Dogtor level up: 8 rounds right at level 1 (the simulator's rounds are fixed: keys [14, 12, 12, 14, 14, 14, 12, 12]) gives the title card, then the new level.
 wait 600
 tap HOME
 wait 50
 turn PRESET 1
 wait 30
 expect game 2
+wait 2300
 tap PLAY
-wait 3000
+wait 3700
 expect state 2
 key 14 down
 wait 50
 key 14 up
-wait 6500
+wait 7500
 expect state 2
 key 12 down
 wait 50
 key 12 up
-wait 6500
+wait 7500
 expect state 2
 key 12 down
 wait 50
 key 12 up
-wait 6500
+wait 7500
 expect state 2
 key 14 down
 wait 50
 key 14 up
-wait 6500
+wait 7500
 expect state 2
 key 14 down
 wait 50
 key 14 up
-wait 6500
+wait 7500
 expect state 2
 key 14 down
 wait 50
 key 14 up
-wait 6500
+wait 7500
 expect state 2
 key 12 down
 wait 50
 key 12 up
-wait 6500
+wait 7500
 expect state 2
 key 12 down
 wait 50
 key 12 up
 expect state 3
-wait 2500
+wait 2400
 expect state 6
+shot dogtor_levelup_card.png
+wait 2800
 shot dogtor_levelup.png

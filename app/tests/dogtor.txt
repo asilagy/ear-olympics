@@ -1,4 +1,4 @@
-# Chord Dogtor in the host simulator: a chord plays over a pedal bass, then you press the lit key (A F4, B G4, C A4, D B4).
+# Chord Dogtor in the host simulator: a chord plays over a very low hum, then you press the lit key (A F4, B G4, C A4, D B4).
 # The simulator's random state is fixed: level 1's first round is MINOR (answer B, key 14) on a C4 root.
 # States: 0 ready, 1 listen, 2 your turn, 3 nice, 4 miss, 5 the pause. Text: 2 LISTEN, 4 YOUR TURN, 5 NICE!, 6 MISS.
 wait 600
@@ -8,6 +8,8 @@ turn PRESET 1
 wait 30
 expect game 2
 expect level 1
+shot dogtor_card.png
+wait 2300
 shot dogtor_ready.png
 tap PLAY
 wait 100
@@ -17,21 +19,21 @@ expect len 1
 expect dtq 1
 expect dtkey 14
 expect dtroot 7
-# the pedal bass: the root (C4, note 60) an octave down; the chord (C4 E-flat G, notes 60 63 67) comes in after it
+# the hum: the root (C4, note 60) an octave down. The first round opens with a title card; the chord (C4 E-flat G) follows
 expect drone 48
 expect chord0 -1
-shot dogtor_listen.png
-wait 1000
+shot dogtor_listen_card.png
+wait 1700
 expect chord0 60
 expect chord2 67
-wait 2000
+wait 1800
 expect state 2
 expect text 4
 expect chord0 -1
 expect drone 48
 expect dim 20480
 shot dogtor_turn.png
-# a wrong answer (A, key 12): the right one is lit, the chord sounds again, a miss is counted
+# a wrong answer (A, key 12): the right one is lit, the chord sounds again, the dog whimpers
 key 12 down
 wait 50
 key 12 up
@@ -40,12 +42,12 @@ expect text 6
 expect bright 16384
 expect chord0 60
 shot dogtor_miss.png
-wait 2500
+wait 1500
 expect state 5
-wait 1200
+shot dogtor_reaction_card.png
+wait 2500
 expect state 1
-# the next round: the answer is its own key
-wait 3000
+wait 2800
 expect state 2
 expect dtkey 12
 key 12 down
