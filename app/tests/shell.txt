@@ -5,6 +5,10 @@
 wait 600
 tap HOME
 wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
 shot boot.png
 # the defaults: Simon, level 1, Copycat's root C4 (key 7)
 # the default game is Copycat; PRESETS goes back to Simon
@@ -96,6 +100,10 @@ expect dirty 0
 expect store_writes 1
 reboot
 wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
 tap HOME
 wait 50
 expect game 1

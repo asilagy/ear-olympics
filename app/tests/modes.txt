@@ -4,6 +4,10 @@
 wait 600
 tap HOME
 wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
 expect unlock 34
 expect speed 100
 expect mode 0
@@ -100,6 +104,10 @@ wait 50
 expect dirty 0
 reboot
 wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
 tap HOME
 wait 50
 expect speed 105

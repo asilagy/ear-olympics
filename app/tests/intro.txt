@@ -1,7 +1,57 @@
-# The cat's intro on every start: Intro, then Controls, then the game. Any key goes on, HOME skips to the game, the knobs
-# do nothing yet. States: 0 ready, 7 intro, 8 controls (three screens).
+# Power on: the movie (ASilagy presents, the title, the music over the cast, the title again), any key skips it to the
+# game select; PLAY there starts the highlighted game (Copycat introduces itself first, once); HOME from a game's ready
+# screen goes back to the select. States: 0 ready, 7 cat intro, 8 controls (three screens), 9 movie, 10 select.
+master 4096
 wait 600
+expect state 9
+expect smp 0
+shot movie_presents.png
+wait 1500
+shot movie_title.png
+expect smp 0
+wait 1200
+expect smp 1
+peakreset
+wait 600
+# the music is audible, and does not clip
+expect peak_db_min -12
+expect peak_db_max -2
+shot movie_cat.png
+wait 800
+shot movie_dog.png
+wait 1000
+shot movie_cast.png
+wait 3500
+shot movie_finale.png
+expect state 9
+# any key skips: the music stops, the select shows
+tap PLAY
+wait 100
+expect state 10
+expect sel 0
+shot select.png
+wait 100
+expect smp 0
+# the cursor: PRESETS move it; the empty tiles do not start anything
+turn PRESET 1
+wait 30
+expect sel 1
+shot select_dogtor.png
+turn PRESET 3
+wait 30
+expect sel 4
+shot select_soon.png
+tap PLAY
+wait 100
+expect state 10
+turn PRESET -9
+wait 30
+expect sel 0
+# Copycat: its intro, the controls, the game
+tap PLAY
+wait 100
 expect state 7
+expect game 1
 shot intro.png
 turn PRESET -1
 turn K3 5
@@ -28,10 +78,19 @@ tap PLAY
 wait 100
 expect state 0
 shot ready.png
-# the next start: HOME skips both screens
-reboot
-wait 600
-expect state 7
+# HOME from ready: back to the select, the cursor on the game; Dogtor goes to its ready card, no cat intro
 tap HOME
 wait 100
+expect state 10
+expect sel 0
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
 expect state 0
+expect game 2
+tap HOME
+wait 100
+expect state 10
+expect sel 1
+# a movie skipped with HOME also goes to the select

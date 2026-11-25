@@ -19,6 +19,7 @@
 #include "eo_simon.h"
 #include "eo_cat.h"
 #include "eo_dogtor.h"
+#include "eo_intro.h"
 
 enum { GAME_SIMON, GAME_COPYCAT, GAME_DOGTOR, GAMES };
 static const char *const eo_game_name[GAMES] = {"SIMON", "COPYCAT", "CHORD DOGTOR"};
@@ -86,6 +87,10 @@ static volatile uint8_t eo_soft_env;     /* 1: the melody voice fades in and out
 static float eo_rv[3][RV_N], eo_rv_lp[3];   /* a small reverb (three damped combs): only the ostinato is sent into it */
 static uint32_t eo_rv_i[3];
 static const uint16_t eo_rv_len[3] = {1087, 1423, 1877};
+static volatile uint32_t eo_smp_trig, eo_smp_halt;   /* the intro music: the main loop counts a start / a stop up */
+static volatile uint8_t eo_smp_run;
+static float eo_ulaw[256];               /* mu-law bytes to floats, once */
+#define SMP_GAIN 1.1f
 static volatile uint32_t eo_beep_trig;   /* the main loop counts this up for each heart-monitor beep */
 static float eo_cph[CHORD_VOICES], eo_clev[CHORD_VOICES];
 
@@ -118,6 +123,14 @@ static void eo_tones_init(void)
     eo_wavetable(eo_wt_tri, T, 7);
     eo_wavetable(eo_wt_sq, Q, 7);
     eo_wavetable(eo_wt_saw, S, 12);
+    {   /* G.711 mu-law decode table */
+        uint32_t b;
+        for (b = 0; b < 256u; b++) {
+            uint32_t u = ~b & 0xFFu, ex = (u >> 4) & 7u, ma = u & 15u;
+            int32_t mag = (int32_t)(((ma << 3) + 0x84u) << ex) - 0x84;
+            eo_ulaw[b] = (float)((u & 0x80u) ? -mag : mag) / 32768.0f;
+        }
+    }
 }
 
 static inline float eo_lookup(const float *t, float phase)     /* a table, interpolated; phase is 0..1 */
@@ -157,13 +170,26 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         last_inc = inc;
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
-    static uint32_t beep_seen;
+    static uint32_t beep_seen, smp_seen, smp_hseen;
+    static float smp_pos, smp_g;
+    static uint8_t smp_run, smp_stop;
     static float beep_age = 1.0f, beep_ph;
     float cinc[CHORD_VOICES], ctgt[CHORD_VOICES];
     for (i = 0; i < CHORD_VOICES; i++) {
         int32_t cn = eo_chord_note[i];
         ctgt[i] = cn >= 0 ? CHORD_GAIN : 0.0f;
         cinc[i] = cn >= 0 ? eo_note_inc(cn) : 0.0f;
+    }
+    if (smp_seen != eo_smp_trig) {       /* the intro music starts from its first sample */
+        smp_seen = eo_smp_trig;
+        smp_pos = 0.0f;
+        smp_g = 1.0f;
+        smp_run = 1;
+        smp_stop = 0;
+    }
+    if (smp_hseen != eo_smp_halt) {      /* and stops, fading out over a few ms */
+        smp_hseen = eo_smp_halt;
+        smp_stop = 1;
     }
     if (beep_seen != eo_beep_trig) {
         beep_seen = eo_beep_trig;
@@ -306,10 +332,26 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 v = vo + cs + bv + wet * 0.45f;
             }
         }
+        if (smp_run) {                   /* 8 kHz to 44.1 kHz: a straight line between two neighbours */
+            uint32_t k = (uint32_t)smp_pos;
+            if (k + 1u >= EO_INTRO_LEN) {
+                smp_run = 0;
+            } else {
+                float a0 = eo_ulaw[EO_INTRO[k]];
+                v += (a0 + (eo_ulaw[EO_INTRO[k + 1u]] - a0) * (smp_pos - (float)k)) * SMP_GAIN * smp_g;
+                smp_pos += EO_INTRO_RATE / 44100.0f;
+                if (smp_stop) {
+                    smp_g -= 0.002f;
+                    if (smp_g <= 0.0f)
+                        smp_run = 0;
+                }
+            }
+        }
         s = (v + eo_lookup(eo_wt_soft, eo_drone_phase) * eo_drone_level) * gain_now;
         lr[2 * i] = (int32_t)s;
         lr[2 * i + 1] = (int32_t)s;
     }
+    eo_smp_run = smp_run;
 }
 
 /* ------------------------------------------------------------ the sequencer --- */
@@ -393,7 +435,16 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
 }
 
 /* ----------------------------------------------------------------- the game --- */
-enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS };
+enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT };
+#define MV_TITLE_MS 1200u                /* the movie: ASilagy presents, then the title */
+#define MV_MUSIC_MS 3200u                /* the music starts: the montage */
+#define MV_FINALE 5600u                  /* (in the music) the title again */
+static uint32_t mv_t0, mv_m0;            /* the movie's start, and the music's */
+static uint8_t mv_stage, eo_cat_seen, sel_cur;   /* its sound cues done; the cat has introduced itself; the select's cursor */
+static void mv_end(void);                /* the power-on movie and the game select (below the screen code) */
+static void sel_move(int32_t d);
+static void sel_go(void);
+static void sel_enter(void);
 enum { TX_READY, TX_ROOT, TX_LISTEN, TX_WATCH, TX_TURN, TX_NICE, TX_MISS, TX_OVER, TX_GOOD };
 static const char *const TX[9] = {"READY", "ROOT", "LISTEN", "WATCH", "YOUR TURN", "NICE!", "MISS", "GAME OVER",
                                   "GOOD JOB!"};
@@ -721,6 +772,8 @@ static void lights(void)
 {
     uint32_t bright, mid, dim, btn = ui.btn;
     key_levels(&bright, &mid, &dim);
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT)
+        bright = mid = dim = 0u;     /* no game yet: the keys stay dark */
     if (set_dirty)
         btn |= 1u << B_SAVE;
     if (seq_on)
@@ -1615,7 +1668,11 @@ void app_init(void)                      /* boot: the settings, and a quiet star
     voice_note = -1;
     eo_drone_note = -1;
     ui.ctl_page = 0;
-    ui.state = ST_INTRO;                 /* every start: the cat's intro, the controls, then the game */
+    ui.state = ST_MOVIE;                 /* every start: the movie, then the game select (the cat introduces itself when picked) */
+    mv_t0 = plat_ms();
+    mv_m0 = mv_t0 + MV_MUSIC_MS;
+    mv_stage = 0;
+    eo_cat_seen = 0;
     ui.text = TX_READY;
     ui.kb_show = 0;
     ui.say[0] = 0;
@@ -1637,6 +1694,24 @@ void app_init(void)                      /* boot: the settings, and a quiet star
 static void input(void)
 {
     uint32_t keys = plat_keys() | eo_midi_keys, btn = plat_buttons(), k;
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT) {   /* the movie: any key skips it; the select: PRESETS move, PLAY starts */
+        uint32_t new_keys = keys & ~ui.keys, new_btn = btn & ~ui.btn;
+        for (k = 0; k < NE; k++) {
+            int32_t e = plat_enc((int)k);
+            if (e && ui.state == ST_SELECT && (k == EN_PRESET || k == EN_SELECT || k == EN_K1))
+                sel_move(e);
+        }
+        if (ui.state == ST_MOVIE) {
+            if (new_keys || new_btn)
+                mv_end();
+        } else if (new_btn & (1u << B_PLAY)) {
+            sel_go();
+        }
+        ui.keys = keys;
+        ui.btn = btn;
+        lights();
+        return;
+    }
     if (ui.state == ST_INTRO || ui.state == ST_CONTROLS) {   /* the cat's talk: any key goes on, HOME skips to the game */
         uint32_t new_keys = keys & ~ui.keys, new_btn = btn & ~ui.btn;
         for (k = 0; k < NE; k++)
@@ -1704,7 +1779,10 @@ static void input(void)
             ui.ctl_page = 0;
             ui.redraw = 1;
         } else if (k == B_HOME) {
-            stop_game();
+            if (ui.state == ST_READY)
+                sel_enter();             /* HOME from the ready screen: back to the game select */
+            else
+                stop_game();
         } else if (k == B_SAVE && !seq_on) {
             save_button();
         }
@@ -2670,10 +2748,497 @@ static void draw_round(uint32_t now, uint32_t pct)
     }
 }
 
+
+/* ------------------------------------------------- the power-on movie and the game select --- */
+/* Power on: ASilagy presents, the title (sound effects only), then the intro music over a montage of the cast, cut to
+ * the music's hits, and the title again, waiting for a key. Any key skips to the game select. The picture is drawn in
+ * the three bands from one scene function in screen coordinates (mv_oy is the band's top). The cast is placeholders
+ * (coloured blobs) except the cat and the dog, until their art arrives. */
+typedef struct { const char *game, *cap, *quip; uint8_t r, g, b; } eo_char_t;
+static const eo_char_t eo_chars[12] = {      /* in the order of the montage */
+    {"COPYCAT", "THE CRITIC", "He will grade your ears.", 246, 152, 56},
+    {"CHORD DOGTOR", "THE CLERIC", "Please be okay. Please.", 70, 130, 140},
+    {"SIMON", "THE CLAIRVOYANT", "Saw this coming. Forgot why.", 255, 180, 50},
+    {"PITCH PLEASE", "THE LISTENER", "...", 150, 150, 165},
+    {"NAME THAT INTERVAL", "THE SURVEYOR", "Here for the snacks.", 110, 200, 90},
+    {"CHORD DETECTIVE", "THE INQUISITOR", "Big Major is watching.", 120, 110, 120},
+    {"BEEP SWEEP", "THE SEEKER", "Everything is energy.", 240, 110, 70},
+    {"TUNA TUNER", "THE HEAVY", "Sorry, little guy.", 140, 90, 50},
+    {"WRONG NOTE", "THE NPC", "Note four was wrong.", 185, 175, 155},
+    {"TWEET SHEET", "THE ENSEMBLE", "Woof.", 90, 160, 230},
+    {"TRANSPOSE ECHO", "THE G.O.A.T.", "Hydrate!", 235, 235, 225},
+    {"SCALE RACER", "THE SWIFT", "Gotta go gotta go.", 220, 70, 70},
+};
+static const uint16_t MV_B[13] = {0, 820, 1650, 2070, 2380, 2800, 3310, 3730, 3940, 4560, 4980, 5390, 5600};   /* the music's hits */
+static int32_t mv_oy, mv_h;
+static const int8_t sel_game[6] = {GAME_COPYCAT, GAME_DOGTOR, GAME_SIMON, -1, -1, -1};
+
+static void mrect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c) { cv_rect(x, y - mv_oy, w, h, c); }
+static void mtext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { cv_text(x, y - mv_oy, f, s, c); }
+static void mctext(int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { mtext((240 - text_w(f, s)) / 2, y, f, s, c); }
+
+static uint16_t mv_scale(uint16_t c, uint32_t n)         /* a colour at n/8 of its brightness */
+{
+    uint32_t r = (c >> 11) & 31u, g = (c >> 5) & 63u, b = c & 31u;
+    return (uint16_t)(((r * n / 8u) << 11) | ((g * n / 8u) << 5) | (b * n / 8u));
+}
+
+static uint16_t mv_hue(uint32_t h)                       /* the rainbow, 192 steps round */
+{
+    uint32_t s = (h % 192u) / 32u, f = (h % 32u) * 8u;
+    int32_t r, g, b;
+    switch (s) {
+    case 0: r = 255; g = (int32_t)f; b = 0; break;
+    case 1: r = 255 - (int32_t)f; g = 255; b = 0; break;
+    case 2: r = 0; g = 255; b = (int32_t)f; break;
+    case 3: r = 0; g = 255 - (int32_t)f; b = 255; break;
+    case 4: r = (int32_t)f; g = 0; b = 255; break;
+    default: r = 255; g = 0; b = 255 - (int32_t)f; break;
+    }
+    return EO_RGB(r, g, b);
+}
+
+static void mdisc(int32_t cx, int32_t cy, int32_t r, uint16_t c)
+{
+    int32_t dy;
+    for (dy = -r; dy <= r; dy++) {
+        int32_t y = cy + dy - mv_oy, dx;
+        if (y < 0 || y >= mv_h)
+            continue;
+        dx = (int32_t)fm_sqrtf((float)(r * r - dy * dy));
+        cv_rect(cx - dx, y, 2 * dx + 1, 1, c);
+    }
+}
+
+static void mring(int32_t cx, int32_t cy, int32_t r, int32_t th, uint16_t c)
+{
+    int32_t dy, ri = r - th;
+    for (dy = -r; dy <= r; dy++) {
+        int32_t y = cy + dy - mv_oy, dx, di;
+        if (y < 0 || y >= mv_h)
+            continue;
+        dx = (int32_t)fm_sqrtf((float)(r * r - dy * dy));
+        if (dy <= -ri || dy >= ri) {
+            cv_rect(cx - dx, y, 2 * dx + 1, 1, c);
+        } else {
+            di = (int32_t)fm_sqrtf((float)(ri * ri - dy * dy));
+            cv_rect(cx - dx, y, dx - di, 1, c);
+            cv_rect(cx + di, y, dx - di, 1, c);
+        }
+    }
+}
+
+static void mv_burst(int32_t cx, int32_t cy, int32_t age, uint32_t hue)   /* a firework: 14 sparks fly out and fall */
+{
+    static const int8_t DX[14] = {100, 90, 62, 22, -22, -62, -90, -100, -90, -62, -22, 22, 62, 90};
+    static const int8_t DY[14] = {0, 43, 78, 97, 97, 78, 43, 0, -43, -78, -97, -97, -78, -43};
+    int32_t k, e, dist, fall, fade, sz;
+    if (age < 0 || age > 1100)
+        return;
+    e = age * (2200 - age) / 1100;       /* eases out */
+    dist = e * 52 / 1100;
+    fall = age * age / 20000;
+    fade = 8 - age * 6 / 1100;
+    sz = age < 500 ? 4 : age < 800 ? 3 : 2;
+    if (age < 140)
+        mdisc(cx, cy, 8 - age / 20, C_WHITE);                /* the flash of the shell going off */
+    for (k = 0; k < 14; k++) {
+        uint16_t col = mv_scale(mv_hue(hue + (uint32_t)k * 9u), (uint32_t)fade);
+        mrect(cx + DX[k] * dist / 100 - sz / 2, cy + DY[k] * dist / 100 + fall - sz / 2, sz, sz, col);
+        mrect(cx + DX[k] * dist * 7 / 1000, cy + DY[k] * dist * 7 / 1000 + fall * 7 / 10, sz - 1, sz - 1, mv_scale(col, 5u));   /* a trail */
+    }
+}
+
+static void mv_note(int32_t x, int32_t y, uint16_t c)    /* a music note, 10 x 12 */
+{
+    mrect(x + 4, y, 2, 10, c);
+    mrect(x + 4, y, 6, 2, c);
+    mrect(x + 8, y + 2, 2, 3, c);
+    mrect(x, y + 8, 6, 4, c);
+}
+
+static void mv_inst(uint32_t kind, int32_t x, int32_t y)   /* three little instruments: a drum, a horn, a guitar */
+{
+    const uint16_t GOLD = EO_RGB(250, 200, 60), WOOD = EO_RGB(140, 80, 40);
+    if (kind == 0u) {
+        mrect(x, y + 4, 24, 14, EO_RGB(210, 60, 60));
+        mrect(x, y + 4, 24, 3, C_WHITE);
+        mrect(x, y + 15, 24, 3, C_WHITE);
+        mrect(x + 6, y + 7, 2, 8, C_WHITE);
+        mrect(x + 16, y + 7, 2, 8, C_WHITE);
+        mrect(x + 18, y - 6, 3, 14, EO_RGB(235, 205, 150));
+    } else if (kind == 1u) {
+        mrect(x, y + 6, 18, 4, GOLD);
+        mrect(x + 14, y + 2, 4, 12, GOLD);
+        mrect(x + 18, y, 5, 16, GOLD);
+        mrect(x + 3, y + 10, 8, 3, GOLD);
+        mrect(x + 3, y + 3, 8, 3, GOLD);
+    } else {
+        mdisc(x + 10, y + 20, 9, EO_RGB(205, 125, 50));
+        mdisc(x + 10, y + 20, 3, EO_RGB(40, 20, 10));
+        mrect(x + 9, y - 8, 3, 20, WOOD);
+        mrect(x + 6, y - 12, 9, 5, WOOD);
+    }
+}
+
+static void mv_word(int32_t y, const char *w, uint32_t clk, uint32_t sh)   /* big letters, each its own colour */
+{
+    char b[2];
+    int32_t x = (240 - text_w(&FONT_L, w)) / 2, i;
+    b[1] = 0;
+    for (i = 0; w[i]; i++) {
+        b[0] = w[i];
+        mtext(x + 2, y + 2, &FONT_L, b, EO_RGB(40, 16, 70));
+        mtext(x, y, &FONT_L, b, mv_hue(clk / 12u + (uint32_t)i * 22u + sh));
+        x += text_w(&FONT_L, b);
+    }
+}
+
+static void mv_rings(int32_t y)                          /* five rings: the games' headphone cups */
+{
+    mring(94, y, 11, 3, EO_RGB(0, 130, 215));
+    mring(120, y, 11, 3, C_WHITE);
+    mring(146, y, 11, 3, EO_RGB(230, 50, 60));
+    mring(107, y + 11, 11, 3, EO_RGB(250, 190, 40));
+    mring(133, y + 11, 11, 3, EO_RGB(30, 170, 80));
+}
+
+static void mv_logo(int32_t dy, uint32_t clk)
+{
+    mv_word(30 + dy, "EAR", clk, 0u);
+    mv_word(68 + dy, "OLYMPICS", clk, 40u);
+}
+
+static void mv_rise(uint32_t tt, uint32_t n)             /* rainbow notes drifting up the screen */
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        int32_t ti = (int32_t)i * 170, y;
+        if ((int32_t)tt < ti)
+            continue;
+        y = 240 - ((int32_t)tt - ti) * 110 / 1000;
+        y = y % 270 + (y < 0 ? 270 : 0) - 30;
+        mv_note(14 + (int32_t)i * 29 + (int32_t)(8.0f * fm_sinf((float)(tt + i * 90u) / 180.0f)), y, mv_hue(i * 24u + tt / 10u));
+    }
+}
+
+static void mv_presents(uint32_t t)
+{
+    uint32_t a = t < 500u ? t * 255u / 500u : t < 1000u ? 255u : t < MV_TITLE_MS ? (MV_TITLE_MS - t) * 255u / 200u : 0u;
+    uint16_t c = EO_RGB(a, a, a);
+    mctext(98, &FONT_B, "ASILAGY", c);
+    mctext(124, &FONT_S, "PRESENTS", mv_scale(c, 5u));
+}
+
+static void mv_title(uint32_t tt)                        /* the title, with fireworks, notes and instruments */
+{
+    static const int16_t B[6][3] = {{100, 50, 60}, {500, 190, 50}, {900, 120, 28}, {1300, 40, 150}, {1550, 200, 140}, {1750, 120, 74}};
+    uint32_t i;
+    int32_t dy = tt < 300u ? -(int32_t)(120u * (300u - tt) * (300u - tt) / (300u * 300u)) : 0;
+    for (i = 0; i < 6u; i++)
+        mv_burst(B[i][1], B[i][2], (int32_t)tt - B[i][0], i * 37u + tt / 40u);
+    mv_inst(0, -40 + (int32_t)tt * 150 / 1000, 196 + (int32_t)(6.0f * fm_sinf((float)tt / 90.0f)));
+    mv_inst(1, 250 - (int32_t)tt * 130 / 1000, 36);
+    mv_inst(2, -30 + (int32_t)tt * 115 / 1000, 138);
+    mv_rise(tt, 8u);
+    mv_logo(dy, tt);
+    if (tt > 700u)
+        mv_rings(128);
+}
+
+static void mv_blob(const eo_char_t *c, int32_t cy)      /* a placeholder for a character that has no art yet */
+{
+    uint16_t a = EO_RGB(c->r, c->g, c->b);
+    mdisc(120, cy, 42, mv_scale(a, 4u));
+    mdisc(120, cy, 38, a);
+    mrect(101, cy - 14, 12, 14, C_WHITE);
+    mrect(127, cy - 14, 12, 14, C_WHITE);
+    mrect(105, cy - 9, 5, 7, C_BLACK);
+    mrect(131, cy - 9, 5, 7, C_BLACK);
+    mrect(108, cy + 14, 24, 3, mv_scale(a, 3u));
+}
+
+static void dog_paint_sc(int32_t ox, int32_t oy, uint32_t pose, int32_t sc, int32_t rows)   /* the dog, sc pixels per bitmap pixel */
+{
+    int32_t x, y;
+    for (y = 0; y < rows && y < EO_DOG_H; y++)
+        for (x = 0; x < EO_DOG_W;) {
+            char c = EO_DOG[pose][y][x];
+            int32_t e = x + 1;
+            while (e < EO_DOG_W && EO_DOG[pose][y][e] == c)
+                e++;
+            if (c != '.')
+                cv_rect(ox + x * sc, oy + y * sc, (e - x) * sc, sc, eo_dog_col(c));
+            x = e;
+        }
+}
+
+static void mv_montage(uint32_t tm)
+{
+    uint32_t s = 0, age;
+    int32_t k, sh, drop, bob;
+    const eo_char_t *c;
+    uint16_t a;
+    while (s < 11u && tm >= MV_B[s + 1u])
+        s++;
+    age = tm - MV_B[s];
+    c = &eo_chars[s];
+    a = EO_RGB(c->r, c->g, c->b);
+    sh = (int32_t)(tm / 7u % 48u);
+    for (k = -2; k < 11; k++)
+        mrect(k * 24 + sh, 0, 24, 240, (k & 1) ? mv_scale(a, 3u) : mv_scale(a, 2u));
+    drop = age < 160u ? (int32_t)((160u - age) * (160u - age) / 400u) : 0;
+    bob = ((tm / 155u) & 1u) ? 3 : 0;
+    if (s == 0u) {
+        cat_sc = 4;
+        cat_mx = 0;
+        cat_my = 0;
+        cat_paint(64, 58 + bob - drop - mv_oy, POSE_SING, tm / 110u);
+        cat_sc = 3;
+        cat_mx = 8;
+        cat_my = 12;
+    } else if (s == 1u) {
+        dog_paint_sc(72, 48 + bob - drop - mv_oy, ((tm / 200u) & 1u) ? DOG_WIN : DOG_LISTEN, 2, 64);
+    } else {
+        mv_blob(c, 112 + bob - drop);
+    }
+    {
+        int32_t cy = 192 + (age < 130u ? (int32_t)(130u - age) / 4 : 0);
+        mrect(0, 8, 240, 24, C_BLACK);
+        mctext(12, &FONT_S, c->game, a);
+        mrect(0, cy - 6, 240, 38, C_BLACK);
+        mctext(cy, &FONT_B, c->cap, C_WHITE);
+    }
+    if (age < 30u)
+        mrect(0, 0, 240, 240, C_WHITE);
+}
+
+static void mv_finale(uint32_t tm)
+{
+    uint32_t tf = tm - MV_FINALE, i;
+    for (i = 0; i < 3u; i++) {
+        uint32_t u = tf + i * 600u, n = u / 1800u;
+        mv_burst(30 + (int32_t)((n * 67u + i * 83u) % 180u), 24 + (int32_t)((n * 41u + i * 57u) % 80u), (int32_t)(u % 1800u), n * 31u + i * 60u);
+    }
+    mv_rise(tm, 8u);
+    mv_logo(0, tm);
+    mv_rings(128);
+    for (i = 0; i < 12u; i++) {
+        const eo_char_t *c = &eo_chars[i];
+        int32_t x = 30 + (int32_t)(i % 6u) * 36, y = 170 + (int32_t)(i / 6u) * 26 + ((((tm / 310u) + i) & 1u) ? 3 : 0);
+        mdisc(x, y, 10, mv_scale(EO_RGB(c->r, c->g, c->b), 4u));
+        mdisc(x, y, 8, EO_RGB(c->r, c->g, c->b));
+    }
+    if (tf > 600u && ((tm / 400u) & 1u))
+        mctext(214, &FONT_B, "PRESS PLAY", C_HI);
+}
+
+static void mv_scene(uint32_t now)
+{
+    uint32_t t = now - mv_t0;
+    if (t < MV_TITLE_MS) {
+        mv_presents(t);
+    } else if (t < MV_MUSIC_MS) {
+        mv_title(t - MV_TITLE_MS);
+    } else {
+        uint32_t tm = now - mv_m0;
+        if (tm < MV_FINALE)
+            mv_montage(tm);
+        else
+            mv_finale(tm);
+    }
+}
+
+static void mv_bands(void (*f)(uint32_t), uint32_t now)
+{
+    static const uint8_t Y[3] = {0, 36, 180}, H[3] = {36, 144, 60};
+    uint32_t i;
+    for (i = 0; i < 3u; i++) {
+        mv_oy = Y[i];
+        mv_h = H[i];
+        cv_begin(240, H[i], C_BLACK);
+        f(now);
+        cv_blit(0, Y[i]);
+    }
+}
+
+static void mv_sfx(uint32_t i, uint32_t at, uint32_t len, uint32_t key, uint8_t vo)
+{
+    seq_at[i] = (uint16_t)at;
+    seq_len[i] = (uint16_t)len;
+    seq_key[i] = (uint8_t)key;
+    seq_vo_stage[i] = vo;
+    seq_hl[i] = 0;
+}
+
+static void movie_tick(uint32_t now)                     /* the sound effects and the music, on the movie's clock */
+{
+    uint32_t t = now - mv_t0, i;
+    if (mv_stage == 0u && t >= 250u) {                   /* a small ping with ASilagy presents */
+        mv_stage = 1;
+        mv_sfx(0, 0, 300, 19, V_PING);
+        seq_n = 1;
+        seq_end = 700;
+        eo_seq_start(0, 0);
+    } else if (mv_stage == 1u && t >= MV_TITLE_MS) {     /* the title: a whoosh up, a boom, sparkles */
+        static const uint8_t UP[11] = {0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17};
+        static const uint16_t SP[4] = {760, 1010, 1260, 1500};
+        static const uint8_t SK[4] = {26, 24, 21, 26};
+        mv_stage = 2;
+        for (i = 0; i < 11u; i++)
+            mv_sfx(i, i * 42u, 52, UP[i], V_TRI);
+        mv_sfx(11, 500, 420, 5, V_SQUARE);
+        for (i = 0; i < 4u; i++)
+            mv_sfx(12u + i, SP[i], 200, SK[i], V_PING);
+        seq_n = 16;
+        seq_end = 1900;
+        eo_seq_start(0, 0);
+    } else if (mv_stage == 2u && t >= MV_TITLE_MS + 500u) {   /* the boom has a chord under it */
+        mv_stage = 3;
+        eo_chord_note[0] = 60;
+        eo_chord_note[1] = 64;
+        eo_chord_note[2] = 67;
+        eo_chord_note[3] = 72;
+    } else if (mv_stage == 3u && t >= MV_TITLE_MS + 1300u) {
+        mv_stage = 4;
+        for (i = 0; i < CHORD_VOICES; i++)
+            eo_chord_note[i] = -1;
+    } else if (mv_stage == 4u && now >= mv_m0) {         /* the music */
+        mv_stage = 5;
+        eo_smp_trig++;
+    }
+}
+
+static void sel_enter(void)
+{
+    ui.state = ST_SELECT;
+    sel_cur = set.game == GAME_COPYCAT ? 0u : set.game == GAME_DOGTOR ? 1u : 2u;
+    ui.redraw = 1;
+}
+
+static void mv_end(void)                                 /* skipped, or done: the music and the effects stop */
+{
+    uint32_t i;
+    eo_smp_halt++;
+    seq_on = 0;
+    seq_lit = 0;
+    voice_note = -1;
+    for (i = 0; i < CHORD_VOICES; i++)
+        eo_chord_note[i] = -1;
+    sel_enter();
+}
+
+static void sel_blip(uint32_t key, uint8_t vo)
+{
+    mv_sfx(0, 0, 70, key, vo);
+    seq_n = 1;
+    seq_end = 90;
+    eo_seq_start(0, 0);
+}
+
+static void sel_move(int32_t d)
+{
+    int32_t c = clamp((int32_t)sel_cur + d, 0, 5);
+    if (c == (int32_t)sel_cur)
+        return;
+    sel_cur = (uint8_t)c;
+    sel_blip(12u + (uint32_t)c * 2u, V_TRI);
+    ui.redraw = 1;
+}
+
+static void sel_go(void)
+{
+    int32_t g = sel_game[sel_cur];
+    if (g < 0) {                                         /* not made yet: a small wah-wah */
+        mv_sfx(0, 0, 140, 12, V_TRI);
+        mv_sfx(1, 150, 260, 7, V_TRI);
+        seq_n = 2;
+        seq_end = 420;
+        eo_seq_start(0, 0);
+        return;
+    }
+    if (g != (int32_t)set.game) {
+        set.game = (uint8_t)g;
+        set_dirty = 1;
+    }
+    ans_len = 0;
+    ui.text = TX_READY;
+    ui.state = ST_READY;
+    ui.say[0] = 0;
+    if (g == GAME_DOGTOR)
+        dogtor_say(DS_READY, 0, 2200u);
+    if (g == GAME_COPYCAT && !eo_cat_seen) {             /* the cat introduces itself, once a power-on */
+        eo_cat_seen = 1;
+        ui.state = ST_INTRO;
+        ui.ctl_page = 0;
+    }
+    ui.redraw = 1;
+}
+
+static void sel_scene(uint32_t now)
+{
+    uint32_t i;
+    int32_t bob = ((now / 420u) & 1u) ? 1 : 0;
+    int32_t cur = sel_game[sel_cur];
+    mctext(10, &FONT_B, "SELECT YOUR GAME", C_WHITE);
+    mrect(40, 32, 160, 2, C_LINE);
+    for (i = 0; i < 6u; i++) {
+        int32_t x = 6 + (int32_t)(i % 3u) * 78, y = 42 + (int32_t)(i / 3u) * 66, g = sel_game[i], w;
+        int sel = i == sel_cur;
+        uint16_t edge = sel ? C_HI : C_LINE, bg = sel ? EO_RGB(38, 42, 60) : EO_RGB(18, 18, 24);
+        const char *lab = i == 0u ? "COPYCAT" : i == 1u ? "DOGTOR" : i == 2u ? "SIMON" : "SOON";
+        mrect(x, y, 72, 60, bg);
+        if (i == 0u) {
+            cat_sc = 2;
+            cat_mx = 0;
+            cat_my = 0;
+            cat_paint(x + 8, y + 3 + (sel ? bob : 0) - mv_oy, sel ? POSE_SING : POSE_IDLE, sel ? now / 160u : 0u);
+            cat_sc = 3;
+            cat_mx = 8;
+            cat_my = 12;
+        } else if (i == 1u) {
+            dog_paint_sc(x + 12, y + 1 + (sel ? bob : 0) - mv_oy, sel ? DOG_WIN : DOG_IDLE, 1, 44);
+        } else if (i == 2u) {
+            static const uint16_t L[4] = {EO_RGB(220, 60, 60), EO_RGB(240, 200, 50), EO_RGB(60, 200, 90), EO_RGB(60, 120, 230)};
+            uint32_t j, lit = sel ? (now / 300u) & 3u : 9u;
+            for (j = 0; j < 4u; j++)
+                mrect(x + 16 + (int32_t)(j & 1u) * 21, y + 6 + (int32_t)(j >> 1) * 19, 18, 17, j == lit ? L[j] : mv_scale(L[j], 3u));
+        } else {
+            mtext(x + 29, y + 8, &FONT_L, "?", sel ? C_AMB : C_DIM);
+        }
+        mrect(x + 2, y + 46, 68, 12, bg);                /* the label, over whatever spilled down */
+        w = text_w(&FONT_XS, lab);
+        mtext(x + (72 - w) / 2, y + 46, &FONT_XS, lab, sel ? C_WHITE : C_GRAY);
+        mrect(x, y, 72, 2, edge);
+        mrect(x, y + 58, 72, 2, edge);
+        mrect(x, y, 2, 60, edge);
+        mrect(x + 70, y, 2, 60, edge);
+        (void)g;
+    }
+    if (cur >= 0) {
+        const eo_char_t *c = &eo_chars[sel_cur];
+        mctext(173, &FONT_B, eo_game_name[cur], C_WHITE);
+        mctext(193, &FONT_S, c->cap, C_AMB);
+        mctext(209, &FONT_XS, c->quip, C_GRAY);
+    } else {
+        mctext(173, &FONT_B, "COMING SOON", C_AMB);
+        mctext(193, &FONT_S, "Still warming up.", C_GRAY);
+    }
+    mctext(224, &FONT_XS, "PRESETS MOVE     PLAY START", C_DIM);
+}
+
 static void draw(void)
 {
     char t[48], n[12];
     uint32_t i, now = plat_ms(), pct = plat_master() * 100u / 4096u, bright, mid, dim, tx = eo_text();
+    if (ui.state == ST_MOVIE) {
+        mv_bands(mv_scene, now);
+        return;
+    }
+    if (ui.state == ST_SELECT) {
+        mv_bands(sel_scene, now);
+        return;
+    }
     if (ui.state == ST_INTRO || ui.state == ST_CONTROLS) {
         draw_narration(now);
         return;
@@ -2838,6 +3403,15 @@ void app_frame(void)
     static uint32_t last_pct, last_bright, last_tx;
     uint32_t now = plat_ms(), pct = plat_master() * 100u / 4096u, bright, mid, dim, tx;
     input();
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT) {   /* the movie and the select: a frame about every 33 ms */
+        static uint32_t last_mv;
+        if (ui.state == ST_MOVIE)
+            movie_tick(now);
+        if (now / 33u != last_mv) {
+            last_mv = now / 33u;
+            ui.redraw = 1;
+        }
+    }
     key_levels(&bright, &mid, &dim);
     if (bright != last_bright) {             /* a sequence's notes change the lit keys with no input */
         last_bright = bright;
@@ -2918,7 +3492,7 @@ void app_frame(void)
         else
             copycat_round();
     }
-    if (set.game == GAME_DOGTOR && ui.state != ST_INTRO && ui.state != ST_CONTROLS) {
+    if (set.game == GAME_DOGTOR && ui.state != ST_INTRO && ui.state != ST_CONTROLS && ui.state != ST_MOVIE && ui.state != ST_SELECT) {
         static uint32_t last_breath;
         uint32_t br = now / 600u;
         static uint32_t last_pose = 99u;
@@ -2962,7 +3536,7 @@ void app_frame(void)
             ui.redraw = 1;
         }
     }
-    if (set.game == GAME_COPYCAT && ui.state != ST_INTRO && ui.state != ST_CONTROLS) {   /* the cat's animation */
+    if (set.game == GAME_COPYCAT && ui.state != ST_INTRO && ui.state != ST_CONTROLS && ui.state != ST_MOVIE && ui.state != ST_SELECT) {   /* the cat's animation */
         static uint32_t last_pose = 99u, last_frame;
         uint32_t pose = eo_pose(now), fr = eo_frame(now, pose);
         if (copycat_level(eo_level())->contour) {    /* the contour: a note comes out, or the sounding one changes */
@@ -3046,6 +3620,12 @@ int app_expect(const char *what, int *got)
         *got = eo_drone_note;
     else if (!strcmp(what, "state"))
         *got = ui.state;
+    else if (!strcmp(what, "smp"))
+        *got = eo_smp_run;
+    else if (!strcmp(what, "sel"))
+        *got = sel_cur;
+    else if (!strcmp(what, "mvstage"))
+        *got = mv_stage;
     else if (!strcmp(what, "text"))
         *got = (int)eo_text();
     else if (!strcmp(what, "pos"))

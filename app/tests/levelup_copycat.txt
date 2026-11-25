@@ -4,6 +4,10 @@
 wait 600
 tap HOME
 wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
 turn PRESET -5
 turn PRESET 1
 wait 30
@@ -177,6 +181,10 @@ wait 50
 expect state 0
 reboot
 wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
 tap HOME
 wait 50
 expect game 1

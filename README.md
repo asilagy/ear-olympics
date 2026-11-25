@@ -9,6 +9,16 @@ note that sounds first, so it trains relative pitch, never perfect pitch.
 
 **Status: two games on one shell, with automatic levels (0.7.2).** No arcade mode yet.
 
+## Power-on movie and game select (0.9.0, new)
+
+Power on plays a short movie: ASilagy presents, the title (sound effects only: a whoosh, a boom, a chord, sparkles, with
+fireworks, rainbow notes and flying instruments), then the intro music (8 kHz mu-law, `app/eo_intro.h`, from
+Ear_olympics.wav) over a montage of the cast cut to the music's hits, and the title again with PRESS PLAY. Any key
+skips it. The cast is placeholders (blobs) except Copycat and Dr. Diggie, until the other characters' art arrives.
+
+Then the game select: PRESETS move the cursor, PLAY starts the game (Copycat introduces itself once per power-on).
+HOME from a game's ready screen comes back here. The three empty tiles say COMING SOON.
+
 ## The two games
 
 They are kept apart on purpose.

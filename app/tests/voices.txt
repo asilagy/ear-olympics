@@ -3,6 +3,10 @@
 wait 600
 tap HOME
 wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
 turn PRESET -1
 wait 30
 master 4096
@@ -37,6 +41,8 @@ expect note 60
 wait 600
 tap HOME
 wait 50
+tap PLAY
+wait 50
 expect note -1
 # voice 1: WARM
 expect voice 1
@@ -66,6 +72,8 @@ wait 100
 expect note 60
 wait 600
 tap HOME
+wait 50
+tap PLAY
 wait 50
 expect note -1
 # voice 2: BELL
@@ -97,6 +105,8 @@ expect note 60
 wait 600
 tap HOME
 wait 50
+tap PLAY
+wait 50
 expect note -1
 # voice 3: E-PIANO
 expect voice 3
@@ -127,6 +137,8 @@ expect note 60
 wait 600
 tap HOME
 wait 50
+tap PLAY
+wait 50
 expect note -1
 # voice 4: TRIANGLE
 expect voice 4
@@ -156,6 +168,8 @@ wait 100
 expect note 60
 wait 600
 tap HOME
+wait 50
+tap PLAY
 wait 50
 expect note -1
 # voice 5: SQUARE
@@ -198,6 +212,8 @@ expect dirty 0
 reboot
 wait 600
 tap HOME
+wait 50
+tap PLAY
 wait 50
 expect voice 3
 # the level lock: nothing above 3 until you complete levels (Simon is the game now)
