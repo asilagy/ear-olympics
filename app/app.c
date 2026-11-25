@@ -2104,7 +2104,7 @@ static void cc_facts(void)
  * of the screen's three bands paints the whole dog at its own offset; the canvas clips. */
 #define DT_TEAL EO_RGB(70, 110, 120)
 #define DT_DARK EO_RGB(14, 28, 34)
-#define DT_Y 24
+#define DT_Y 12
 static void vol_overlay(int32_t y, uint32_t now, uint32_t pct);
 static void dog_paint(int32_t ox, int32_t oy, uint32_t pose)
 {
@@ -2158,7 +2158,6 @@ static void dt_band(int32_t band_y, uint32_t now, uint32_t pose)   /* the dog, t
     dog_paint(48, DT_Y + bob - band_y, pose);
     if (band_y == 0) {                       /* the header: whose game this is */
         cv_text(6, 4, &FONT_S, "CHORD DOGTOR", C_WHITE);
-        cv_text(6, 18, &FONT_XS, "DR. DIGGIE, D.V.M.", C_GRAY);
     } else if (band_y == 36) {               /* the margins: the level, and how far to the next */
         t[0] = 0;
         text_cat(t, "LV ");
