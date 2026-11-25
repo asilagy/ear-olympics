@@ -1324,6 +1324,7 @@ static void key_cell(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, uin
  * here so it can change. Poses: IDLE (blinks), DANCE (while the melody plays), SING (while you play), WIN, FAIL, and
  * LEVELUP (the celebration). The cat's picture is 100 x 90 pixels, drawn at three times the bitmap's size. */
 #define EO_RGB(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
+#include "eo_dog.h"
 #define CAT_X 0
 #define CAT_Y 4                          /* in the middle band; the screen's y is 36 more */
 #define CAT_W 100
@@ -1760,12 +1761,34 @@ static void cc_facts(void)
     cv_text(14, 42, &FONT_XS, t, C_DIM);
 }
 
+/* Chord Dogtor preview: the dog at 2x, runs of one colour. Shown on Copycat's ready screen while EO_DOG_PREVIEW is 1. */
+#define EO_DOG_PREVIEW 1
+static void dog_paint(int32_t ox, int32_t oy)
+{
+    int32_t x, y;
+    for (y = 0; y < EO_DOG_H; y++)
+        for (x = 0; x < EO_DOG_W;) {
+            char c = EO_DOG[y][x];
+            int32_t e = x + 1;
+            while (e < EO_DOG_W && EO_DOG[y][e] == c)
+                e++;
+            if (c != '.')
+                cv_rect(ox + x * 2, oy + y * 2, (e - x) * 2, 2, eo_dog_col(c));
+            x = e;
+        }
+}
+
 /* Copycat's middle band: the cat on the left, the words on the right, hints along the bottom */
 static void cc_band(uint32_t now)
 {
     char t[48], n[12];
     uint32_t i, tx = eo_text(), pose = eo_pose(now);
     const copycat_level_t *lv = copycat_level(eo_level());
+#if EO_DOG_PREVIEW
+    if (ui.state == ST_READY)
+        dog_paint(2, -6);
+    else
+#endif
     cat_paint(CAT_X, CAT_Y, pose, eo_frame(now, pose));
     if (ui.state == ST_LEVELUP) {
         const char *const *ln = eo_up_text[GAME_COPYCAT][eo_level()];
@@ -1806,7 +1829,7 @@ static void cc_band(uint32_t now)
             text_cat(t, "%");
         }
         rtext(84, &FONT_XS, t, C_DIM);
-        ctext(98, &FONT_XS, "Press SEL to see controls again", C_DIM);
+        rtext(98, &FONT_XS, "SEL: controls", C_DIM);
         cv_rect(14, 114, 212, 1, C_LINE);
         cv_text(14, 120, &FONT_B, eo_cc_name[eo_level() < COPYCAT_LEVELS ? eo_level() : COPYCAT_LEVELS], C_HI);
         return;
