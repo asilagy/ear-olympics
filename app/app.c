@@ -1058,11 +1058,46 @@ static const char *const dt_say[6][4][2] = {
         {"The chief wants to see you.", "Bring your stethoscope."}, {"Promoted to Attending.", "Pager's on the counter."},
         {"Doctor, we don't have", "time for rounds."}, {"Copycat is napping on", "the patient's chart."}}};
 enum { DS_READY, DS_LISTEN, DS_TURN, DS_WIN, DS_MISS, DS_UP };
+/* the plot: each level is an episode, a right answer is the next beat, the level-up card is the cliffhanger. A miss does not
+ * move the story. (Beat 8 of the last level is the finale; for the others, the cliffhanger stands in for it.) */
+static const char *const dt_story[DOGTOR_LEVELS][8][2] = {
+    {{"Good catch. The patient", "is stable. For now."}, {"But the chart has a name:", "Dr. Copycat's."},
+     {"Correct. Why does he know", "Copycat's cat?"}, {"Good. But the lab results", "came back... wrong."},
+     {"A clean diagnosis. And a", "note taped to his coat."}, {"The note says: DON'T", "TRUST THE THIRD."},
+     {"Good. But who sent", "the note?"}, {"Correct. The patient", "opens his eyes..."}},
+    {{"Right. But the third", "option is no relief."}, {"Good. A shadow crosses", "the O.R. window."},
+     {"Correct. The power", "flickers. Hold steady."}, {"Good. But the heart", "monitor just skipped."},
+     {"Textbook. Someone moved", "the patient's chart."}, {"Right. And I found", "pawprints. Cat-sized."},
+     {"Good. The blood work says", "he's not a patient."}, {"Correct. He's... the", "founder?!"}},
+    {{"Good. But now there are", "four suspects."}, {"Right. The augmented one", "never resolves. Suspicious."},
+     {"Correct. He was in the", "records room all night."}, {"Good. But the records", "are written in Braille."},
+     {"Right. The founder had", "a twin. Named Fermata."}, {"Correct. Fermata holds", "everything. Even grudges."},
+     {"Good. And somebody just", "paged me from my phone."}, {"Right. The call is coming", "from inside the clinic."}},
+    {{"Good. But every room has", "a different key now."}, {"Right. The hospital is", "modulating. Hold on."},
+     {"Correct. The twin left a", "map in the pharmacy."}, {"Good. The map is upside", "down. Like a seventh."},
+     {"Right. X marks the spot.", "It's under my desk."}, {"Correct. A trapdoor.", "Nobody told me about it."},
+     {"Good. Below: an old", "recording studio."}, {"Right. The tape is", "labelled: DIGGIE, AGE 3."}},
+    {{"Good. The tape has seventh", "chords. Warm. Unresolved."}, {"Right. The voice is mine.", "But I was a puppy."},
+     {"Correct. The twin took", "the second half."}, {"Good. And Copycat has", "been copying the tape."},
+     {"Right. So that's why he", "meows in perfect pitch."}, {"Correct. A betrayal.", "In six-eight time."},
+     {"Good. But the real twist", "is behind me."}, {"Right. Turn around.", "Slowly. Dr. Copycat?"}},
+    {{"Good. Suspended. Like my", "disbelief."}, {"Right. Copycat says it", "was all a loop."},
+     {"Correct. He wasn't the", "villain. He was the echo."}, {"Good. But who wrote the", "note on my coat?"},
+     {"Right. It was me. From", "the future. Obviously."}, {"Correct. The founder", "retires. I get the clinic."},
+     {"Good. Copycat gets the", "second chair. Meow."}, {"Right. Final diagnosis:", "the patient is just fine."}}};
+static const char *const dt_cliff[DOGTOR_LEVELS - 1u][2] = {
+    {"He whispers: \"Diggie?\"", "...Who is he?!"}, {"The lights go out.", "A dog barks. Not mine."},
+    {"I recognize that bark.", "It's... my own."}, {"The tape says: DIGGIE,", "AGE 3. Play it."},
+    {"Dr. Copycat holds the", "other half of the tape."}};
+enum { DS_STORY = 6, DS_CLIFF };
+static uint8_t dt_line_lv;               /* the story's level, for the line on screen */
+
 
 static void dogtor_say(uint32_t set_ix, uint32_t pick, uint32_t card_ms)   /* his words; as a title card for card_ms */
 {
     dt_line_set = (uint8_t)set_ix;
-    dt_line_n = (uint8_t)(pick % 4u);
+    dt_line_n = (uint8_t)(set_ix >= DS_STORY ? pick : pick % 4u);
+    dt_line_lv = (uint8_t)eo_level();
     dt_card_until = card_ms ? plat_ms() + card_ms : 0u;
     ui.redraw = 1;
 }
@@ -1126,8 +1161,8 @@ static void dogtor_win(void)
     dogtor_chord(0);
     dt_chord_until = 0;
     dt_chord_at = 0;
-    dogtor_say(DS_WIN, dt_line_ix++, 0u);
     if (set.mode) {
+        dogtor_say(DS_WIN, dt_line_ix++, 0u);
         eo_miss_run = 0;
         eo_levelup = 0;
         eo_win_begin();
@@ -1138,6 +1173,7 @@ static void dogtor_win(void)
     eo_new_best(streak);
     if (set.prog[GAME_DOGTOR] < eo_rounds(GAME_DOGTOR))
         set.prog[GAME_DOGTOR]++;
+    dogtor_say(DS_STORY, set.prog[GAME_DOGTOR] ? set.prog[GAME_DOGTOR] - 1u : 0u, 0u);   /* the next beat of the plot */
     if (set.prog[GAME_DOGTOR] >= eo_rounds(GAME_DOGTOR))
         eo_complete(GAME_DOGTOR);
     set_dirty = 1;
@@ -1277,7 +1313,7 @@ static void eo_enter_levelup(void)       /* ten rounds right: the next level, ke
     int_text((int32_t)eo_level(), n);
     app_say("LEVEL", n);
     if (set.game == GAME_DOGTOR)
-        dogtor_say(DS_UP, dt_line_ix++ & 1u, 2600u);
+        dogtor_say(DS_CLIFF, eo_level() >= 2u ? eo_level() - 2u : 0u, 3200u);   /* the cliffhanger of the episode just won */
 }
 
 static void eo_start_game(void)
@@ -2126,6 +2162,8 @@ static void dog_paint(int32_t ox, int32_t oy, uint32_t pose)
 
 static uint32_t dt_pose(uint32_t now)
 {
+    if (ui.state == ST_WIN && (eo_win_pending || (seq_on && seq_pos < 380u)))
+        return DOG_LISTEN;               /* the bell first: he reacts as the howl starts */
     if (ui.state == ST_LEVELUP || (ui.state == ST_WIN) || (ui.state == ST_GAP && ui.result == 1))
         return DOG_WIN;
     if (ui.state == ST_MISS || (ui.state == ST_GAP && ui.result == 2))
@@ -2203,8 +2241,20 @@ static void dt_band(int32_t band_y, uint32_t now, uint32_t pose)   /* the dog, t
 
 static void dt_card_band(int32_t band_y)   /* a silent film's title card: black, a double frame, his words */
 {
-    const char *l1 = dt_say[dt_line_set][dt_line_n][0], *l2 = dt_say[dt_line_set][dt_line_n][1];
+    const char *l1, *l2, *tag = "~ DR. DIGGIE ~";
     int32_t y;
+    if (dt_line_set == DS_STORY) {
+        uint32_t lv = dt_line_lv >= 1u && dt_line_lv <= DOGTOR_LEVELS ? dt_line_lv : 1u;
+        l1 = dt_story[lv - 1u][dt_line_n & 7u][0];
+        l2 = dt_story[lv - 1u][dt_line_n & 7u][1];
+    } else if (dt_line_set == DS_CLIFF) {
+        l1 = dt_cliff[dt_line_n % (DOGTOR_LEVELS - 1u)][0];
+        l2 = dt_cliff[dt_line_n % (DOGTOR_LEVELS - 1u)][1];
+        tag = "TO BE CONTINUED...";
+    } else {
+        l1 = dt_say[dt_line_set][dt_line_n][0];
+        l2 = dt_say[dt_line_set][dt_line_n][1];
+    }
     cv_rect(6, 6 - band_y, 228, 228, C_WHITE);
     cv_rect(8, 8 - band_y, 224, 224, C_BLACK);
     cv_rect(12, 12 - band_y, 216, 216, C_GRAY);
@@ -2212,7 +2262,7 @@ static void dt_card_band(int32_t band_y)   /* a silent film's title card: black,
     y = 78 - band_y;
     cv_text(120 - text_w(&FONT_B, l1) / 2, y, &FONT_B, l1, C_WHITE);
     cv_text(120 - text_w(&FONT_B, l2) / 2, y + 26, &FONT_B, l2, C_WHITE);
-    cv_text(120 - text_w(&FONT_XS, "~ DR. DIGGIE ~") / 2, 176 - band_y, &FONT_XS, "~ DR. DIGGIE ~", C_AMB);
+    cv_text(120 - text_w(&FONT_XS, tag) / 2, 176 - band_y, &FONT_XS, tag, C_AMB);
 }
 
 static void draw_dogtor(uint32_t now, uint32_t pct)
@@ -2781,7 +2831,13 @@ void app_frame(void)
     if (set.game == GAME_DOGTOR && ui.state != ST_INTRO && ui.state != ST_CONTROLS) {
         static uint32_t last_breath;
         uint32_t br = now / 600u;
+        static uint32_t last_pose = 99u;
+        uint32_t pz = dt_pose(now);
         dogtor_tick(now);
+        if (pz != last_pose) {               /* a new face: at once, not on the next breath */
+            last_pose = pz;
+            ui.redraw = 1;
+        }
         if (br != last_breath) {             /* the dog breathes: a pixel up, a pixel down */
             last_breath = br;
             ui.redraw = 1;
@@ -2908,7 +2964,20 @@ int app_expect(const char *what, int *got)
         *got = (int)ans_len;
     else if (!strncmp(what, "ans", 3))      /* ansN: the round's Nth note, as its key */
         *got = ans[atoi(what + 3) % SIMON_MAX_LEN];
-    else if (!strcmp(what, "dtkey"))
+    else if (!strcmp(what, "dtwide")) {      /* the widest story line, in pixels (title cards are 214 wide inside the frame) */
+        uint32_t a, b, c;
+        int w = 0;
+        for (a = 0; a < DOGTOR_LEVELS; a++)
+            for (b = 0; b < 8u; b++)
+                for (c = 0; c < 2u; c++)
+                    if (text_w(&FONT_B, dt_story[a][b][c]) > w)
+                        w = text_w(&FONT_B, dt_story[a][b][c]);
+        for (a = 0; a < DOGTOR_LEVELS - 1u; a++)
+            for (c = 0; c < 2u; c++)
+                if (text_w(&FONT_B, dt_cliff[a][c]) > w)
+                    w = text_w(&FONT_B, dt_cliff[a][c]);
+        *got = w;
+    } else if (!strcmp(what, "dtkey"))
         *got = dt_key_now;
     else if (!strcmp(what, "dtq"))
         *got = dt_q_now;

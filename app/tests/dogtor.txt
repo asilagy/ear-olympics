@@ -56,3 +56,11 @@ key 12 up
 expect state 3
 expect text 5
 shot dogtor_nice.png
+# the bell first (still the listening face), then the happy face with the howl, then the plot's next beat as a title card
+wait 300
+shot dogtor_bell.png
+wait 500
+shot dogtor_howl.png
+wait 1500
+expect state 5
+shot dogtor_beat.png

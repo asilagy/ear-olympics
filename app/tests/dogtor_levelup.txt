@@ -50,6 +50,6 @@ key 12 up
 expect state 3
 wait 2400
 expect state 6
-shot dogtor_levelup_card.png
-wait 2800
+shot dogtor_cliffhanger.png
+wait 3400
 shot dogtor_levelup.png
