@@ -1,0 +1,32 @@
+# The ready screen says what the level is: its name, the notes to choose from, the tune, what is new, what is on.
+wait 600
+tap HOME
+wait 50
+expect unlock 34
+turn PRESET 1
+wait 30
+turn K1 1
+wait 30
+expect level 2
+wait 1500
+shot ready_l02.png
+turn K1 9
+wait 30
+expect level 11
+wait 1500
+shot ready_l11.png
+turn K1 11
+wait 30
+expect level 22
+wait 1500
+shot ready_l22.png
+turn K1 7
+wait 30
+expect level 29
+wait 1500
+shot ready_l29.png
+turn K1 5
+wait 30
+expect level 34
+wait 1500
+shot ready_l34.png

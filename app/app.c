@@ -372,6 +372,28 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
     },
 };
 
+/* the ready screen's level name, and the notes to choose from (Copycat; index 0 is unused) */
+static const char *const eo_cc_name[COPYCAT_LEVELS + 1u] = {
+    "", "Do re mi, with lights", "Lights off", "Fa and sol arrive", "Same notes, no lights", "Longer tunes",
+    "Thirds join in", "La arrives", "La, by ear", "Longer again", "Ti and high do", "The whole octave, by ear",
+    "Longer octave tunes", "First semitones", "Semitones, by ear", "Leaps arrive", "Longer leaps", "Leap anywhere",
+    "Up to two leaps", "Semitones and a leap", "Passing tones, lit", "Passing tones, by ear", "No drone",
+    "No drone, longer", "Start anywhere", "Below the root", "Below, by ear", "Long and low", "Chromatic leaps",
+    "The root moves", "Moving, longer", "Two more roots", "All seven roots", "Chromatic in every key",
+    "Boss: anything goes"};
+static const char *eo_cc_pool(uint32_t n)
+{
+    switch (n) {
+    case 3: return "3 notes: do re mi";
+    case 5: return "5 notes: do to sol";
+    case 6: return "6 notes: do to la";
+    case 8: return "The whole octave (8 notes)";
+    case 11: return "11 notes: a fifth below to the octave";
+    case 13: return "The chromatic octave (13 notes)";
+    default: return "18 notes: low to high, chromatic";
+    }
+}
+
 static struct {
     char msg[2][24];                     /* a short message over the header */
     uint32_t msg_until;
@@ -1701,6 +1723,43 @@ static void draw_narration(uint32_t now)
     }
 }
 
+/* the ready screen's facts, along the foot: the notes to choose from, the tune, what is new, and what is switched on */
+static void cc_facts(void)
+{
+    char t[64], n[12];
+    const copycat_level_t *lv = copycat_level(eo_level());
+    t[0] = 0;
+    text_cat(t, eo_cc_pool(lv->n));
+    cv_text(14, 0, &FONT_XS, t, C_GRAY);
+    t[0] = 0;
+    text_cat(t, "Tunes are ");
+    int_text((int32_t)lv->len, n);
+    text_cat(t, n);
+    text_cat(t, " notes long");
+    cv_text(14, 14, &FONT_XS, t, C_GRAY);
+    t[0] = 0;
+    if (lv->intro)
+        text_cat(t, "A new note in every tune");
+    else if (lv->min_leaps)
+        text_cat(t, lv->max_leaps > 1u ? "1 to 2 leaps in every tune" : "A leap in every tune");
+    if (lv->chroma != CHROMA_NONE) {
+        if (t[0])
+            text_cat(t, ", ");
+        text_cat(t, lv->chroma_max > 1u ? "1 to 2 chromatic notes" : "1 chromatic note");
+    }
+    if (!t[0])
+        text_cat(t, lv->start_root ? "Tunes start on the root" : "Steps and thirds");
+    cv_text(14, 28, &FONT_XS, t, C_WHITE);
+    t[0] = 0;
+    text_cat(t, lv->lit == LIT_ALL ? "Lights on" : lv->lit == LIT_CHROMATIC ? "Chroma lit" : "Lights off");
+    text_cat(t, lv->drone ? "  -  Drone on" : "  -  Drone off");
+    if (lv->contour)
+        text_cat(t, "  -  Shape shown");
+    else if (lv->start_root)
+        text_cat(t, "  -  Starts on root");
+    cv_text(14, 42, &FONT_XS, t, C_DIM);
+}
+
 /* Copycat's middle band: the cat on the left, the words on the right, hints along the bottom */
 static void cc_band(uint32_t now)
 {
@@ -1725,27 +1784,17 @@ static void cc_band(uint32_t now)
         } else {
             rtext(6, &FONT_M, TX[TX_GOOD], C_HI);
             rtext(36, &FONT_L, t, C_WHITE);
-            rtext(68, &FONT_XS, "PLAY CONTINUE", C_DIM);
-            rtext(82, &FONT_XS, "HOME STOP", C_DIM);
+            rtext(68, &FONT_XS, "PRESS PLAY", C_DIM);
+            rtext(82, &FONT_XS, "TO CONTINUE", C_DIM);
             for (i = 0; i < 3u && ln[i]; i++)
                 ctext(98 + (int32_t)i * 15, &FONT_XS, ln[i], i ? C_GRAY : C_WHITE);
         }
         return;
     }
-    if (ui.state == ST_READY) {          /* the ready screen: one thing to do, and one way to the rest */
+    if (ui.state == ST_READY) {          /* the ready screen: one thing to do, then what this level is */
         rtext(22, &FONT_M, "PRESS PLAY", C_HI);
         rtext(44, &FONT_M, "TO START.", C_HI);
         rtext(68, &FONT_S, "Meow.", C_WHITE);
-        t[0] = 0;
-        if (eo_moves()) {
-            text_cat(t, "ROOT MOVES");
-        } else {
-            note_name(KEY_NOTE0 + (int32_t)set.root, n);
-            text_cat(t, "ROOT ");
-            text_cat(t, n);
-        }
-        text_cat(t, lv->lit == LIT_ALL ? "  LIGHTS ON" : lv->lit == LIT_CHROMATIC ? "  CHROMATIC" : "  NO LIGHTS");
-        rtext(98, &FONT_XS, t, C_GRAY);
         t[0] = 0;
         if (set.mode)
             text_cat(t, "PRACTICE");
@@ -1756,8 +1805,10 @@ static void cc_band(uint32_t now)
             text_cat(t, n);
             text_cat(t, "%");
         }
-        rtext(112, &FONT_XS, t, C_DIM);
-        ctext(128, &FONT_XS, "Press SEL to see controls again", C_DIM);
+        rtext(84, &FONT_XS, t, C_DIM);
+        ctext(98, &FONT_XS, "Press SEL to see controls again", C_DIM);
+        cv_rect(14, 114, 212, 1, C_LINE);
+        cv_text(14, 120, &FONT_B, eo_cc_name[eo_level() < COPYCAT_LEVELS ? eo_level() : COPYCAT_LEVELS], C_HI);
         return;
     }
     t[0] = 0;
@@ -2022,8 +2073,19 @@ static void draw(void)
         int_text((int32_t)eo_level(), hn);
         text_cat(h, hn);
         cv_text(10, 6, &FONT_B, h, C_WHITE);
-        cv_text(230 - text_w(&FONT_XS, eo_voice_name[set.voice < VOICES ? set.voice : 0u]), 10, &FONT_XS,
-                eo_voice_name[set.voice < VOICES ? set.voice : 0u], C_GRAY);
+        {   /* the root and the voice together: C4 - MEOW (the root moves from level 29) */
+            char r[32], rn[12];
+            r[0] = 0;
+            if (eo_moves()) {
+                text_cat(r, "MOVING");
+            } else {
+                note_name(KEY_NOTE0 + (int32_t)set.root, rn);
+                text_cat(r, rn);
+            }
+            text_cat(r, " - ");
+            text_cat(r, eo_voice_name[set.voice < VOICES ? set.voice : 0u]);
+            cv_text(230 - text_w(&FONT_XS, r), 10, &FONT_XS, r, C_GRAY);
+        }
     } else {
         int32_t x = cv_text(10, 6, &FONT_B, APP_NAME, C_WHITE);
         cv_text(x + 8, 10, &FONT_XS, EO_VERSION, C_DIM);
@@ -2133,6 +2195,8 @@ static void draw(void)
     cv_begin(240, 60, C_BLACK);
     if (set.game == GAME_SIMON)
         keyboard_paint(bright, mid, dim);
+    else if (ui.state == ST_READY)
+        cc_facts();
     vol_overlay(36, now, pct);
     cv_blit(0, 180);
 }

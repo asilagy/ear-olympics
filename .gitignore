@@ -4,3 +4,4 @@ app/web/words/
 .DS_Store
 __pycache__/
 *.o
+app/build.log

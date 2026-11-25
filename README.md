@@ -7,7 +7,7 @@ interval, identify the chord, the scale, the progression). Every skill has its o
 get things right, and a wrong answer plays the right one so every mistake teaches. Everything is relative to a root
 note that sounds first, so it trains relative pitch, never perfect pitch.
 
-**Status: two games on one shell, with automatic levels (0.6.2).** No arcade mode yet.
+**Status: two games on one shell, with automatic levels (0.7.2).** No arcade mode yet.
 
 ## The two games
 
@@ -30,9 +30,9 @@ that keeps sounding under the melody (and under your turn, at the lower levels).
 | 7 | **la arrives: lit, and in every melody** | 3 | 8 |
 | 8 | la by ear | 3 | 8 |
 | 9 | longer | 4 | 8 |
-| 10 | **ti and the octave arrive: lit, and in every melody** | 3 | 10 |
-| 11 | the whole major scale by ear | 3 | 10 |
-| 12 | longer | 4 | 10 |
+| 10 | **ti and the octave arrive: lit, and in every melody** | 3 | 8 |
+| 11 | the whole major scale by ear | 3 | 8 |
+| 12 | longer | 4 | 8 |
 | 13 | semitones, C to G (lit) | 3 | 10 |
 | 14 | semitones by ear | 3 | 10 |
 | 15 | leaps: every melody has one, to a chord tone | 3 | 10 |
@@ -67,7 +67,7 @@ it a note at a time). At the first levels its **contour** (the shape: each note 
 screen as you hear it and stays for your turn; it is gone from level 17. The keys' lights go at level 2.
 **A note can repeat** (it is played again, never held), at any level; a leap is still always answered by a step.
 
-**Rounds to graduate** are 8 at levels 1-9, 10 at 10-20 and 12 at 21-30, so the foundation is solid. **A miss takes a
+**Rounds to graduate** are 8 at levels 1-12, 10 at 13-23 and 12 at 24-34, so the foundation is solid. **A miss takes a
 quarter of the rounds off the count** (2 at 8 rounds, 3 at 10 or 12).
 
 The order follows how aural-skills courses teach melodic dictation (for example Baylor's open Ear Training
@@ -135,8 +135,11 @@ now and then ("Purrfect." on a run, "...really?" on a miss). Simon's screen is u
 
 ## The ready screen, and the cat's temper
 
-Before a level starts the screen holds one thing: **PRESS PLAY TO START. Meow.** The top line says `COPYCAT - LEVEL n`,
-one small line gives the root and the lights (and PRACTICE or the speed, when they are not the default), and **SEL** shows the controls again.
+Before a level starts the screen says **PRESS PLAY TO START. Meow.** The top line says `COPYCAT - LEVEL n`, and at the top
+right the root and the voice together (`C4 - MEOW`; `MOVING - MEOW` from level 29, when the root moves). **SEL** shows the controls again.
+Underneath is the level: its name (for example "Lights off"), the notes you choose from, how long the tunes are, what is
+new in them (a new note, a leap, chromatic notes), and what is switched on (lights, drone, shape, start on the root). The cat's
+words about what is new are on the GOOD JOB card, which appears when you reach the level: **PRESS PLAY TO CONTINUE**.
 After a miss the big word changes each time (MISS, UMM..., WHOOPS., HISSS!, WRONG!, NYAAAHH!, INCORRECT) and so does the
 cat's line. After **3 misses in a row** the cat gives advice instead (PLAY replays, the SELECT knob, slow it down, Practice
 mode, think first, sing the notes). A right melody gets NICE!, WOW!, SWEET!, AMAZING! or YUP. In Practice mode, after
