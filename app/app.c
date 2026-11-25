@@ -20,6 +20,7 @@
 #include "eo_cat.h"
 #include "eo_dogtor.h"
 #include "eo_intro.h"
+#include "eo_cast.h"
 
 enum { GAME_SIMON, GAME_COPYCAT, GAME_DOGTOR, GAMES };
 static const char *const eo_game_name[GAMES] = {"SIMON", "COPYCAT", "CHORD DOGTOR"};
@@ -2946,31 +2947,44 @@ static void mv_title(uint32_t tt)                        /* the title, with fire
         mv_rings(128);
 }
 
-static void mv_blob(const eo_char_t *c, int32_t cy)      /* a placeholder for a character that has no art yet */
+/* a picture drawn from a pixel reader: the colour (RGB565) at x, y, or -1 for clear; scaled by num/den (nearest) */
+typedef int32_t (*spr_px_t)(const void *s, int32_t x, int32_t y);
+static const uint16_t *spr_pal;          /* the palette of the cast sprite being drawn */
+static int32_t cast_px(const void *s, int32_t x, int32_t y)
 {
-    uint16_t a = EO_RGB(c->r, c->g, c->b);
-    mdisc(120, cy, 42, mv_scale(a, 4u));
-    mdisc(120, cy, 38, a);
-    mrect(101, cy - 14, 12, 14, C_WHITE);
-    mrect(127, cy - 14, 12, 14, C_WHITE);
-    mrect(105, cy - 9, 5, 7, C_BLACK);
-    mrect(131, cy - 9, 5, 7, C_BLACK);
-    mrect(108, cy + 14, 24, 3, mv_scale(a, 3u));
+    uint32_t i = (uint32_t)y * EO_CAST_W + (uint32_t)x, b = ((const uint8_t *)s)[i >> 1], v = (i & 1u) ? b & 15u : b >> 4;
+    return v ? (int32_t)spr_pal[v] : -1;
 }
-
-static void dog_paint_sc(int32_t ox, int32_t oy, uint32_t pose, int32_t sc, int32_t rows)   /* the dog, sc pixels per bitmap pixel */
+static int32_t dog_px(const void *s, int32_t x, int32_t y)
 {
-    int32_t x, y;
-    for (y = 0; y < rows && y < EO_DOG_H; y++)
-        for (x = 0; x < EO_DOG_W;) {
-            char c = EO_DOG[pose][y][x];
-            int32_t e = x + 1;
-            while (e < EO_DOG_W && EO_DOG[pose][y][e] == c)
+    char c = EO_DOG[(uint32_t)(uintptr_t)s][y][x];
+    return c == '.' ? -1 : (int32_t)eo_dog_col(c);
+}
+static void spr_paint(spr_px_t px, const void *s, int32_t w, int32_t h, int32_t ox, int32_t oy, int32_t num, int32_t den)
+{
+    int32_t dh = h * num / den, dy;
+    for (dy = 0; dy < dh; dy++) {
+        int32_t y = oy + dy - mv_oy, sy = dy * den / num, x = 0;
+        if (y < 0 || y >= mv_h)
+            continue;
+        while (x < w) {
+            int32_t c = px(s, x, sy), e = x + 1;
+            while (e < w && px(s, e, sy) == c)
                 e++;
-            if (c != '.')
-                cv_rect(ox + x * sc, oy + y * sc, (e - x) * sc, sc, eo_dog_col(c));
+            if (c >= 0)
+                cv_rect(ox + x * num / den, y, e * num / den - x * num / den, 1, (uint16_t)c);
             x = e;
         }
+    }
+}
+static void cast_paint(uint32_t who, uint32_t pose, int32_t ox, int32_t oy, int32_t num, int32_t den)
+{
+    spr_pal = EO_CAST_PAL[who];
+    spr_paint(cast_px, EO_CAST[who][pose], EO_CAST_W, EO_CAST_H, ox, oy, num, den);
+}
+static void dog_paint_sc(uint32_t pose, int32_t ox, int32_t oy, int32_t num, int32_t den)
+{
+    spr_paint(dog_px, (const void *)(uintptr_t)pose, EO_DOG_W, EO_DOG_H, ox, oy, num, den);
 }
 
 static void mv_montage(uint32_t tm)
@@ -2998,9 +3012,10 @@ static void mv_montage(uint32_t tm)
         cat_mx = 8;
         cat_my = 12;
     } else if (s == 1u) {
-        dog_paint_sc(72, 48 + bob - drop - mv_oy, ((tm / 200u) & 1u) ? DOG_WIN : DOG_LISTEN, 2, 64);
-    } else {
-        mv_blob(c, 112 + bob - drop);
+        dog_paint_sc(((tm / 200u) & 1u) ? DOG_WIN : DOG_LISTEN, 72, 40 + bob - drop, 2, 1);
+    } else {                             /* the rest: idle first, then its action (the NPC is slow with his thumb) */
+        uint32_t pose = age >= (s == 8u ? 400u : 140u) ? 1u : 0u;
+        cast_paint(s - 2u, pose, 24, 38 + bob - drop, 2, 1);
     }
     {
         int32_t cy = 192 + (age < 130u ? (int32_t)(130u - age) / 4 : 0);
@@ -3024,10 +3039,20 @@ static void mv_finale(uint32_t tm)
     mv_logo(0, tm);
     mv_rings(128);
     for (i = 0; i < 12u; i++) {
-        const eo_char_t *c = &eo_chars[i];
-        int32_t x = 30 + (int32_t)(i % 6u) * 36, y = 170 + (int32_t)(i / 6u) * 26 + ((((tm / 310u) + i) & 1u) ? 3 : 0);
-        mdisc(x, y, 10, mv_scale(EO_RGB(c->r, c->g, c->b), 4u));
-        mdisc(x, y, 8, EO_RGB(c->r, c->g, c->b));
+        int32_t x = 6 + (int32_t)(i % 6u) * 38, y = 156 + (int32_t)(i / 6u) * 28 + ((((tm / 310u) + i) & 1u) ? 3 : 0);
+        if (i == 0u) {
+            cat_sc = 1;
+            cat_mx = 0;
+            cat_my = 0;
+            cat_paint(x + 4, y - mv_oy, POSE_IDLE, 0u);
+            cat_sc = 3;
+            cat_mx = 8;
+            cat_my = 12;
+        } else if (i == 1u) {
+            dog_paint_sc(DOG_IDLE, x + 10, y - 2, 3, 8);
+        } else {
+            cast_paint(i - 2u, 1u, x, y, 3, 8);
+        }
     }
     if (tf > 600u && ((tm / 400u) & 1u))
         mctext(214, &FONT_B, "PRESS PLAY", C_HI);
@@ -3197,12 +3222,9 @@ static void sel_scene(uint32_t now)
             cat_mx = 8;
             cat_my = 12;
         } else if (i == 1u) {
-            dog_paint_sc(x + 12, y + 1 + (sel ? bob : 0) - mv_oy, sel ? DOG_WIN : DOG_IDLE, 1, 44);
-        } else if (i == 2u) {
-            static const uint16_t L[4] = {EO_RGB(220, 60, 60), EO_RGB(240, 200, 50), EO_RGB(60, 200, 90), EO_RGB(60, 120, 230)};
-            uint32_t j, lit = sel ? (now / 300u) & 3u : 9u;
-            for (j = 0; j < 4u; j++)
-                mrect(x + 16 + (int32_t)(j & 1u) * 21, y + 6 + (int32_t)(j >> 1) * 19, 18, 17, j == lit ? L[j] : mv_scale(L[j], 3u));
+            dog_paint_sc(sel ? DOG_WIN : DOG_IDLE, x + 18, y + 1 + (sel ? bob : 0), 3, 4);
+        } else if (i == 2u) {                /* Simon is the goldfish */
+            cast_paint(0u, sel ? 1u : 0u, x + 4, y + 2 + (sel ? bob : 0), 2, 3);
         } else {
             mtext(x + 29, y + 8, &FONT_L, "?", sel ? C_AMB : C_DIM);
         }
