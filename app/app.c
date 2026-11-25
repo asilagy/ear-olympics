@@ -82,6 +82,10 @@ static float voice_phase, voice_level, eo_drone_phase, eo_drone_level, gain_now;
 #define BEEP_GAIN 0.09f                  /* the heart monitor */
 static volatile int32_t eo_chord_note[CHORD_VOICES] = {-1, -1, -1, -1};   /* Chord Dogtor's chord: MIDI notes, -1 = off */
 static volatile uint8_t eo_soft_env;     /* 1: the melody voice fades in and out slowly (Chord Dogtor's ostinato) */
+#define RV_N 2048u
+static float eo_rv[3][RV_N], eo_rv_lp[3];   /* a small reverb (three damped combs): only the ostinato is sent into it */
+static uint32_t eo_rv_i[3];
+static const uint16_t eo_rv_len[3] = {1087, 1423, 1877};
 static volatile uint32_t eo_beep_trig;   /* the main loop counts this up for each heart-monitor beep */
 static float eo_cph[CHORD_VOICES], eo_clev[CHORD_VOICES];
 
@@ -141,6 +145,13 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     static float last_inc;               /* a released note keeps its pitch while it fades: a frozen phase would leave a thump */
     float inc = note >= 0 ? eo_note_inc(note) : last_inc;
     float vk = eo_soft_env ? 0.0006f : 0.002f;
+    static float lfo_ph;                 /* the ostinato swells in volume and fades back, about every 3.5 s */
+    if (eo_soft_env) {
+        lfo_ph += 0.28f * (float)n / 44100.0f;
+        if (lfo_ph >= 1.0f)
+            lfo_ph -= 1.0f;
+        target *= 0.65f + 0.35f * fm_sinf(6.2831853f * lfo_ph);
+    }
     float dinc = dnote >= 0 ? eo_note_inc(dnote) : 0.0f;
     if (note >= 0)
         last_inc = inc;
@@ -282,7 +293,18 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 bv = fm_sinf(6.2831853f * beep_ph) * (1.0f - beep_age * 10.0f) * BEEP_GAIN;
                 beep_age += 1.0f / 44100.0f;
             }
-            v = v * voice_level + cs + bv;
+            {   /* the voice (the ostinato's send only) through the reverb, then the chord and the beep, dry */
+                float vo = v * voice_level, rin = eo_soft_env ? vo : 0.0f, wet = 0.0f;
+                for (j = 0; j < 3u; j++) {
+                    float y = eo_rv[j][eo_rv_i[j]];
+                    eo_rv_lp[j] += 0.45f * (y - eo_rv_lp[j]);        /* each pass is a little darker */
+                    eo_rv[j][eo_rv_i[j]] = rin + eo_rv_lp[j] * 0.83f;
+                    if (++eo_rv_i[j] >= eo_rv_len[j])
+                        eo_rv_i[j] = 0;
+                    wet += y;
+                }
+                v = vo + cs + bv + wet * 0.45f;
+            }
         }
         s = (v + eo_lookup(eo_wt_soft, eo_drone_phase) * eo_drone_level) * gain_now;
         lr[2 * i] = (int32_t)s;
