@@ -7,6 +7,7 @@ wait 50
 expect unlock 34
 expect speed 100
 expect mode 0
+turn PRESET -5
 turn PRESET 1
 wait 30
 expect game 1

@@ -184,3 +184,12 @@ See [BUILDING.md](BUILDING.md). In short: `./build.sh --host` builds a simulator
 MPL-2.0, like fm1-base and Boardwalk. Built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
 felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). Its structure follows Charles Vestal's
 [Boardwalk](https://charlesvestal.github.io/fm1-boardwalk/).
+
+## Chord Dogtor (0.8.0, new)
+
+A third game: name the chord. Dr. Diggie, a very serious dog in a white coat, plays a chord over a slow pedal bass (the
+chord's root, an octave down) with a heart-monitor beep ticking. You press the lit key for its quality: A (F4), B (G4),
+C (A4), D (B4). Six levels: major or minor; plus diminished; plus augmented; the same with a new root every round; sevenths;
+suspended chords. Eight right graduates a level; a miss costs a quarter of the way. The beep is atmosphere, not a timer. The
+dog has six poses (idle, thinking, correct, worried, shocked, yawn). Settings from earlier versions are reset by this
+update (the saved layout grew a game).

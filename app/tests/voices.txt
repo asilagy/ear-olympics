@@ -206,6 +206,7 @@ turn K1 9
 wait 30
 expect level 3
 expect open 3
+turn PRESET -5
 turn PRESET 1
 wait 30
 turn K1 9

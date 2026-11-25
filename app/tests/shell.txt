@@ -54,6 +54,9 @@ expect game 1
 expect level 1
 turn PRESET 5
 wait 30
+expect game 2
+turn PRESET -1
+wait 30
 expect game 1
 shot copycat.png
 # Copycat: the root C4 (key 7) is mid, its level's other notes glow

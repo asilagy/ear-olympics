@@ -18,10 +18,11 @@
 #include "eo_copycat.h"
 #include "eo_simon.h"
 #include "eo_cat.h"
+#include "eo_dogtor.h"
 
-enum { GAME_SIMON, GAME_COPYCAT, GAMES };
-static const char *const eo_game_name[GAMES] = {"SIMON", "COPYCAT"};
-static const uint8_t eo_levels[GAMES] = {SIMON_LEVELS, COPYCAT_LEVELS};
+enum { GAME_SIMON, GAME_COPYCAT, GAME_DOGTOR, GAMES };
+static const char *const eo_game_name[GAMES] = {"SIMON", "COPYCAT", "CHORD DOGTOR"};
+static const uint8_t eo_levels[GAMES] = {SIMON_LEVELS, COPYCAT_LEVELS, DOGTOR_LEVELS};
 
 #define SET_MAGIC 0x374C4F45u            /* "EOL7": the settings record; another magic loads defaults */
 #define EO_CELEBRATE_MS 3200u               /* the level-up celebration, before the GOOD JOB card */
@@ -76,6 +77,12 @@ static volatile float voice_vel = 0.8f;      /* 0..1 */
 static volatile int32_t eo_drone_note = -1;  /* the drone: MIDI note, -1 = off */
 static volatile float eo_drone_vol = 1.0f;   /* 0..1 */
 static float voice_phase, voice_level, eo_drone_phase, eo_drone_level, gain_now;   /* gain_now glides to MASTER */
+#define CHORD_VOICES 4
+#define CHORD_GAIN 0.15f                 /* each chord note's level */
+#define BEEP_GAIN 0.09f                  /* the heart monitor */
+static volatile int32_t eo_chord_note[CHORD_VOICES] = {-1, -1, -1, -1};   /* Chord Dogtor's chord: MIDI notes, -1 = off */
+static volatile uint32_t eo_beep_trig;   /* the main loop counts this up for each heart-monitor beep */
+static float eo_cph[CHORD_VOICES], eo_clev[CHORD_VOICES];
 
 static void eo_wavetable(float *t, const float *h, uint32_t nh)
 {
@@ -134,6 +141,19 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float dinc = dnote >= 0 ? eo_note_inc(dnote) : 0.0f;
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
+    static uint32_t beep_seen;
+    static float beep_age = 1.0f, beep_ph;
+    float cinc[CHORD_VOICES], ctgt[CHORD_VOICES];
+    for (i = 0; i < CHORD_VOICES; i++) {
+        int32_t cn = eo_chord_note[i];
+        ctgt[i] = cn >= 0 ? CHORD_GAIN : 0.0f;
+        cinc[i] = cn >= 0 ? eo_note_inc(cn) : 0.0f;
+    }
+    if (beep_seen != eo_beep_trig) {
+        beep_seen = eo_beep_trig;
+        beep_age = 0.0f;
+        beep_ph = 0.0f;
+    }
     if (note != last_note) {             /* a new note: the voices that change over time start again */
         age = 0.0f;
         e1 = e2 = e3 = 1.0f;
@@ -231,7 +251,27 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             }
         }
         age += 1.0f / 44100.0f;
-        s = (v * voice_level + eo_lookup(eo_wt_soft, eo_drone_phase) * eo_drone_level) * gain_now;
+        {   /* Chord Dogtor: the chord's notes (a soft pad), and the heart monitor's beep (1 kHz, 0.1 s, fading) */
+            uint32_t j;
+            float cs = 0.0f, bv = 0.0f;
+            for (j = 0; j < CHORD_VOICES; j++) {
+                eo_clev[j] += (ctgt[j] - eo_clev[j]) * 0.0012f;
+                eo_cph[j] += cinc[j];
+                if (eo_cph[j] >= 1.0f)
+                    eo_cph[j] -= 1.0f;
+                if (eo_clev[j] > 0.00002f)
+                    cs += eo_lookup(eo_wt, eo_cph[j]) * eo_clev[j];
+            }
+            if (beep_age < 0.10f) {
+                beep_ph += 1000.0f / 44100.0f;
+                if (beep_ph >= 1.0f)
+                    beep_ph -= 1.0f;
+                bv = fm_sinf(6.2831853f * beep_ph) * (1.0f - beep_age * 10.0f) * BEEP_GAIN;
+                beep_age += 1.0f / 44100.0f;
+            }
+            v = v * voice_level + cs + bv;
+        }
+        s = (v + eo_lookup(eo_wt_soft, eo_drone_phase) * eo_drone_level) * gain_now;
         lr[2 * i] = (int32_t)s;
         lr[2 * i + 1] = (int32_t)s;
     }
@@ -314,6 +354,7 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
     eo_drone_note = -1;
     voice_level = 0.0f;
     eo_drone_level = 0.0f;
+    { uint32_t j; for (j = 0; j < CHORD_VOICES; j++) { eo_chord_note[j] = -1; eo_clev[j] = 0.0f; } }
 }
 
 /* ----------------------------------------------------------------- the game --- */
@@ -370,6 +411,7 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
         {"CHROMATIC NOTES IN EVERY KEY", "LEAPS TOO, LIT UP FOR YOU", "PHEW. ALMOST THERE"},
         {"BOSS LEVEL: ANY NOTE, ANY ROOT", "SIX NOTES, UP TO TWO LEAPS", "NO LIGHTS. NO ANCHOR. NO FEAR"},
     },
+    {{0, 0, 0}}   /* Chord Dogtor draws its own card */
 };
 
 /* the ready screen's level name, and the notes to choose from (Copycat; index 0 is unused) */
@@ -506,10 +548,12 @@ static uint32_t eo_text(void)            /* the big word now: ROOT is the first 
     return eo_root_phase() ? TX_ROOT : ui.text;
 }
 
+static uint8_t dt_key_now;               /* Chord Dogtor: the right answer's key, for the lights */
+static void dogtor_win_sound(void);
 static uint32_t eo_level(void) { return set.level[set.game]; }
 static uint32_t eo_rounds(uint32_t g)    /* melodies (Simon: sequence length) to play right to graduate the level now */
 {
-    return g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : EO_ROUNDS_UP;
+    return g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : g == GAME_DOGTOR ? DOGTOR_ROUNDS : EO_ROUNDS_UP;
 }
 static uint32_t eo_miss_cost(void)       /* a miss costs a quarter of the way: real progress, but not a reset */
 {
@@ -612,6 +656,14 @@ static void speak(void)
 static void key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 {
     uint32_t b = seq_on ? seq_lit : ui.keys;
+    if (set.game == GAME_DOGTOR) {                  /* the answer keys: dim while you choose; the right one bright after */
+        *mid = 0u;
+        *dim = ui.state == ST_READY || ui.state == ST_LEVELUP ? 0u : dogtor_key_mask(eo_level());
+        if (ui.state == ST_MISS || ui.state == ST_WIN)
+            b = 1u << dt_key_now;
+        *bright = b;
+        return;
+    }
     if (set.game == GAME_COPYCAT) {
         const copycat_level_t *lv = copycat_level(eo_level());
         if (eo_moves() && (ui.state == ST_READY || ui.state == ST_LEVELUP)) {
@@ -784,7 +836,9 @@ static void eo_win_begin(void)           /* NICE! at once; the success sound onc
 static void eo_win_sound(void)
 {
     eo_win_pending = 0;
-    if (set.game == GAME_COPYCAT) {
+    if (set.game == GAME_DOGTOR) {
+        dogtor_win_sound();
+    } else if (set.game == GAME_COPYCAT) {
         eo_drone_set(-1, 0.0f);              /* the root stops as the ding comes */
         play_chime();
     } else {
@@ -942,6 +996,200 @@ static void simon_miss(void)             /* the key you should have played sound
     ui.text = TX_MISS;
 }
 
+/* ---- Chord Dogtor */
+static uint8_t dt_q_now;                 /* this round's chord quality */
+static uint8_t dt_choice_now;            /* ... and which choice (A..D) is right */
+static uint8_t dt_root_now;              /* ... and its root key */
+static uint32_t dt_chord_until, dt_chord_at;   /* the chord sounds from dt_chord_at to dt_chord_until (ms); 0 = no chord scheduled */
+static uint32_t dt_beep_next, dt_line_ix, dt_idle_at, dt_pressed_ix;
+static uint8_t dt_line_set, dt_line_n;   /* which dialogue (set 0..) and which line of it is on screen */
+static const char *const dt_say[6][4][2] = {
+    {   /* ready */
+        {"Hello, I'm Dr. Diggie,", "your Chord Dogtor."}, {"Scrubbing in. Nurse,", "the chart, please."},
+        {"Ignore the cat in room 2.", "He copies everything."}, {"Chart. Vitals. Scalpel.", "In that order."}},
+    {   /* listening */
+        {"Quiet in the O.R.", "I need to hear this."}, {"Something's off. I can", "feel it in my paws."},
+        {"It's not lupus.", "It's never lupus."}, {"Run the tones. Stat.", ""}},
+    {   /* your turn */
+        {"What's your diagnosis,", "doctor?"}, {"Don't look at Copycat's", "chart. He copies."},
+        {"Take your time.", "The patient can wait."}, {"I don't need a second", "opinion. Yours will do."}},
+    {   /* right */
+        {"Good catch, doctor.", "Textbook diagnosis."}, {"The patient is feeling", "much better. In tune."},
+        {"Page the board:", "we have a prodigy."}, {"Note for the board: I got", "it first. Copycat meowed."}},
+    {   /* wrong */
+        {"Hmm. That's not what", "the chart says."}, {"A second opinion", "is needed."},
+        {"Back to the lab.", "Something's a half-step off."}, {"Not quite, doctor.", "Recheck the vitals."}},
+    {   /* level up, and bored */
+        {"The chief wants to see you.", "Bring your stethoscope."}, {"Promoted to Attending.", "Pager's on the counter."},
+        {"Doctor, we don't have", "time for rounds."}, {"Copycat is napping on", "the patient's chart."}}};
+enum { DS_READY, DS_LISTEN, DS_TURN, DS_WIN, DS_MISS, DS_UP };
+
+static void dogtor_say(uint32_t set_ix, uint32_t pick)
+{
+    dt_line_set = (uint8_t)set_ix;
+    dt_line_n = (uint8_t)(pick % 4u);
+    ui.redraw = 1;
+}
+
+static void dogtor_chord(int on)         /* the chord sounds (or stops); the pedal bass stays */
+{
+    uint32_t i, n = 0;
+    for (i = 0; i < CHORD_VOICES; i++)
+        eo_chord_note[i] = -1;
+    if (!on)
+        return;
+    for (i = 0; i < 4u && dt_q_iv[dt_q_now][i] >= 0; i++)
+        eo_chord_note[n++] = KEY_NOTE0 + (int32_t)dt_root_now + dt_q_iv[dt_q_now][i];
+}
+
+static void dogtor_hear(void)            /* the pedal, then the chord over it */
+{
+    uint32_t now = plat_ms();
+    dogtor_chord(0);
+    eo_drone_set(KEY_NOTE0 + (int32_t)dt_root_now - 12, 0.9f);   /* the pensive bass: the root, an octave down */
+    dt_chord_at = now + 900u;
+    dt_chord_until = dt_chord_at + 1800u;
+    ui.state = ST_LISTEN;
+    ui.text = TX_LISTEN;
+    ans_pos = 0;
+    dt_idle_at = now;
+    dogtor_say(DS_LISTEN, dt_line_ix++);
+}
+
+static void dogtor_round(void)
+{
+    const dogtor_level_t *lv = dogtor_level(eo_level());
+    eo_seed_once();
+    ui.result = 0;
+    eo_tries = 1;
+    eo_seed = eo_seed * 1664525u + 1013904223u;
+    dt_choice_now = (uint8_t)((eo_seed >> 16) % lv->n);
+    dt_q_now = lv->q[dt_choice_now];
+    dt_key_now = dt_answer_key[dt_choice_now];
+    eo_seed = eo_seed * 1664525u + 1013904223u;
+    dt_root_now = lv->moves ? (uint8_t)(ROOT_MIN + (eo_seed >> 16) % (ROOT_MAX - ROOT_MIN + 1u)) : set.root;
+    ans_len = 1;
+    ans[0] = dt_key_now;
+    dogtor_hear();
+}
+
+static void dogtor_stop(void)
+{
+    uint32_t i;
+    for (i = 0; i < CHORD_VOICES; i++)
+        eo_chord_note[i] = -1;
+    dt_chord_until = 0;
+    dt_chord_at = 0;
+    eo_drone_set(-1, 0.0f);
+}
+
+static void dogtor_win(void)
+{
+    ui.result = 1;
+    dogtor_chord(0);
+    dt_chord_until = 0;
+    dt_chord_at = 0;
+    dogtor_say(DS_WIN, dt_line_ix++);
+    if (set.mode) {
+        eo_miss_run = 0;
+        eo_levelup = 0;
+        eo_win_begin();
+        return;
+    }
+    streak++;
+    eo_miss_run = 0;
+    eo_new_best(streak);
+    if (set.prog[GAME_DOGTOR] < eo_rounds(GAME_DOGTOR))
+        set.prog[GAME_DOGTOR]++;
+    if (set.prog[GAME_DOGTOR] >= eo_rounds(GAME_DOGTOR))
+        eo_complete(GAME_DOGTOR);
+    set_dirty = 1;
+    eo_levelup = set.prog[GAME_DOGTOR] >= eo_rounds(GAME_DOGTOR) && set.level[GAME_DOGTOR] < DOGTOR_LEVELS;
+    eo_win_begin();
+}
+
+static void dogtor_miss(uint32_t pressed)
+{
+    ui.result = 2;
+    dt_pressed_ix = pressed;
+    eo_miss_run++;
+    dogtor_say(DS_MISS, dt_line_ix++);
+    if (set.mode) {                      /* practice: the same chord again, nothing counted */
+        eo_tries++;
+        dogtor_hear();
+        dogtor_say(DS_MISS, dt_line_ix);
+        return;
+    }
+    streak = 0;
+    if (set.prog[GAME_DOGTOR]) {
+        set.prog[GAME_DOGTOR] = set.prog[GAME_DOGTOR] > eo_rounds(GAME_DOGTOR) / 4u ? (uint8_t)(set.prog[GAME_DOGTOR] - eo_rounds(GAME_DOGTOR) / 4u) : 0u;
+        set_dirty = 1;
+        save_pending = 1;
+    }
+    dogtor_chord(1);                     /* the chord again while the right answer is lit: so you hear what it was */
+    dt_chord_until = plat_ms() + 1800u;
+    dt_chord_at = 0;
+    seq_at[0] = 0;                       /* and a low, sad pair of notes: a half step falling */
+    seq_len[0] = 420;
+    seq_key[0] = (uint8_t)(dt_root_now + 7u);
+    seq_vo_stage[0] = V_SQUARE;
+    seq_at[1] = 480;
+    seq_len[1] = 700;
+    seq_key[1] = (uint8_t)(dt_root_now + 6u);
+    seq_vo_stage[1] = V_SQUARE;
+    seq_n = 2;
+    seq_end = 2000;
+    eo_seq_start(0, 0);
+    ui.state = ST_MISS;
+    ui.text = TX_MISS;
+}
+
+static void dogtor_win_sound(void)       /* a bright rising pair on the bell: a clean cut */
+{
+    seq_at[0] = 0;
+    seq_len[0] = 260;
+    seq_key[0] = (uint8_t)(dt_root_now + 12u);
+    seq_vo_stage[0] = V_BELL;
+    seq_at[1] = 300;
+    seq_len[1] = 520;
+    seq_key[1] = (uint8_t)(dt_root_now + 19u);
+    seq_vo_stage[1] = V_BELL;
+    seq_n = 2;
+    seq_end = 900;
+    eo_drone_set(-1, 0.0f);
+    eo_seq_start(0, 0);
+}
+
+static void dogtor_tick(uint32_t now)    /* the chord's timing, the heart monitor, the bored dog */
+{
+    int on = ui.state == ST_LISTEN || ui.state == ST_TURN || ui.state == ST_WIN || ui.state == ST_MISS || ui.state == ST_GAP;
+    if (dt_chord_at && now >= dt_chord_at) {
+        dt_chord_at = 0;
+        dogtor_chord(1);
+    }
+    if (dt_chord_until && now >= dt_chord_until) {
+        dt_chord_until = 0;
+        dogtor_chord(0);
+        if (ui.state == ST_LISTEN) {
+            ui.state = ST_TURN;
+            ui.text = TX_TURN;
+            ans_pos = 0;
+            dt_idle_at = now;
+            dogtor_say(DS_TURN, dt_line_ix++);
+            app_say("YOUR TURN", "");
+        }
+    }
+    if (on && now >= dt_beep_next) {     /* a steady beep; a little slower after a miss */
+        eo_beep_trig++;
+        dt_beep_next = now + (eo_miss_run ? 1500u : 1100u);
+    }
+    if (!on)
+        dt_beep_next = now + 400u;
+    if (ui.state == ST_TURN && now - dt_idle_at > 14000u && dt_line_set != DS_UP) {   /* a long wait: the dog yawns */
+        dogtor_say(DS_UP, 2);
+    }
+}
+
 /* ---- both */
 static void eo_enter_levelup(void)       /* ten rounds right: the next level, kept now (the sound is over: it is quiet) */
 {
@@ -970,6 +1218,8 @@ static void eo_start_game(void)
     eo_levelup = 0;
     if (set.game == GAME_SIMON)
         simon_grow();
+    else if (set.game == GAME_DOGTOR)
+        dogtor_round();
     else
         copycat_round();
 }
@@ -977,6 +1227,20 @@ static void eo_start_game(void)
 static void judge(uint32_t key)          /* a key pressed in YOUR TURN */
 {
     ui.msg_until = 0;                        /* the header's YOUR TURN is over: the screen says what happened */
+    if (set.game == GAME_DOGTOR) {           /* only the answer keys count; any other key is just a key */
+        uint32_t i;
+        for (i = 0; i < dogtor_level(eo_level())->n; i++)
+            if (key == dt_answer_key[i])
+                break;
+        if (i >= dogtor_level(eo_level())->n)
+            return;
+        if (key == ans[0])
+            dogtor_win();
+        else
+            dogtor_miss(i);
+        ui.redraw = 1;
+        return;
+    }
     if (key != ans[ans_pos]) {
         if (set.game == GAME_SIMON)
             simon_miss();
@@ -1002,6 +1266,8 @@ static void stop_game(void)              /* HOME: stops, and keeps your progress
     seq_lit = 0;
     voice_note = -1;
     eo_drone_set(-1, 0.0f);
+    dogtor_stop();
+    dogtor_say(DS_READY, 0);
     eo_win_pending = 0;
     eo_levelup = 0;
     streak = 0;
@@ -1142,7 +1408,7 @@ static void settings_load(void)          /* the saved settings, or the defaults 
     ok = plat_store_load(OBJ_SETTINGS, &set, sizeof set) == (int)sizeof set && set.magic == SET_MAGIC &&
          set.game < GAMES && set.root >= ROOT_MIN && set.root <= ROOT_MAX;
     for (g = 0; ok && g < GAMES; g++)
-        if (set.level[g] < 1u || set.level[g] > eo_levels[g] || set.prog[g] > (g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : EO_ROUNDS_UP) || set.top[g] > eo_levels[g] ||
+        if (set.level[g] < 1u || set.level[g] > eo_levels[g] || set.prog[g] > (g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : g == GAME_DOGTOR ? DOGTOR_ROUNDS : EO_ROUNDS_UP) || set.top[g] > eo_levels[g] ||
             set.level[g] > set.top[g] + EO_UNLOCK)
             ok = 0;
     if (set.voice >= VOICES)
@@ -1235,7 +1501,7 @@ static void input(void)
         uint32_t bit = 1u << k;
         int32_t note = KEY_NOTE0 + (int32_t)k;
         if ((keys & bit) && !(ui.keys & bit)) {
-            if (!seq_on) {
+            if (!seq_on && set.game != GAME_DOGTOR) {
                 voice_fx = 0xFFu;
                 voice_vel = 0.8f;
                 voice_note = note;
@@ -1245,7 +1511,7 @@ static void input(void)
                 if (ui.state != ST_TURN)
                     break;
             }
-        } else if (!(keys & bit) && (ui.keys & bit) && !seq_on && voice_note == note) {
+        } else if (!(keys & bit) && (ui.keys & bit) && !seq_on && voice_note == note && set.game != GAME_DOGTOR) {
             voice_note = -1;
         }
     }
@@ -1264,6 +1530,8 @@ static void input(void)
                 }
                 copycat_play(1u);            /* hear it again: you start the melody over */
             }
+            else if (ui.state == ST_TURN && set.game == GAME_DOGTOR)
+                dogtor_hear();               /* the chord again */
             else if (ui.state == ST_LEVELUP)
                 eo_start_game();             /* on from the GOOD JOB card, at the new level */
         } else if (k == B_SEL && ui.state == ST_READY) {
@@ -1324,6 +1592,7 @@ static void key_cell(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, uin
  * here so it can change. Poses: IDLE (blinks), DANCE (while the melody plays), SING (while you play), WIN, FAIL, and
  * LEVELUP (the celebration). The cat's picture is 100 x 90 pixels, drawn at three times the bitmap's size. */
 #define EO_RGB(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
+#include "eo_dog.h"
 #define CAT_X 0
 #define CAT_Y 4                          /* in the middle band; the screen's y is 36 more */
 #define CAT_W 100
@@ -1760,6 +2029,128 @@ static void cc_facts(void)
     cv_text(14, 42, &FONT_XS, t, C_DIM);
 }
 
+/* Chord Dogtor's screen: the dog at 3x on a clinical teal, his words along the top, the answers along the bottom. Each
+ * of the screen's three bands paints the whole dog at its own offset; the canvas clips. */
+#define DT_TEAL EO_RGB(70, 110, 120)
+#define DT_DARK EO_RGB(14, 28, 34)
+#define DT_Y 24
+static void vol_overlay(int32_t y, uint32_t now, uint32_t pct);
+static void dog_paint(int32_t ox, int32_t oy, uint32_t pose)
+{
+    int32_t x, y;
+    for (y = 0; y < EO_DOG_H; y++) {
+        if (oy + y * 3 > 150 || oy + y * 3 + 3 < -4)    /* not in this band: skip the row */
+            continue;
+        for (x = 0; x < EO_DOG_W;) {
+            char c = EO_DOG[pose][y][x];
+            int32_t e = x + 1;
+            while (e < EO_DOG_W && EO_DOG[pose][y][e] == c)
+                e++;
+            if (c != '.')
+                cv_rect(ox + x * 3, oy + y * 3, (e - x) * 3, 3, eo_dog_col(c));
+            x = e;
+        }
+    }
+}
+
+static uint32_t dt_pose(uint32_t now)
+{
+    if (ui.state == ST_LEVELUP || (ui.state == ST_WIN) || (ui.state == ST_GAP && ui.result == 1))
+        return DOG_WIN;
+    if (ui.state == ST_MISS || (ui.state == ST_GAP && ui.result == 2))
+        return eo_miss_run == 1u ? DOG_SHOCK : DOG_WORRY;
+    if (ui.state == ST_LISTEN)
+        return DOG_THINK;
+    if (ui.state == ST_TURN)
+        return now - dt_idle_at > 14000u ? DOG_YAWN : DOG_THINK;
+    return DOG_IDLE;
+}
+
+static void dt_chip(int32_t x, int32_t y, uint32_t i, uint32_t sel, uint32_t ok)
+{
+    char k[2];
+    uint16_t bg = ok ? C_AMB : DT_DARK, fg = ok ? C_BLACK : C_WHITE;
+    cv_rect(x, y, 55, 30, ok ? C_AMB : sel ? C_GRAY : C_WHITE);
+    cv_rect(x + 1, y + 1, 53, 28, bg);
+    k[0] = (char)('A' + i);
+    k[1] = 0;
+    cv_text(x + 27 - text_w(&FONT_B, k) / 2, y + 1, &FONT_B, k, ok ? C_BLACK : C_AMB);
+    cv_text(x + 27 - text_w(&FONT_XS, dt_q_name[dogtor_level(eo_level())->q[i]]) / 2, y + 17, &FONT_XS,
+            dt_q_name[dogtor_level(eo_level())->q[i]], fg);
+}
+
+static void dt_band(int32_t band_y, uint32_t now, uint32_t pose)   /* the dog, then the words that belong to this band */
+{
+    int32_t bob = (int32_t)((now / 600u) & 1u) * 3;
+    uint32_t i, n = dogtor_level(eo_level())->n;
+    char t[40], b[12];
+    dog_paint(48, DT_Y + bob - band_y, pose);
+    if (band_y == 0) {                       /* the header: what he says */
+        const char *l1 = dt_say[dt_line_set][dt_line_n][0], *l2 = dt_say[dt_line_set][dt_line_n][1];
+        if (ui.state == ST_LEVELUP) {
+            l1 = dt_say[DS_UP][0][0];
+            l2 = dt_say[DS_UP][0][1];
+        }
+        cv_text(6, 2, &FONT_S, l1, C_WHITE);
+        cv_text(6, 17, &FONT_S, l2, C_WHITE);
+    } else if (band_y == 36) {               /* the margins: the level, and how far to the next */
+        t[0] = 0;
+        text_cat(t, "LV ");
+        int_text((int32_t)eo_level(), b);
+        text_cat(t, b);
+        cv_text(4, 60, &FONT_B, t, C_WHITE);
+        t[0] = 0;
+        int_text((int32_t)set.prog[GAME_DOGTOR], b);
+        text_cat(t, b);
+        text_cat(t, "/");
+        int_text((int32_t)DOGTOR_ROUNDS, b);
+        text_cat(t, b);
+        cv_text(236 - text_w(&FONT_B, t), 60, &FONT_B, t, C_AMB);
+        t[0] = 0;
+        text_cat(t, "STREAK ");
+        int_text((int32_t)streak, b);
+        text_cat(t, b);
+        cv_text(236 - text_w(&FONT_XS, t), 82, &FONT_XS, t, C_WHITE);
+    } else {                                 /* the foot: the answers, or what to press */
+        int32_t y0 = 28;
+        if (ui.state == ST_READY || ui.state == ST_LEVELUP) {
+            cv_rect(4, y0, 232, 30, C_WHITE);
+            cv_rect(5, y0 + 1, 230, 28, DT_DARK);
+            t[0] = 0;
+            text_cat(t, ui.state == ST_LEVELUP ? "NEW LEVEL: " : "LEVEL ");
+            int_text((int32_t)eo_level(), b);
+            if (ui.state == ST_READY) {
+                text_cat(t, b);
+                text_cat(t, ": ");
+            }
+            text_cat(t, dogtor_level(eo_level())->name);
+            cv_text(10, y0 + 2, &FONT_S, t, C_AMB);
+            cv_text(10, y0 + 16, &FONT_XS, ui.state == ST_LEVELUP ? "PLAY CONTINUE     HOME STOP" : "PLAY START   K1 LEVEL   PRESETS GAME",
+                    C_GRAY);
+        } else {
+            int32_t x0 = (240 - ((int32_t)n * 59 - 4)) / 2;
+            for (i = 0; i < n; i++)
+                dt_chip(x0 + (int32_t)i * 59, y0, i, (ui.state == ST_MISS || ui.result == 2) && i == dt_pressed_ix,
+                        (ui.state == ST_WIN || ui.state == ST_MISS || ui.state == ST_GAP) && i == dt_choice_now);
+        }
+    }
+}
+
+static void draw_dogtor(uint32_t now, uint32_t pct)
+{
+    uint32_t pose = dt_pose(now);
+    cv_begin(240, 36, DT_TEAL);
+    dt_band(0, now, pose);
+    cv_blit(0, 0);
+    cv_begin(240, 144, DT_TEAL);
+    dt_band(36, now, pose);
+    cv_blit(0, 36);
+    cv_begin(240, 60, DT_TEAL);
+    dt_band(180, now, pose);
+    vol_overlay(2, now, pct);
+    cv_blit(0, 180);
+}
+
 /* Copycat's middle band: the cat on the left, the words on the right, hints along the bottom */
 static void cc_band(uint32_t now)
 {
@@ -2056,6 +2447,10 @@ static void draw(void)
         draw_narration(now);
         return;
     }
+    if (set.game == GAME_DOGTOR) {
+        draw_dogtor(now, pct);
+        return;
+    }
     if (eo_round_screen()) {
         draw_round(now, pct);
         return;
@@ -2281,8 +2676,19 @@ void app_frame(void)
     if (ui.state == ST_GAP && now >= gap_until) {   /* the pause is over: the next round */
         if (set.game == GAME_SIMON)
             simon_grow();
+        else if (set.game == GAME_DOGTOR)
+            dogtor_round();
         else
             copycat_round();
+    }
+    if (set.game == GAME_DOGTOR && ui.state != ST_INTRO && ui.state != ST_CONTROLS) {
+        static uint32_t last_breath;
+        uint32_t br = now / 600u;
+        dogtor_tick(now);
+        if (br != last_breath) {             /* the dog breathes: a pixel up, a pixel down */
+            last_breath = br;
+            ui.redraw = 1;
+        }
     }
     speak();
     if (pct != last_pct || (ui.msg_until && now >= ui.msg_until)) {
@@ -2373,6 +2779,7 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "unlock")) {  /* a test hook: every level completed, so every level is open */
         set.top[GAME_SIMON] = SIMON_LEVELS;
         set.top[GAME_COPYCAT] = COPYCAT_LEVELS;
+        set.top[GAME_DOGTOR] = DOGTOR_LEVELS;
         *got = COPYCAT_LEVELS;
     } else if (!strcmp(what, "round_root"))
         *got = eo_croot();
@@ -2404,6 +2811,16 @@ int app_expect(const char *what, int *got)
         *got = (int)ans_len;
     else if (!strncmp(what, "ans", 3))      /* ansN: the round's Nth note, as its key */
         *got = ans[atoi(what + 3) % SIMON_MAX_LEN];
+    else if (!strcmp(what, "dtkey"))
+        *got = dt_key_now;
+    else if (!strcmp(what, "dtq"))
+        *got = dt_q_now;
+    else if (!strcmp(what, "dtroot"))
+        *got = dt_root_now;
+    else if (!strcmp(what, "chord0"))
+        *got = eo_chord_note[0];
+    else if (!strcmp(what, "chord2"))
+        *got = eo_chord_note[2];
     else if (!strcmp(what, "bright"))
         *got = (int)bright;
     else if (!strcmp(what, "mid"))
