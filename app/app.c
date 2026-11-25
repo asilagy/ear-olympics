@@ -3004,13 +3004,7 @@ static void mv_montage(uint32_t tm)
     drop = age < 160u ? (int32_t)((160u - age) * (160u - age) / 400u) : 0;
     bob = ((tm / 155u) & 1u) ? 3 : 0;
     if (s == 0u) {
-        cat_sc = 4;
-        cat_mx = 0;
-        cat_my = 0;
-        cat_paint(64, 58 + bob - drop - mv_oy, POSE_SING, tm / 110u);
-        cat_sc = 3;
-        cat_mx = 8;
-        cat_my = 12;
+        cast_paint(EO_CAST_CAT, age >= 120u ? 1u : 0u, 24, 38 + bob - drop, 2, 1);
     } else if (s == 1u) {
         dog_paint_sc(((tm / 200u) & 1u) ? DOG_WIN : DOG_LISTEN, 72, 40 + bob - drop, 2, 1);
     } else {                             /* the rest: idle first, then its action (the NPC is slow with his thumb) */
@@ -3041,13 +3035,7 @@ static void mv_finale(uint32_t tm)
     for (i = 0; i < 12u; i++) {
         int32_t x = 6 + (int32_t)(i % 6u) * 38, y = 156 + (int32_t)(i / 6u) * 28 + ((((tm / 310u) + i) & 1u) ? 3 : 0);
         if (i == 0u) {
-            cat_sc = 1;
-            cat_mx = 0;
-            cat_my = 0;
-            cat_paint(x + 4, y - mv_oy, POSE_IDLE, 0u);
-            cat_sc = 3;
-            cat_mx = 8;
-            cat_my = 12;
+            cast_paint(EO_CAST_CAT, 1u, x, y, 3, 8);
         } else if (i == 1u) {
             dog_paint_sc(DOG_IDLE, x + 10, y - 2, 3, 8);
         } else {
@@ -3214,13 +3202,7 @@ static void sel_scene(uint32_t now)
         const char *lab = i == 0u ? "COPYCAT" : i == 1u ? "DOGTOR" : i == 2u ? "SIMON" : "SOON";
         mrect(x, y, 72, 60, bg);
         if (i == 0u) {
-            cat_sc = 2;
-            cat_mx = 0;
-            cat_my = 0;
-            cat_paint(x + 8, y + 3 + (sel ? bob : 0) - mv_oy, sel ? POSE_SING : POSE_IDLE, sel ? now / 160u : 0u);
-            cat_sc = 3;
-            cat_mx = 8;
-            cat_my = 12;
+            cast_paint(EO_CAST_CAT, sel ? 1u : 0u, x + 4, y + 2 + (sel ? bob : 0), 2, 3);
         } else if (i == 1u) {
             dog_paint_sc(sel ? DOG_WIN : DOG_IDLE, x + 18, y + 1 + (sel ? bob : 0), 3, 4);
         } else if (i == 2u) {                /* Simon is the goldfish */
