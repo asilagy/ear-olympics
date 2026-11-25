@@ -81,6 +81,7 @@ static float voice_phase, voice_level, eo_drone_phase, eo_drone_level, gain_now;
 #define CHORD_GAIN 0.15f                 /* each chord note's level */
 #define BEEP_GAIN 0.09f                  /* the heart monitor */
 static volatile int32_t eo_chord_note[CHORD_VOICES] = {-1, -1, -1, -1};   /* Chord Dogtor's chord: MIDI notes, -1 = off */
+static volatile uint8_t eo_soft_env;     /* 1: the melody voice fades in and out slowly (Chord Dogtor's ostinato) */
 static volatile uint32_t eo_beep_trig;   /* the main loop counts this up for each heart-monitor beep */
 static float eo_cph[CHORD_VOICES], eo_clev[CHORD_VOICES];
 
@@ -137,8 +138,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     uint32_t vc = voice_fx < VOICES_ALL ? voice_fx : eo_voice < VOICES ? eo_voice : 0u;
     float target = note >= 0 ? VOICE_GAIN * voice_vel * eo_voice_gain[vc] : 0.0f;
     float dtarget = dnote >= 0 ? DRONE_GAIN * eo_drone_vol : 0.0f;
-    float inc = note >= 0 ? eo_note_inc(note) : 0.0f;
+    static float last_inc;               /* a released note keeps its pitch while it fades: a frozen phase would leave a thump */
+    float inc = note >= 0 ? eo_note_inc(note) : last_inc;
+    float vk = eo_soft_env ? 0.0006f : 0.002f;
     float dinc = dnote >= 0 ? eo_note_inc(dnote) : 0.0f;
+    if (note >= 0)
+        last_inc = inc;
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen;
@@ -198,7 +203,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     }
     for (i = 0; i < n; i++) {
         float s, v = 0.0f;
-        voice_level += (target - voice_level) * 0.002f;      /* ~10 ms attack and release */
+        voice_level += (target - voice_level) * vk;          /* ~10 ms attack and release (the ostinato: ~30 ms) */
         eo_drone_level += (dtarget - eo_drone_level) * 0.002f;
         gain_now += (gain - gain_now) * 0.004f;              /* ~5 ms: turning MASTER does not click */
         voice_phase += (vc == V_MEOW || vc == V_CATFX || vc == V_CATSAD || vc == V_HOWL) ? inc_m : inc;
@@ -1182,7 +1187,8 @@ static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not soundi
     uint32_t t = now - dt_vamp_t0, slot = t / 300u;
     if (want && (t % 300u) < 160u) {
         voice_fx = V_TRI;
-        voice_vel = 0.35f;
+        voice_vel = 0.2f;
+        eo_soft_env = 1;
         voice_note = KEY_NOTE0 + (int32_t)ROOT_MIN + OFS[slot & 3u];
         dt_vamp_on = 1;
     } else if (dt_vamp_on) {             /* between plucks, or when the chord, a sound or the answer takes over */
@@ -1192,6 +1198,8 @@ static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not soundi
             voice_fx = 0xFFu;
         }
     }
+    if (!want && !dt_vamp_on)
+        eo_soft_env = 0;                 /* the fade is over: the other sounds are quick again */
     if (!want)
         dt_vamp_t0 = now;                /* each time it comes back, it starts from the root */
 }
