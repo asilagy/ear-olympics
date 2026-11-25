@@ -21,6 +21,7 @@
 #include "eo_dogtor.h"
 #include "eo_intro.h"
 #include "eo_cast.h"
+#include "eo_title.h"
 
 enum { GAME_SIMON, GAME_COPYCAT, GAME_DOGTOR, GAMES };
 static const char *const eo_game_name[GAMES] = {"SIMON", "COPYCAT", "CHORD DOGTOR"};
@@ -2784,21 +2785,6 @@ static uint16_t mv_scale(uint16_t c, uint32_t n)         /* a colour at n/8 of i
     return (uint16_t)(((r * n / 8u) << 11) | ((g * n / 8u) << 5) | (b * n / 8u));
 }
 
-static uint16_t mv_hue(uint32_t h)                       /* the rainbow, 192 steps round */
-{
-    uint32_t s = (h % 192u) / 32u, f = (h % 32u) * 8u;
-    int32_t r, g, b;
-    switch (s) {
-    case 0: r = 255; g = (int32_t)f; b = 0; break;
-    case 1: r = 255 - (int32_t)f; g = 255; b = 0; break;
-    case 2: r = 0; g = 255; b = (int32_t)f; break;
-    case 3: r = 0; g = 255 - (int32_t)f; b = 255; break;
-    case 4: r = (int32_t)f; g = 0; b = 255; break;
-    default: r = 255; g = 0; b = 255 - (int32_t)f; break;
-    }
-    return EO_RGB(r, g, b);
-}
-
 static void mdisc(int32_t cx, int32_t cy, int32_t r, uint16_t c)
 {
     int32_t dy;
@@ -2809,142 +2795,6 @@ static void mdisc(int32_t cx, int32_t cy, int32_t r, uint16_t c)
         dx = (int32_t)fm_sqrtf((float)(r * r - dy * dy));
         cv_rect(cx - dx, y, 2 * dx + 1, 1, c);
     }
-}
-
-static void mring(int32_t cx, int32_t cy, int32_t r, int32_t th, uint16_t c)
-{
-    int32_t dy, ri = r - th;
-    for (dy = -r; dy <= r; dy++) {
-        int32_t y = cy + dy - mv_oy, dx, di;
-        if (y < 0 || y >= mv_h)
-            continue;
-        dx = (int32_t)fm_sqrtf((float)(r * r - dy * dy));
-        if (dy <= -ri || dy >= ri) {
-            cv_rect(cx - dx, y, 2 * dx + 1, 1, c);
-        } else {
-            di = (int32_t)fm_sqrtf((float)(ri * ri - dy * dy));
-            cv_rect(cx - dx, y, dx - di, 1, c);
-            cv_rect(cx + di, y, dx - di, 1, c);
-        }
-    }
-}
-
-static void mv_burst(int32_t cx, int32_t cy, int32_t age, uint32_t hue)   /* a firework: 14 sparks fly out and fall */
-{
-    static const int8_t DX[14] = {100, 90, 62, 22, -22, -62, -90, -100, -90, -62, -22, 22, 62, 90};
-    static const int8_t DY[14] = {0, 43, 78, 97, 97, 78, 43, 0, -43, -78, -97, -97, -78, -43};
-    int32_t k, e, dist, fall, fade, sz;
-    if (age < 0 || age > 1100)
-        return;
-    e = age * (2200 - age) / 1100;       /* eases out */
-    dist = e * 52 / 1100;
-    fall = age * age / 20000;
-    fade = 8 - age * 6 / 1100;
-    sz = age < 500 ? 4 : age < 800 ? 3 : 2;
-    if (age < 140)
-        mdisc(cx, cy, 8 - age / 20, C_WHITE);                /* the flash of the shell going off */
-    for (k = 0; k < 14; k++) {
-        uint16_t col = mv_scale(mv_hue(hue + (uint32_t)k * 9u), (uint32_t)fade);
-        mrect(cx + DX[k] * dist / 100 - sz / 2, cy + DY[k] * dist / 100 + fall - sz / 2, sz, sz, col);
-        mrect(cx + DX[k] * dist * 7 / 1000, cy + DY[k] * dist * 7 / 1000 + fall * 7 / 10, sz - 1, sz - 1, mv_scale(col, 5u));   /* a trail */
-    }
-}
-
-static void mv_note(int32_t x, int32_t y, uint16_t c)    /* a music note, 10 x 12 */
-{
-    mrect(x + 4, y, 2, 10, c);
-    mrect(x + 4, y, 6, 2, c);
-    mrect(x + 8, y + 2, 2, 3, c);
-    mrect(x, y + 8, 6, 4, c);
-}
-
-static void mv_inst(uint32_t kind, int32_t x, int32_t y)   /* three little instruments: a drum, a horn, a guitar */
-{
-    const uint16_t GOLD = EO_RGB(250, 200, 60), WOOD = EO_RGB(140, 80, 40);
-    if (kind == 0u) {
-        mrect(x, y + 4, 24, 14, EO_RGB(210, 60, 60));
-        mrect(x, y + 4, 24, 3, C_WHITE);
-        mrect(x, y + 15, 24, 3, C_WHITE);
-        mrect(x + 6, y + 7, 2, 8, C_WHITE);
-        mrect(x + 16, y + 7, 2, 8, C_WHITE);
-        mrect(x + 18, y - 6, 3, 14, EO_RGB(235, 205, 150));
-    } else if (kind == 1u) {
-        mrect(x, y + 6, 18, 4, GOLD);
-        mrect(x + 14, y + 2, 4, 12, GOLD);
-        mrect(x + 18, y, 5, 16, GOLD);
-        mrect(x + 3, y + 10, 8, 3, GOLD);
-        mrect(x + 3, y + 3, 8, 3, GOLD);
-    } else {
-        mdisc(x + 10, y + 20, 9, EO_RGB(205, 125, 50));
-        mdisc(x + 10, y + 20, 3, EO_RGB(40, 20, 10));
-        mrect(x + 9, y - 8, 3, 20, WOOD);
-        mrect(x + 6, y - 12, 9, 5, WOOD);
-    }
-}
-
-static void mv_word(int32_t y, const char *w, uint32_t clk, uint32_t sh)   /* big letters, each its own colour */
-{
-    char b[2];
-    int32_t x = (240 - text_w(&FONT_L, w)) / 2, i;
-    b[1] = 0;
-    for (i = 0; w[i]; i++) {
-        b[0] = w[i];
-        mtext(x + 2, y + 2, &FONT_L, b, EO_RGB(40, 16, 70));
-        mtext(x, y, &FONT_L, b, mv_hue(clk / 12u + (uint32_t)i * 22u + sh));
-        x += text_w(&FONT_L, b);
-    }
-}
-
-static void mv_rings(int32_t y)                          /* five rings: the games' headphone cups */
-{
-    mring(94, y, 11, 3, EO_RGB(0, 130, 215));
-    mring(120, y, 11, 3, C_WHITE);
-    mring(146, y, 11, 3, EO_RGB(230, 50, 60));
-    mring(107, y + 11, 11, 3, EO_RGB(250, 190, 40));
-    mring(133, y + 11, 11, 3, EO_RGB(30, 170, 80));
-}
-
-static void mv_logo(int32_t dy, uint32_t clk)
-{
-    mv_word(30 + dy, "EAR", clk, 0u);
-    mv_word(68 + dy, "OLYMPICS", clk, 40u);
-}
-
-static void mv_rise(uint32_t tt, uint32_t n)             /* rainbow notes drifting up the screen */
-{
-    uint32_t i;
-    for (i = 0; i < n; i++) {
-        int32_t ti = (int32_t)i * 170, y;
-        if ((int32_t)tt < ti)
-            continue;
-        y = 240 - ((int32_t)tt - ti) * 110 / 1000;
-        y = y % 270 + (y < 0 ? 270 : 0) - 30;
-        mv_note(14 + (int32_t)i * 29 + (int32_t)(8.0f * fm_sinf((float)(tt + i * 90u) / 180.0f)), y, mv_hue(i * 24u + tt / 10u));
-    }
-}
-
-static void mv_presents(uint32_t t)
-{
-    uint32_t a = t < 500u ? t * 255u / 500u : t < 1000u ? 255u : t < MV_TITLE_MS ? (MV_TITLE_MS - t) * 255u / 200u : 0u;
-    uint16_t c = EO_RGB(a, a, a);
-    mctext(98, &FONT_B, "ASILAGY", c);
-    mctext(124, &FONT_S, "PRESENTS", mv_scale(c, 5u));
-}
-
-static void mv_title(uint32_t tt)                        /* the title, with fireworks, notes and instruments */
-{
-    static const int16_t B[6][3] = {{100, 50, 60}, {500, 190, 50}, {900, 120, 28}, {1300, 40, 150}, {1550, 200, 140}, {1750, 120, 74}};
-    uint32_t i;
-    int32_t dy = tt < 300u ? -(int32_t)(120u * (300u - tt) * (300u - tt) / (300u * 300u)) : 0;
-    for (i = 0; i < 6u; i++)
-        mv_burst(B[i][1], B[i][2], (int32_t)tt - B[i][0], i * 37u + tt / 40u);
-    mv_inst(0, -40 + (int32_t)tt * 150 / 1000, 196 + (int32_t)(6.0f * fm_sinf((float)tt / 90.0f)));
-    mv_inst(1, 250 - (int32_t)tt * 130 / 1000, 36);
-    mv_inst(2, -30 + (int32_t)tt * 115 / 1000, 138);
-    mv_rise(tt, 8u);
-    mv_logo(dy, tt);
-    if (tt > 700u)
-        mv_rings(128);
 }
 
 /* a picture drawn from a pixel reader: the colour (RGB565) at x, y, or -1 for clear; scaled by num/den (nearest) */
@@ -3022,37 +2872,46 @@ static void mv_montage(uint32_t tm)
         mrect(0, 0, 240, 240, C_WHITE);
 }
 
-static void mv_finale(uint32_t tm)
+static void art_paint(const uint8_t *rle, const uint16_t *row, const uint16_t *pal, int32_t ox, int32_t oy, uint32_t fade)
 {
-    uint32_t tf = tm - MV_FINALE, i;
-    for (i = 0; i < 3u; i++) {
-        uint32_t u = tf + i * 600u, n = u / 1800u;
-        mv_burst(30 + (int32_t)((n * 67u + i * 83u) % 180u), 24 + (int32_t)((n * 41u + i * 57u) % 80u), (int32_t)(u % 1800u), n * 31u + i * 60u);
-    }
-    mv_rise(tm, 8u);
-    mv_logo(0, tm);
-    mv_rings(128);
-    for (i = 0; i < 12u; i++) {
-        int32_t x = 6 + (int32_t)(i % 6u) * 38, y = 156 + (int32_t)(i / 6u) * 28 + ((((tm / 310u) + i) & 1u) ? 3 : 0);
-        if (i == 0u) {
-            cast_paint(EO_CAST_CAT, 1u, x, y, 3, 8);
-        } else if (i == 1u) {
-            dog_paint_sc(DOG_IDLE, x + 10, y - 2, 3, 8);
-        } else {
-            cast_paint(i - 2u, 1u, x, y, 3, 8);
+    int32_t y;
+    for (y = 0; y < 240; y++) {          /* a 240 x 240 picture in colour runs; black (0) is the background already */
+        int32_t py = oy + y - mv_oy, x = 0;
+        const uint8_t *p = rle + row[y], *e = rle + row[y + 1];
+        if (py < 0 || py >= mv_h)
+            continue;
+        while (p < e) {
+            if (p[0]) {
+                uint16_t c = pal[p[0]];
+                cv_rect(ox + x, py, p[1], 1, fade < 8u ? mv_scale(c, fade) : c);
+            }
+            x += p[1];
+            p += 2;
         }
     }
-    if (tf > 600u && ((tm / 400u) & 1u))
-        mctext(214, &FONT_B, "PRESS PLAY", C_HI);
+}
+
+static void mv_finale(uint32_t tm)                       /* the title again, waiting for a key */
+{
+    uint32_t tf = tm - MV_FINALE;
+    art_paint(EO_TITLE_RLE, EO_TITLE_ROW, EO_TITLE_PAL, 0, 0, 8u);
+    if (tf > 400u && ((tm / 400u) & 1u))
+        mctext(212, &FONT_B, "PRESS PLAY", C_WHITE);
 }
 
 static void mv_scene(uint32_t now)
 {
     uint32_t t = now - mv_t0;
-    if (t < MV_TITLE_MS) {
-        mv_presents(t);
-    } else if (t < MV_MUSIC_MS) {
-        mv_title(t - MV_TITLE_MS);
+    if (t < MV_TITLE_MS) {               /* ASilagy presents: fades up and down */
+        uint32_t a = t < 500u ? t * 8u / 500u : t < 1000u ? 8u : (MV_TITLE_MS - t) * 8u / 200u;
+        art_paint(EO_PRES_RLE, EO_PRES_ROW, EO_PRES_PAL, 0, 0, a);
+    } else if (t < MV_MUSIC_MS) {        /* the title: a flash, a little shake, then still */
+        uint32_t tt = t - MV_TITLE_MS;
+        int32_t sh = tt < 300u ? (int32_t)(((tt / 40u) & 1u) ? 3 : -3) * (int32_t)(300u - tt) / 300 : 0;
+        if (tt < 60u)
+            mrect(0, 0, 240, 240, C_WHITE);
+        else
+            art_paint(EO_TITLE_RLE, EO_TITLE_ROW, EO_TITLE_PAL, sh, -sh / 2, 8u);
     } else {
         uint32_t tm = now - mv_m0;
         if (tm < MV_FINALE)
@@ -3084,40 +2943,10 @@ static void mv_sfx(uint32_t i, uint32_t at, uint32_t len, uint32_t key, uint8_t 
     seq_hl[i] = 0;
 }
 
-static void movie_tick(uint32_t now)                     /* the sound effects and the music, on the movie's clock */
+static void movie_tick(uint32_t now)                     /* the music starts with the montage; the title screens are silent */
 {
-    uint32_t t = now - mv_t0, i;
-    if (mv_stage == 0u && t >= 250u) {                   /* a small ping with ASilagy presents */
+    if (mv_stage == 0u && now >= mv_m0) {
         mv_stage = 1;
-        mv_sfx(0, 0, 300, 19, V_PING);
-        seq_n = 1;
-        seq_end = 700;
-        eo_seq_start(0, 0);
-    } else if (mv_stage == 1u && t >= MV_TITLE_MS) {     /* the title: a whoosh up, a boom, sparkles */
-        static const uint8_t UP[11] = {0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17};
-        static const uint16_t SP[4] = {760, 1010, 1260, 1500};
-        static const uint8_t SK[4] = {26, 24, 21, 26};
-        mv_stage = 2;
-        for (i = 0; i < 11u; i++)
-            mv_sfx(i, i * 42u, 52, UP[i], V_TRI);
-        mv_sfx(11, 500, 420, 5, V_SQUARE);
-        for (i = 0; i < 4u; i++)
-            mv_sfx(12u + i, SP[i], 200, SK[i], V_PING);
-        seq_n = 16;
-        seq_end = 1900;
-        eo_seq_start(0, 0);
-    } else if (mv_stage == 2u && t >= MV_TITLE_MS + 500u) {   /* the boom has a chord under it */
-        mv_stage = 3;
-        eo_chord_note[0] = 60;
-        eo_chord_note[1] = 64;
-        eo_chord_note[2] = 67;
-        eo_chord_note[3] = 72;
-    } else if (mv_stage == 3u && t >= MV_TITLE_MS + 1300u) {
-        mv_stage = 4;
-        for (i = 0; i < CHORD_VOICES; i++)
-            eo_chord_note[i] = -1;
-    } else if (mv_stage == 4u && now >= mv_m0) {         /* the music */
-        mv_stage = 5;
         eo_smp_trig++;
     }
 }

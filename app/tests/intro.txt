@@ -2,14 +2,20 @@
 # game select; PLAY there starts the highlighted game (Copycat introduces itself first, once); HOME from a game's ready
 # screen goes back to the select. States: 0 ready, 7 cat intro, 8 controls (three screens), 9 movie, 10 select.
 master 4096
+peakreset
 wait 600
 expect state 9
 expect smp 0
 shot movie_presents.png
-wait 1500
+wait 800
+shot movie_title_flash.png
+wait 700
 shot movie_title.png
+wait 1000
+# the presents and title screens are silent: no sound before the music
+expect peak_db_max -100
 expect smp 0
-wait 1200
+wait 200
 expect smp 1
 peakreset
 wait 600
