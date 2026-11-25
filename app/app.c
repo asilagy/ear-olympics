@@ -1055,7 +1055,7 @@ static void dogtor_hear(uint32_t card)   /* the hum, then the chord over it (a t
 {
     uint32_t now = plat_ms();
     dogtor_chord(0);
-    eo_drone_set(KEY_NOTE0 + (int32_t)dt_root_now - 12, 0.28f);   /* the machine hum: the root, an octave down, very low */
+    eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.28f);   /* the machine hum: one fixed low C, very low (it is not the chord's root: this game is about the chord, not a key) */
     dt_chord_at = now + (card ? 1700u : 900u);
     dt_chord_until = dt_chord_at + 1800u;
     ui.state = ST_LISTEN;
@@ -1169,13 +1169,13 @@ static void dogtor_win_sound(void)       /* a soft bell, then a happy howl: ding
     seq_vo_stage[1] = V_HOWL;
     seq_n = 2;
     seq_end = 1600;
-    eo_drone_set(KEY_NOTE0 + (int32_t)dt_root_now - 12, 0.28f);
+    eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.28f);
     eo_seq_start(0, 0);
 }
 
 static uint8_t dt_vamp_on;               /* the ostinato's note is sounding now */
 static uint32_t dt_vamp_t0;
-static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not sounding: root, fifth, octave, fifth, plucked, in a loop */
+static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not sounding: C, G, C, G, plucked, in a loop; fixed, whatever the chord */
 {
     static const uint8_t OFS[4] = {0, 7, 12, 7};      /* no third, no seventh: it cannot hint at the chord's quality */
     int want = (ui.state == ST_TURN || ui.state == ST_GAP) && !seq_on && !dt_chord_until && !dt_chord_at;
@@ -1183,7 +1183,7 @@ static void dogtor_vamp_tick(uint32_t now)   /* whenever the chord is not soundi
     if (want && (t % 300u) < 160u) {
         voice_fx = V_TRI;
         voice_vel = 0.35f;
-        voice_note = KEY_NOTE0 + (int32_t)dt_root_now + OFS[slot & 3u];
+        voice_note = KEY_NOTE0 + (int32_t)ROOT_MIN + OFS[slot & 3u];
         dt_vamp_on = 1;
     } else if (dt_vamp_on) {             /* between plucks, or when the chord, a sound or the answer takes over */
         dt_vamp_on = 0;

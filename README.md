@@ -187,9 +187,8 @@ felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). Its structur
 
 ## Chord Dogtor (0.8.1, new)
 
-A third game: name the chord. Dr. Diggie, a very serious dog in a white coat, plays a chord over a very quiet machine hum (the
-chord's root, an octave down) with a heart-monitor beep ticking. Whenever the chord is not sounding, a plucked root-fifth-octave
-ostinato loops (no third or seventh, so it cannot hint at the answer). You press the lit key for the chord's quality: A (F4),
+A third game: name the chord. Dr. Diggie, a very serious dog in a white coat, plays a chord over a very quiet machine hum (one fixed low note, not the chord's root: the game is about how a chord is built, not a key) with a heart-monitor beep ticking. Whenever the chord is not sounding, a plucked C-G-C-G
+ostinato loops (fixed; no third or seventh, so it cannot hint at the answer). You press the lit key for the chord's quality: A (F4),
 B (G4), C (A4), D (B4). Six levels: major or minor; plus diminished; plus augmented; the same with a new root every round;
 sevenths; suspended chords. Eight right graduates a level; a miss costs a quarter of the way. The beep is atmosphere, not a
 timer. His words come as full-screen silent-film title cards. A right answer gets a soft bell and a happy howl; a wrong one,
