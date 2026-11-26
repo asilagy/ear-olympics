@@ -11,8 +11,10 @@ tap PLAY
 wait 100
 expect state 11
 expect simcard 0
+# the choosing chime plays first; the theme starts after it
+wait 600
 expect simmusic 1
-wait 500
+wait 0
 shot simone_1_typing.png
 wait 1500
 shot simone_1_later.png

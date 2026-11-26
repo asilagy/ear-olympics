@@ -6,7 +6,7 @@ wait 600
 tap HOME
 wait 50
 tap PLAY
-wait 50
+wait 550
 tap HOME
 wait 50
 shot boot.png

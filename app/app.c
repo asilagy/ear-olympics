@@ -94,6 +94,10 @@ static volatile uint8_t eo_smp_run;
 static float eo_ulaw[256];               /* mu-law bytes to floats, once */
 #define SMP_GAIN 1.1f
 static volatile uint32_t eo_rec_stop, eo_rec_go, eo_rec_up;   /* Simone's intro: the music slows to a stop like a record (stop), or is whole again (go) */
+static volatile uint32_t eo_bass_trig;  /* the select's bass: a plucked synth note (MIDI note, and how hard), one per trigger */
+static volatile int32_t eo_bass_note;
+static volatile float eo_bass_vel = 1.0f;
+#define BASS_GAIN 0.28f
 static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
 static volatile int32_t eo_blub_note;
 static volatile float eo_bend_v = 1.0f;  /* the record's speed now (for the tests) */
@@ -177,8 +181,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         last_inc = inc;
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
-    static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen;
-    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc;
+    static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
+    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v;
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
     static uint8_t smp_run, smp_stop;
@@ -215,6 +219,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (stop_seen != eo_rec_stop) {      /* the record is slowing down */
         stop_seen = eo_rec_stop;
         stopping = 1;
+    }
+    if (bass_seen != eo_bass_trig) {     /* a bass note: restart its pluck (a new note starts from silence, so no click) */
+        bass_seen = eo_bass_trig;
+        bass_age = 0.0f;
+        bass_inc = eo_note_inc(eo_bass_note);
+        bass_v = eo_bass_vel;
     }
     if (blub_seen != eo_blub_trig) {
         blub_seen = eo_blub_trig;
@@ -372,7 +382,20 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                         eo_rv_i[j] = 0;
                     wet += y;
                 }
-                float bl = 0.0f;
+                float bl = 0.0f, bs = 0.0f;
+                if (bass_age < 0.30f) {          /* a plucked bass: a saw whose brightness closes as it decays, over a sub sine; 4 ms in, then a fall */
+                    float env = (bass_age < 0.004f ? bass_age * 250.0f : 1.0f) * (1.0f - bass_age * (1.0f / 0.30f)) * (1.0f - bass_age * (1.0f / 0.30f));
+                    float sw = eo_lookup(eo_wt_saw, bass_ph);
+                    bass_ph += bass_inc;
+                    if (bass_ph >= 1.0f)
+                        bass_ph -= 1.0f;
+                    {
+                        float k = 0.30f - 1.6f * bass_age;                         /* the filter closes as the note decays */
+                        bass_lp += (k < 0.03f ? 0.03f : k) * (sw - bass_lp);
+                    }
+                    bs = (bass_lp * 0.9f + fm_sinf(6.2831853f * bass_ph) * 0.55f) * env * bass_v * BASS_GAIN;
+                    bass_age += 1.0f / 44100.0f;
+                }
                 if (blub_age < 0.07f) {          /* a bubble: a quick sine chirping up */
                     blub_ph += blub_inc * (1.0f + 0.9f * blub_age * (1.0f / 0.07f));
                     if (blub_ph >= 1.0f)
@@ -380,7 +403,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     bl = fm_sinf(6.2831853f * blub_ph) * fm_sinf(3.1415927f * blub_age * (1.0f / 0.07f)) * BLUB_GAIN;
                     blub_age += 1.0f / 44100.0f;
                 }
-                v = vo * bend + cs * bend + bv + bl + wet * 0.45f;
+                v = vo * bend + cs * bend + bv + bl + bs + wet * 0.45f;
             }
         }
         if (smp_run) {                   /* 8 kHz to 44.1 kHz: a straight line between two neighbours */
@@ -3300,7 +3323,7 @@ static void sim_tick(uint32_t now)                       /* the typing's blubs, 
         }
         sim_typed_last = (uint16_t)n;
     }
-    if (c->ev && !sim_ev_done && n >= (uint32_t)c->ev_at) {
+    if (c->ev && !sim_ev_done && n >= (uint32_t)c->ev_at && (sim_card > 0u || now - sim_t0 > 480u)) {   /* (card 1 lets the choosing chime finish first) */
         sim_ev_done = 1;
         if (c->ev > 0) {
             sim_theme_start(sim_card > 0u);              /* card 1 starts at full speed; card 6 spins up from low */
@@ -3409,7 +3432,13 @@ static void sel_go(void)
         eo_seq_start(0, 0);
         return;
     }
-    eo_drone_set(-1, 0.0f);                              /* the select's bass stops; the game sets its own sound */
+    eo_drone_set(-1, 0.0f);
+    seq_on = 0;                                          /* the choosing chime: a rising fifth, G3 then D4, in the soft triangle voice */
+    mv_sfx(0, 0, 130, 2, V_TRI);
+    mv_sfx(1, 120, 330, 9, V_TRI);
+    seq_n = 2;
+    seq_end = 470;
+    eo_seq_start(0, 0);
     if (g != (int32_t)set.game) {
         set.game = (uint8_t)g;
         set_dirty = 1;
@@ -3677,9 +3706,15 @@ void app_frame(void)
         static uint32_t last_mv;
         if (ui.state == ST_MOVIE) {
             movie_tick(now);
-        } else if (ui.state == ST_SELECT) {              /* the select's pulse: a G2 bass, an eighth note at 94 bpm, on the drone voice (its own soft envelope: no pops) */
-            uint32_t bt = now * SEL_BPM8 / 60000u, ph = now - bt * 60000u / SEL_BPM8;
-            eo_drone_set(43, ph < 150u ? 1.7f : 0.0f);
+        } else if (ui.state == ST_SELECT) {              /* the select's pulse: a plucked G2 bass on each eighth note at 94 bpm */
+            static uint32_t last_bt = 0xFFFFFFFFu;
+            uint32_t bt = now * SEL_BPM8 / 60000u;
+            if (bt != last_bt) {
+                last_bt = bt;
+                eo_bass_note = 43;
+                eo_bass_vel = (bt & 1u) ? 0.75f : 1.0f;      /* the downbeat a little harder */
+                eo_bass_trig++;
+            }
         }
         if (now / 33u != last_mv) {
             last_mv = now / 33u;
@@ -3896,6 +3931,8 @@ int app_expect(const char *what, int *got)
         *got = ui.state;
     else if (!strcmp(what, "smp"))
         *got = eo_smp_run;
+    else if (!strcmp(what, "bass"))
+        *got = eo_bass_note;
     else if (!strcmp(what, "simcard"))
         *got = sim_card;
     else if (!strcmp(what, "simtyped"))

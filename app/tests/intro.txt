@@ -48,8 +48,8 @@ expect sel 0
 shot select.png
 wait 100
 expect smp 0
-# the select's pulse is a G2 bass on the drone voice (MIDI 43), not the melody sequencer
-expect drone 43
+# the select's pulse is a plucked G2 bass (MIDI 43) on its own channel, not the melody sequencer
+expect bass 43
 # the cursor: PRESETS move it; the empty tiles do not start anything
 turn PRESET 1
 wait 30
