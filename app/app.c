@@ -2939,7 +2939,6 @@ static void mv_roster(uint32_t tm)                       /* the build-up to the 
         else
             cast_paint(i - 2u, pose, x + 1, y + 7 + bob, 9, 16);
     }
-    mrect(0, 222, (int32_t)(tr * 240u / (MV_FINALE - MV_ROSTER)), 4, C_WHITE);   /* the charge before the stab */
 }
 
 static void mv_finale(uint32_t tm)                       /* the title lands on the last stab, then waits for a key */
@@ -3277,6 +3276,11 @@ static void draw(void)
         cc_facts();
     vol_overlay(36, now, pct);
     cv_blit(0, 180);
+}
+
+void app_splash(void)                    /* the very first frame: black, not fm1-base's white title card */
+{
+    lcd_fill(0, 0, 240, 240, 0);
 }
 
 void app_ui_init(void)
