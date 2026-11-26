@@ -24,7 +24,7 @@
 #include "eo_title.h"
 
 enum { GAME_SIMON, GAME_COPYCAT, GAME_DOGTOR, GAMES };
-static const char *const eo_game_name[GAMES] = {"SIMON", "COPYCAT", "CHORD DOGTOR"};
+static const char *const eo_game_name[GAMES] = {"SIMONE SAYS", "COPYCAT", "CHORD DOGTOR"};
 static const uint8_t eo_levels[GAMES] = {SIMON_LEVELS, COPYCAT_LEVELS, DOGTOR_LEVELS};
 
 #define SET_MAGIC 0x374C4F45u            /* "EOL7": the settings record; another magic loads defaults */
@@ -2795,7 +2795,7 @@ typedef struct { const char *game, *cap, *quip; uint8_t r, g, b; } eo_char_t;
 static const eo_char_t eo_chars[12] = {      /* in the order of the montage */
     {"COPYCAT", "THE CRITIC", "He will grade your ears.", 246, 152, 56},
     {"CHORD DOGTOR", "THE CLERIC", "Please be okay. Please.", 70, 130, 140},
-    {"SIMON", "THE CLAIRVOYANT", "Saw this coming. Forgot why.", 255, 180, 50},
+    {"SIMONE SAYS", "THE CLAIRVOYANT", "Saw this coming. Forgot why.", 255, 180, 50},
     {"PITCH PLEASE", "THE LISTENER", "...", 150, 150, 165},
     {"NAME THAT INTERVAL", "THE SURVEYOR", "Here for the snacks.", 110, 200, 90},
     {"CHORD DETECTIVE", "THE INQUISITOR", "Big Major is watching.", 120, 110, 120},
@@ -2813,6 +2813,17 @@ static const int8_t sel_game[6] = {GAME_COPYCAT, GAME_DOGTOR, GAME_SIMON, -1, -1
 static void mrect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c) { cv_rect(x, y - mv_oy, w, h, c); }
 static void mtext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { cv_text(x, y - mv_oy, f, s, c); }
 static void mctext(int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { mtext((240 - text_w(f, s)) / 2, y, f, s, c); }
+
+static void mgame(int32_t y, const felucca_font_t *f, const char *s, uint16_t c)   /* a game's name, centred; the font has no e-acute, so SIMONE gets a drawn accent */
+{
+    int32_t x = (240 - text_w(f, s)) / 2;
+    mtext(x, y, f, s, c);
+    if (!strncmp(s, "SIMONE", 6)) {
+        int32_t ex = x + text_w(f, "SIMON"), ew = text_w(f, "E");
+        mrect(ex + ew / 2, y - 1, 3, 2, c);
+        mrect(ex + ew / 2 - 2, y + 1, 3, 2, c);
+    }
+}
 
 static uint16_t mv_scale(uint16_t c, uint32_t n)         /* a colour at n/8 of its brightness */
 {
@@ -2899,7 +2910,7 @@ static void mv_montage(uint32_t tm)
     {
         int32_t cy = 192 + (age < 130u ? (int32_t)(130u - age) / 4 : 0);
         mrect(0, 8, 240, 24, C_BLACK);
-        mctext(12, &FONT_S, c->game, a);
+        mgame(12, &FONT_S, c->game, a);
         mrect(0, cy - 6, 240, 38, C_BLACK);
         mctext(cy, &FONT_B, c->cap, C_WHITE);
     }
@@ -3110,7 +3121,7 @@ static void sel_go(void)
 static const char *const sel_desc[6][2] = {
     {"Meow sings a melody. You play it back.", "Be careful, he's judgmental!"},
     {"Help Dr. Diggie Diagnose the Chord", "Major, minor, or something worse?"},
-    {"A place-holder for now.", "More games are on the way."},
+    {"Simone says. You play it back.", "He's a goldfish. He forgot already."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
@@ -3142,7 +3153,7 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
     else
         mctext(70 + bob, &FONT_L, "?", C_WHITE);
     mrect(0, 0, 240, 28, C_BLACK);                       /* the header: the game */
-    mctext(5, &FONT_B, cur >= 0 ? c->game : "COMING SOON", a);
+    mgame(5, &FONT_B, cur >= 0 ? c->game : "COMING SOON", a);
     if (set.pad & 1u)
         mtext(4, 8, &FONT_XS, "DEBUG", C_AMB);
     mrect(0, 176, 240, 64, C_BLACK);                     /* the footer: who, what, where */
