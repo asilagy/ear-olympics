@@ -93,7 +93,7 @@ static volatile uint32_t eo_smp_trig, eo_smp_halt;   /* the intro music: the mai
 static volatile uint8_t eo_smp_run;
 static float eo_ulaw[256];               /* mu-law bytes to floats, once */
 #define SMP_GAIN 1.1f
-static volatile uint32_t eo_rec_stop, eo_rec_go;   /* Simone's intro: the music slows to a stop like a record (stop), or is whole again (go) */
+static volatile uint32_t eo_rec_stop, eo_rec_go, eo_rec_up;   /* Simone's intro: the music slows to a stop like a record (stop), or is whole again (go) */
 static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
 static volatile int32_t eo_blub_note;
 static volatile float eo_bend_v = 1.0f;  /* the record's speed now (for the tests) */
@@ -177,9 +177,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         last_inc = inc;
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
-    static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, blub_seen;
+    static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen;
     static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc;
-    static uint8_t stopping;
+    static uint8_t stopping, rising;
     static float smp_pos, smp_g;
     static uint8_t smp_run, smp_stop;
     static float beep_age = 1.0f, beep_ph;
@@ -203,7 +203,14 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (go_seen != eo_rec_go) {          /* the record is whole again */
         go_seen = eo_rec_go;
         stopping = 0;
+        rising = 0;
         bend = 1.0f;
+    }
+    if (up_seen != eo_rec_up) {          /* the record spins up: very low, rising to full speed */
+        up_seen = eo_rec_up;
+        stopping = 0;
+        rising = 1;
+        bend = 0.04f;
     }
     if (stop_seen != eo_rec_stop) {      /* the record is slowing down */
         stop_seen = eo_rec_stop;
@@ -267,6 +274,13 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         voice_level += (target - voice_level) * vk;          /* ~10 ms attack and release (the ostinato: ~30 ms) */
         eo_drone_level += (dtarget - eo_drone_level) * 0.002f;
         gain_now += (gain - gain_now) * 0.004f;              /* ~5 ms: turning MASTER does not click */
+        if (rising) {                                        /* 1.1 s from a low growl up to the real pitch */
+            bend += 1.0f / (44100.0f * 1.1f);
+            if (bend >= 1.0f) {
+                bend = 1.0f;
+                rising = 0;
+            }
+        }
         if (stopping && bend > 0.0f) {                       /* 0.7 s from full speed to a stop */
             bend -= 1.0f / (44100.0f * 0.7f);
             if (bend < 0.0f)
@@ -3221,7 +3235,7 @@ static uint32_t sim_typed(const sim_card_t *c, uint32_t el)   /* how many letter
     return k;
 }
 
-static void sim_theme_start(void)                        /* the loop: a droning A, a hollow fifth, a bell playing the scale */
+static void sim_theme_start(uint32_t spin)                        /* the loop: a droning A, a hollow fifth, a bell playing the scale */
 {
     uint32_t i;
     static const uint8_t arp[24] = {0, 1, 4, 5, 7, 5, 4, 1,   7, 8, 11, 12, 11, 8, 7, 5,   4, 5, 7, 8, 7, 5, 4, 1};
@@ -3234,7 +3248,10 @@ static void sim_theme_start(void)                        /* the loop: a droning 
     eo_drone_set(45, 0.9f);
     eo_chord_note[0] = 57;
     eo_chord_note[1] = 64;
-    eo_rec_go++;
+    if (spin)
+        eo_rec_up++;
+    else
+        eo_rec_go++;
     sim_music = 1;
 }
 
@@ -3286,7 +3303,7 @@ static void sim_tick(uint32_t now)                       /* the typing's blubs, 
     if (c->ev && !sim_ev_done && n >= (uint32_t)c->ev_at) {
         sim_ev_done = 1;
         if (c->ev > 0) {
-            sim_theme_start();
+            sim_theme_start(sim_card > 0u);              /* card 1 starts at full speed; card 6 spins up from low */
         } else if (sim_music == 1) {
             sim_music = 2;                               /* the record slows to a stop */
             sim_stop_t = now;
@@ -3298,7 +3315,7 @@ static void sim_tick(uint32_t now)                       /* the typing's blubs, 
         sim_music = 3;
     }
     if (sim_music == 1 && !seq_on)
-        sim_theme_start();
+        sim_theme_start(0u);
 }
 
 static void sim_next(uint32_t now)
