@@ -1,0 +1,110 @@
+# Simone's introduction: a typed show before Simone Says (state 11): a key finishes the line, the next one goes on (so two
+# quick keys skip a card); the theme loops, slows to a stop like a record on card 4, and returns on card 6. HOME skips it.
+# A second visit is the short one: she starts the speech again and remembers.
+wait 600
+tap HOME
+wait 50
+expect state 10
+turn PRESET 2
+wait 30
+tap PLAY
+wait 100
+expect state 11
+expect simcard 0
+expect simmusic 1
+wait 500
+shot simone_1_typing.png
+wait 1500
+shot simone_1_later.png
+# two keys: finish the line, go on (cards 2 and 3)
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+expect simcard 1
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+expect simcard 2
+shot simone_3.png
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+expect simcard 3
+expect bend 100
+expect simmusic 1
+# card 4: the record slows after "It was right here."
+wait 1500
+expect simmusic 2
+shot simone_4_slowing.png
+wait 1200
+expect simmusic 3
+expect bend 100
+shot simone_4_silent.png
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+expect simcard 4
+expect simmusic 3
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+expect simcard 5
+expect simmusic 1
+shot simone_6.png
+wait 600
+# the long lines fit the screen (cards 7 to 10, each finished)
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+expect simcard 6
+shot simone_7.png
+tap PLAY
+wait 60
+expect simcard 7
+tap PLAY
+wait 60
+shot simone_8.png
+tap PLAY
+wait 60
+expect simcard 8
+tap PLAY
+wait 60
+shot simone_9.png
+tap PLAY
+wait 60
+expect simcard 9
+tap PLAY
+wait 60
+shot simone_10.png
+# HOME skips the rest: the ready screen, the music stopped
+tap HOME
+wait 100
+expect state 0
+expect game 0
+expect simmusic 0
+# a second visit: she starts again, and remembers
+tap HOME
+wait 100
+expect state 10
+tap PLAY
+wait 100
+expect state 11
+expect simcard 10
+wait 3000
+shot simone_again1.png
+tap PLAY
+wait 60
+expect simcard 11
+wait 3000
+wait 1500
+tap PLAY
+wait 100
+expect state 0

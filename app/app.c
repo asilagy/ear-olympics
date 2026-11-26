@@ -93,6 +93,11 @@ static volatile uint32_t eo_smp_trig, eo_smp_halt;   /* the intro music: the mai
 static volatile uint8_t eo_smp_run;
 static float eo_ulaw[256];               /* mu-law bytes to floats, once */
 #define SMP_GAIN 1.1f
+static volatile uint32_t eo_rec_stop, eo_rec_go;   /* Simone's intro: the music slows to a stop like a record (stop), or is whole again (go) */
+static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
+static volatile int32_t eo_blub_note;
+static volatile float eo_bend_v = 1.0f;  /* the record's speed now (for the tests) */
+#define BLUB_GAIN 0.10f
 static volatile uint32_t eo_beep_trig;   /* the main loop counts this up for each heart-monitor beep */
 static float eo_cph[CHORD_VOICES], eo_clev[CHORD_VOICES];
 
@@ -172,7 +177,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         last_inc = inc;
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
-    static uint32_t beep_seen, smp_seen, smp_hseen;
+    static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, blub_seen;
+    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc;
+    static uint8_t stopping;
     static float smp_pos, smp_g;
     static uint8_t smp_run, smp_stop;
     static float beep_age = 1.0f, beep_ph;
@@ -192,6 +199,21 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (smp_hseen != eo_smp_halt) {      /* and stops, fading out over a few ms */
         smp_hseen = eo_smp_halt;
         smp_stop = 1;
+    }
+    if (go_seen != eo_rec_go) {          /* the record is whole again */
+        go_seen = eo_rec_go;
+        stopping = 0;
+        bend = 1.0f;
+    }
+    if (stop_seen != eo_rec_stop) {      /* the record is slowing down */
+        stop_seen = eo_rec_stop;
+        stopping = 1;
+    }
+    if (blub_seen != eo_blub_trig) {
+        blub_seen = eo_blub_trig;
+        blub_age = 0.0f;
+        blub_ph = 0.0f;
+        blub_inc = eo_note_inc(eo_blub_note);
     }
     if (beep_seen != eo_beep_trig) {
         beep_seen = eo_beep_trig;
@@ -245,10 +267,15 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         voice_level += (target - voice_level) * vk;          /* ~10 ms attack and release (the ostinato: ~30 ms) */
         eo_drone_level += (dtarget - eo_drone_level) * 0.002f;
         gain_now += (gain - gain_now) * 0.004f;              /* ~5 ms: turning MASTER does not click */
-        voice_phase += (vc == V_MEOW || vc == V_CATFX || vc == V_CATSAD || vc == V_HOWL) ? inc_m : inc;
+        if (stopping && bend > 0.0f) {                       /* 0.7 s from full speed to a stop */
+            bend -= 1.0f / (44100.0f * 0.7f);
+            if (bend < 0.0f)
+                bend = 0.0f;
+        }
+        voice_phase += ((vc == V_MEOW || vc == V_CATFX || vc == V_CATSAD || vc == V_HOWL) ? inc_m : inc) * bend;
         if (voice_phase >= 1.0f)
             voice_phase -= 1.0f;
-        eo_drone_phase += dinc;
+        eo_drone_phase += dinc * bend;
         if (eo_drone_phase >= 1.0f)
             eo_drone_phase -= 1.0f;
         if (voice_level > 0.00002f) {
@@ -308,7 +335,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             float cs = 0.0f, bv = 0.0f;
             for (j = 0; j < CHORD_VOICES; j++) {
                 eo_clev[j] += (ctgt[j] - eo_clev[j]) * 0.0012f;
-                eo_cph[j] += cinc[j];
+                eo_cph[j] += cinc[j] * bend;
                 if (eo_cph[j] >= 1.0f)
                     eo_cph[j] -= 1.0f;
                 if (eo_clev[j] > 0.00002f)
@@ -331,7 +358,15 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                         eo_rv_i[j] = 0;
                     wet += y;
                 }
-                v = vo + cs + bv + wet * 0.45f;
+                float bl = 0.0f;
+                if (blub_age < 0.07f) {          /* a bubble: a quick sine chirping up */
+                    blub_ph += blub_inc * (1.0f + 0.9f * blub_age * (1.0f / 0.07f));
+                    if (blub_ph >= 1.0f)
+                        blub_ph -= 1.0f;
+                    bl = fm_sinf(6.2831853f * blub_ph) * fm_sinf(3.1415927f * blub_age * (1.0f / 0.07f)) * BLUB_GAIN;
+                    blub_age += 1.0f / 44100.0f;
+                }
+                v = vo * bend + cs * bend + bv + bl + wet * 0.45f;
             }
         }
         if (smp_run) {                   /* 8 kHz to 44.1 kHz: a straight line between two neighbours */
@@ -349,11 +384,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 }
             }
         }
-        s = (v + eo_lookup(eo_wt_soft, eo_drone_phase) * eo_drone_level) * gain_now;
+        s = (v + eo_lookup(eo_wt_soft, eo_drone_phase) * eo_drone_level * bend) * gain_now;
         lr[2 * i] = (int32_t)s;
         lr[2 * i + 1] = (int32_t)s;
     }
     eo_smp_run = smp_run;
+    eo_bend_v = bend;
 }
 
 /* ------------------------------------------------------------ the sequencer --- */
@@ -437,16 +473,18 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
 }
 
 /* ----------------------------------------------------------------- the game --- */
-enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT };
+enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT, ST_SIMONE };
 #define MV_PRES_MS 1700u                 /* the movie: ASilagy presents (up 0.5 s, still 0.9 s, a block dissolve 0.3 s) */
 #define MV_MUSIC_MS 1800u                /* then a beat of black, and the music starts: the montage */
 #define MV_ROSTER 5600u                  /* (in the music) the montage ends and the whole cast builds up, one by one */
 #define MV_FINALE 7750u                  /* (in the music) the last chord stab: the title lands */
 static uint32_t mv_t0, mv_m0;            /* the movie's start, and the music's */
-static uint8_t mv_stage, eo_cat_seen, sel_cur;   /* its sound cues done; the cat has introduced itself; the select's cursor */
+static uint8_t mv_stage, eo_cat_seen, eo_sim_seen, sel_cur;   /* its sound cues done; the cat has introduced itself; the select's cursor */
 static void mv_end(void);                /* the power-on movie and the game select (below the screen code) */
 static void sel_move(int32_t d);
 static void sel_blip(uint32_t key, uint8_t vo);
+static void sim_end(void);
+static void sim_key(uint32_t now);
 static void sel_go(void);
 static void sel_enter(void);
 enum { TX_READY, TX_ROOT, TX_LISTEN, TX_WATCH, TX_TURN, TX_NICE, TX_MISS, TX_OVER, TX_GOOD };
@@ -778,7 +816,7 @@ static void lights(void)
 {
     uint32_t bright, mid, dim, btn = ui.btn;
     key_levels(&bright, &mid, &dim);
-    if (ui.state == ST_MOVIE || ui.state == ST_SELECT)
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE)
         bright = mid = dim = 0u;     /* no game yet: the keys stay dark */
     if (set_dirty)
         btn |= 1u << B_SAVE;
@@ -1679,6 +1717,7 @@ void app_init(void)                      /* boot: the settings, and a quiet star
     mv_m0 = mv_t0 + MV_MUSIC_MS;
     mv_stage = 0;
     eo_cat_seen = 0;
+    eo_sim_seen = 0;
     ui.text = TX_READY;
     ui.kb_show = 0;
     ui.say[0] = 0;
@@ -1719,7 +1758,7 @@ static void eo_debug_tap(uint32_t new_btn, uint32_t now)   /* GLO three times in
         }
     }
     set_dirty = 1;
-    if (ui.state == ST_MOVIE || ui.state == ST_SELECT) {
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE) {
         sel_blip((set.pad & 1u) ? 30u : 6u, V_TRI);
     } else {
         app_say("DEBUG", (set.pad & 1u) ? "ALL LEVELS OPEN" : "OFF");
@@ -1744,6 +1783,19 @@ static void input(void)
         } else if (new_btn & (1u << B_PLAY)) {
             sel_go();
         }
+        ui.keys = keys;
+        ui.btn = btn;
+        lights();
+        return;
+    }
+    if (ui.state == ST_SIMONE) {             /* Simone's show: a key finishes the line, then goes on; HOME skips it all */
+        uint32_t new_keys = keys & ~ui.keys, new_btn = btn & ~ui.btn;
+        for (k = 0; k < NE; k++)
+            (void)plat_enc((int)k);
+        if (new_btn & (1u << B_HOME))
+            sim_end();
+        else if (new_keys || new_btn)
+            sim_key(plat_ms());
         ui.keys = keys;
         ui.btn = btn;
         lights();
@@ -3087,6 +3139,238 @@ static void sel_move(int32_t d)
     ui.redraw = 1;
 }
 
+/* ---------------------------------------------------------------- Simone's introduction --- */
+/* A one-time show (per power-on) before Simone Says: a fortune teller who speaks in rhyme until her memory trips her up.
+ * The text types a letter at a time with a bubbly blub for each (its pitch from the theme's scale); the down-triangle
+ * says the card is done, and a key goes on. A synth theme in the double harmonic scale loops under it; on card 4 it
+ * slows to a stop like a record, and returns on card 6. '~' is e-acute (the font has none; the accent is drawn). */
+typedef struct { const char *l[3]; int16_t ev_at; int8_t ev; } sim_card_t;   /* ev: 1 theme starts, -1 the record stops, at this typed letter */
+#define SIM_FULL 10u                     /* the first ten cards are the show; the last two are a repeat visit's */
+#define SIM_CARDS 12u
+static const sim_card_t sim_cards[SIM_CARDS] = {
+    {{"Come closer, seeker, hear my call,", "for I see all. I am Simon~.", "I know it all."}, 0, 1},
+    {{"Gaze into my crystal bowl,", "into my eyes,", "where your fate and future lies."}, 0, 0},
+    {{"I looked three seconds on, and saw", "the fate of every... uh. Hm.", ""}, 0, 0},
+    {{"It was right here.", "It was a... thing.", "It had a... shape."}, 19, -1},
+    {{"Aw shucks... I was doing so well...", "What was I saying?", ""}, 0, 0},
+    {{"No matter! Spirits speak in four:", "Drip. Water. Splash. Splish.", ""}, 0, 1},
+    {{"Repeat each word, then one word more,", "in order, as I said before.", ""}, 0, 0},
+    {{"If I should lose my place, don't fret.", "Remind me. Wait... have we met?", ""}, 0, 0},
+    {{"The spirits wait. The hour is near.", "Do... Did you want something, dear?", ""}, 0, 0},
+    {{"Now splash on in and make a wish,", "for I am Simon~, the all-knowing", "forgetful fish."}, 0, 0},
+    {{"Come closer, seeker, hear my...", "", ""}, 0, 0},               /* a second visit: she starts the speech again */
+    {{"Oh. Did I do this part already?", "...Yes? Okay. Carry on.", ""}, 0, 0},
+};
+static const uint8_t SIM_SCALE[8] = {0, 1, 4, 5, 7, 8, 11, 12};   /* the double harmonic scale, from A */
+static uint8_t sim_card, sim_hi, sim_music, sim_ev_done;   /* the card now, and the one the show ends after */
+static uint32_t sim_t0, sim_stop_t;
+static uint16_t sim_typed_last;
+
+static uint32_t sim_len(const sim_card_t *c)             /* the letters in a card: its lines joined by one pause character */
+{
+    uint32_t i, n = 0;
+    for (i = 0; i < 3u; i++)
+        if (c->l[i][0])
+            n += (uint32_t)strlen(c->l[i]) + (i < 2u && c->l[i + 1u][0] ? 1u : 0u);
+    return n;
+}
+
+static char sim_at(const sim_card_t *c, uint32_t k)      /* the k-th letter of the card (a line break is a space) */
+{
+    uint32_t i, n;
+    for (i = 0; i < 3u; i++) {
+        n = (uint32_t)strlen(c->l[i]);
+        if (k < n)
+            return c->l[i][k];
+        k -= n;
+        if (i < 2u && c->l[i + 1u][0]) {
+            if (k == 0u)
+                return ' ';
+            k--;
+        }
+    }
+    return 0;
+}
+
+static uint32_t sim_typed(const sim_card_t *c, uint32_t el)   /* how many letters are out after el ms: a stop at each pause */
+{
+    uint32_t k = 0, t = 0, n = sim_len(c);
+    while (k < n) {
+        char ch = sim_at(c, k), nx = sim_at(c, k + 1u), pv = k ? sim_at(c, k - 1u) : 0;
+        uint32_t d = 40u;
+        if (ch == '.')
+            d = (pv == '.' || nx == '.') ? 170u : 260u;
+        else if (ch == ',' || ch == ':')
+            d = 200u;
+        else if (ch == '!' || ch == '?')
+            d = 280u;
+        if (t + d > el)
+            break;
+        t += d;
+        k++;
+    }
+    return k;
+}
+
+static void sim_theme_start(void)                        /* the loop: a droning A, a hollow fifth, a bell playing the scale */
+{
+    uint32_t i;
+    static const uint8_t arp[24] = {0, 1, 4, 5, 7, 5, 4, 1,   7, 8, 11, 12, 11, 8, 7, 5,   4, 5, 7, 8, 7, 5, 4, 1};
+    seq_on = 0;
+    for (i = 0; i < 24u; i++)
+        mv_sfx(i, i * 300u, 270u, 16u + arp[i], V_BELL);
+    seq_n = 24;
+    seq_end = 24u * 300u + 300u;
+    eo_seq_start(0, 0);
+    eo_drone_set(45, 0.9f);
+    eo_chord_note[0] = 57;
+    eo_chord_note[1] = 64;
+    eo_rec_go++;
+    sim_music = 1;
+}
+
+static void sim_music_off(void)
+{
+    seq_on = 0;
+    seq_lit = 0;
+    voice_note = -1;
+    voice_fx = 0xFFu;
+    eo_drone_note = -1;
+    eo_chord_note[0] = eo_chord_note[1] = -1;
+    eo_rec_go++;
+    sim_music = 0;
+}
+
+static void sim_enter(uint32_t again)
+{
+    sim_card = again ? SIM_FULL : 0u;
+    sim_hi = again ? SIM_CARDS : SIM_FULL;
+    sim_t0 = plat_ms();
+    sim_typed_last = 0;
+    sim_ev_done = 0;
+    sim_music = 0;
+    ui.state = ST_SIMONE;
+    ui.redraw = 1;
+}
+
+static void sim_end(void)
+{
+    sim_music_off();
+    ans_len = 0;
+    ui.text = TX_READY;
+    ui.state = ST_READY;
+    ui.say[0] = 0;
+    ui.redraw = 1;
+}
+
+static void sim_tick(uint32_t now)                       /* the typing's blubs, the card's music cue, the theme's loop */
+{
+    const sim_card_t *c = &sim_cards[sim_card];
+    uint32_t n = sim_typed(c, now - sim_t0);
+    if (n != sim_typed_last) {
+        if (n > sim_typed_last && sim_at(c, n - 1u) != ' ') {
+            eo_blub_note = 57 + 12 + SIM_SCALE[(n * 3u + sim_card) % 8u] + ((n & 4u) ? 12 : 0);
+            eo_blub_trig++;
+        }
+        sim_typed_last = (uint16_t)n;
+    }
+    if (c->ev && !sim_ev_done && n >= (uint32_t)c->ev_at) {
+        sim_ev_done = 1;
+        if (c->ev > 0) {
+            sim_theme_start();
+        } else if (sim_music == 1) {
+            sim_music = 2;                               /* the record slows to a stop */
+            sim_stop_t = now;
+            eo_rec_stop++;
+        }
+    }
+    if (sim_music == 2 && now - sim_stop_t > 800u) {     /* silent now; keep it so until card 6 */
+        sim_music_off();
+        sim_music = 3;
+    }
+    if (sim_music == 1 && !seq_on)
+        sim_theme_start();
+}
+
+static void sim_next(uint32_t now)
+{
+    if (sim_card + 1u >= sim_hi) {
+        sim_end();
+        return;
+    }
+    sim_card++;
+    sim_t0 = now;
+    sim_typed_last = 0;
+    sim_ev_done = 0;
+    ui.redraw = 1;
+}
+
+static void sim_key(uint32_t now)                        /* a key: finish the line, or go on to the next card */
+{
+    const sim_card_t *c = &sim_cards[sim_card];
+    if (sim_typed(c, now - sim_t0) < sim_len(c))
+        sim_t0 = now - 60000u;
+    else
+        sim_next(now);
+}
+
+static void sim_line(int32_t y, const char *s, uint32_t n, uint16_t col)   /* one line, typed up to n letters; '~' is e-acute */
+{
+    char full[48], part[48];
+    uint32_t i, len = (uint32_t)strlen(s);
+    int32_t x0;
+    for (i = 0; i < len && i < 47u; i++)
+        full[i] = s[i] == '~' ? 'e' : s[i];
+    full[i] = 0;
+    x0 = 10;                                             /* every line from the same left edge, like a typewriter */
+    if (n > len)
+        n = len;
+    for (i = 0; i < n && i < 47u; i++)
+        part[i] = full[i];
+    part[i] = 0;
+    mtext(x0, y, &FONT_S, part, col);
+    for (i = 0; i < n; i++)
+        if (s[i] == '~') {
+            char pre[48];
+            uint32_t j;
+            int32_t ex;
+            for (j = 0; j < i; j++)
+                pre[j] = full[j];
+            pre[j] = 0;
+            ex = x0 + text_w(&FONT_S, pre) + text_w(&FONT_S, "e") / 2;
+            mrect(ex, y + 1, 3, 2, col);
+            mrect(ex - 2, y + 3, 3, 2, col);
+        }
+}
+
+static void sim_scene(uint32_t now)
+{
+    const sim_card_t *c = &sim_cards[sim_card];
+    uint32_t el = now - sim_t0, n = sim_typed(c, el), tot = sim_len(c), i, used = 0;
+    int32_t bob = ((now / 500u) & 1u) ? 2 : 0;
+    mrect(0, 0, 240, 150, EO_RGB(22, 10, 40));
+    for (i = 0; i < 14u; i++) {                          /* stars, twinkling */
+        int32_t sx = (int32_t)((i * 53u + 17u) % 236u), sy = (int32_t)((i * 37u + 9u) % 140u);
+        if (((now / 260u) + i) % 6u)
+            mrect(sx, sy, 2, 2, EO_RGB(120, 100, 170));
+    }
+    cast_paint(0u, (n < tot && ((now / 120u) & 1u)) ? 1u : 0u, 24, 6 + bob, 2, 1);   /* the goldfish, mouth moving while she talks */
+    mrect(0, 150, 240, 90, C_BLACK);
+    mrect(0, 150, 240, 2, EO_RGB(120, 100, 170));
+    for (i = 0; i < 3u; i++) {
+        uint32_t len = (uint32_t)strlen(c->l[i]);
+        if (!len)
+            continue;
+        sim_line(158 + (int32_t)i * 19, c->l[i], n > used ? n - used : 0u, C_WHITE);
+        used += len + (i < 2u && c->l[i + 1u][0] ? 1u : 0u);
+    }
+    if (n >= tot && ((now / 450u) & 1u)) {               /* the card is done: a solid down-triangle says go on */
+        int32_t r;
+        for (r = 0; r < 6; r++)
+            mrect(224 + r, 222 + r, 12 - 2 * r, 1, C_AMB);
+    }
+}
+
 static void sel_go(void)
 {
     int32_t g = sel_game[sel_cur];
@@ -3109,6 +3393,11 @@ static void sel_go(void)
     ui.say[0] = 0;
     if (g == GAME_DOGTOR)
         dogtor_say(DS_READY, 0, 2200u);
+    if (g == GAME_SIMON) {                               /* Simone introduces herself; after the first time she starts to, and remembers */
+        sim_enter(eo_sim_seen);
+        eo_sim_seen = 1;
+        return;
+    }
     if (g == GAME_COPYCAT && !eo_cat_seen) {             /* the cat introduces itself, once a power-on */
         eo_cat_seen = 1;
         ui.state = ST_INTRO;
@@ -3175,6 +3464,10 @@ static void draw(void)
     uint32_t i, now = plat_ms(), pct = plat_master() * 100u / 4096u, bright, mid, dim, tx = eo_text();
     if (ui.state == ST_MOVIE) {
         mv_bands(mv_scene, now);
+        return;
+    }
+    if (ui.state == ST_SIMONE) {
+        mv_bands(sim_scene, now);
         return;
     }
     if (ui.state == ST_SELECT) {
@@ -3350,7 +3643,9 @@ void app_frame(void)
     static uint32_t last_pct, last_bright, last_tx;
     uint32_t now = plat_ms(), pct = plat_master() * 100u / 4096u, bright, mid, dim, tx;
     input();
-    if (ui.state == ST_MOVIE || ui.state == ST_SELECT) {   /* the movie and the select: a frame about every 33 ms */
+    if (ui.state == ST_SIMONE)
+        sim_tick(now);
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE) {   /* the movie, the select and Simone's show: a frame about every 33 ms */
         static uint32_t last_mv;
         static uint32_t last_b = 0xFFFFFFFFu;
         if (ui.state == ST_MOVIE)
@@ -3579,6 +3874,14 @@ int app_expect(const char *what, int *got)
         *got = ui.state;
     else if (!strcmp(what, "smp"))
         *got = eo_smp_run;
+    else if (!strcmp(what, "simcard"))
+        *got = sim_card;
+    else if (!strcmp(what, "simtyped"))
+        *got = (int)sim_typed(&sim_cards[sim_card], plat_ms() - sim_t0);
+    else if (!strcmp(what, "simmusic"))
+        *got = sim_music;
+    else if (!strcmp(what, "bend"))
+        *got = (int)(eo_bend_v * 100.0f);
     else if (!strcmp(what, "sel"))
         *got = sel_cur;
     else if (!strcmp(what, "mvstage"))
