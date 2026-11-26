@@ -820,7 +820,9 @@ static void lights(void)
         bright = mid = dim = 0u;     /* no game yet: the keys stay dark */
     if (set_dirty)
         btn |= 1u << B_SAVE;
-    if (seq_on)
+    if (ui.state == ST_SELECT || ui.state == ST_SIMONE)
+        btn |= 1u << B_PLAY;             /* steady: press it (not following the sequencer's notes) */
+    else if (seq_on)
         btn |= 1u << B_PLAY;
     plat_lights(btn, bright, (1u << NB) - 1u, dim, GLOW);   /* every button glows a little: readable in the dark */
     plat_lights_mid(0, mid);
@@ -3391,6 +3393,7 @@ static void sel_go(void)
         eo_seq_start(0, 0);
         return;
     }
+    eo_drone_set(-1, 0.0f);                              /* the select's bass stops; the game sets its own sound */
     if (g != (int32_t)set.game) {
         set.game = (uint8_t)g;
         set_dirty = 1;
@@ -3435,18 +3438,19 @@ static void sel_arrow(int32_t x, int32_t cy, int left, uint16_t c)
 
 static void sel_scene(uint32_t now)                      /* one game at a time, full screen */
 {
-    uint32_t b = now * SEL_BPM8 / 60000u, ph = now - b * 60000u / SEL_BPM8, i;
-    int32_t k, sh = (int32_t)(now / 5u % 48u), bob = ph < 90u ? 3 : 0, cur = sel_game[sel_cur];
+    uint32_t i;
+    uint32_t qph = now % 638u;                           /* a quarter note at 94 bpm: the bounce, eased, no frame flips */
+    int32_t k, sh = (int32_t)(now / 5u % 48u), bob = (int32_t)((638u - qph) * (638u - qph) * 5u / (638u * 638u)), cur = sel_game[sel_cur];
     const eo_char_t *c = &eo_chars[sel_cur];
     uint16_t a = cur >= 0 ? EO_RGB(c->r, c->g, c->b) : EO_RGB(120, 120, 150);
     for (k = -2; k < 11; k++)                            /* the pinstripes, in the game's colour */
-        mrect(k * 24 + sh, 0, 24, 240, (k & 1) ? mv_scale(a, ph < 90u ? 4u : 3u) : mv_scale(a, 2u));
+        mrect(k * 24 + sh, 0, 24, 240, (k & 1) ? mv_scale(a, 3u) : mv_scale(a, 2u));
     if (cur == GAME_COPYCAT)
-        cast_paint(EO_CAST_CAT, ph < 90u ? 1u : 0u, 24, 30 + bob, 2, 1);
+        cast_paint(EO_CAST_CAT, 0u, 24, 30 + bob, 2, 1);
     else if (cur == GAME_DOGTOR)
-        dog_paint_sc((b & 1u) ? DOG_WIN : DOG_LISTEN, 72, 30 + bob, 2, 1);
-    else if (cur == GAME_SIMON)                          /* Simon is the goldfish */
-        cast_paint(0u, ph < 90u ? 1u : 0u, 24, 30 + bob, 2, 1);
+        dog_paint_sc(DOG_LISTEN, 72, 30 + bob, 2, 1);
+    else if (cur == GAME_SIMON)                          /* Simone is the goldfish */
+        cast_paint(0u, 0u, 24, 30 + bob, 2, 1);
     else
         mctext(70 + bob, &FONT_L, "?", C_WHITE);
     mrect(0, 0, 240, 28, C_BLACK);                       /* the header: the game */
@@ -3460,7 +3464,7 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
     mctext(207, &FONT_XS, sel_desc[sel_cur][0], C_WHITE);
     mctext(222, &FONT_XS, sel_desc[sel_cur][1], C_GRAY);
     {                                                    /* the arrows: turn PRESETS for another game */
-        int32_t nudge = ph < 90u ? 3 : 0;
+        int32_t nudge = bob / 2;
         sel_arrow(6 - nudge, 100, 1, sel_cur > 0u ? C_WHITE : C_LINE);
         sel_arrow(224 + nudge, 100, 0, sel_cur < 5u ? C_WHITE : C_LINE);
     }
@@ -3655,17 +3659,11 @@ void app_frame(void)
         sim_tick(now);
     if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE) {   /* the movie, the select and Simone's show: a frame about every 33 ms */
         static uint32_t last_mv;
-        static uint32_t last_b = 0xFFFFFFFFu;
-        if (ui.state == ST_MOVIE)
+        if (ui.state == ST_MOVIE) {
             movie_tick(now);
-        else if (now * SEL_BPM8 / 60000u != last_b) {    /* the select's pulse: G3, eighth notes at 94 bpm */
-            last_b = now * SEL_BPM8 / 60000u;
-            if (!seq_on) {
-                mv_sfx(0, 0, 110, 2, V_TRI);
-                seq_n = 1;
-                seq_end = 130;
-                eo_seq_start(0, 0);
-            }
+        } else if (ui.state == ST_SELECT) {              /* the select's pulse: a G2 bass, an eighth note at 94 bpm, on the drone voice (its own soft envelope: no pops) */
+            uint32_t bt = now * SEL_BPM8 / 60000u, ph = now - bt * 60000u / SEL_BPM8;
+            eo_drone_set(43, ph < 150u ? 1.7f : 0.0f);
         }
         if (now / 33u != last_mv) {
             last_mv = now / 33u;
