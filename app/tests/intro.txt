@@ -53,6 +53,11 @@ turn PRESET 1
 wait 30
 expect sel 1
 shot select_dogtor.png
+turn PRESET 1
+wait 30
+shot select_simon.png
+turn PRESET -1
+wait 30
 turn PRESET 3
 wait 30
 expect sel 4

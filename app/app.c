@@ -2918,7 +2918,7 @@ static void mv_dissolve(uint32_t p)
 static void mv_roster(uint32_t tm)                       /* the build-up to the last stab: the whole cast, one by one */
 {
     uint32_t tr = tm - MV_ROSTER, i;
-    int32_t k, sh = (int32_t)(tm / 7u % 48u);
+    int32_t k, sh = (int32_t)(tm / 3u % 48u);
     for (k = -2; k < 11; k++)
         mrect(k * 24 + sh, 0, 24, 240, (k & 1) ? EO_RGB(30, 24, 52) : EO_RGB(20, 16, 36));
     for (i = 0; i < 12u; i++) {
@@ -3025,6 +3025,7 @@ static void mv_end(void)                                 /* skipped, or done: th
 
 static void sel_blip(uint32_t key, uint8_t vo)
 {
+    seq_on = 0;
     mv_sfx(0, 0, 70, key, vo);
     seq_n = 1;
     seq_end = 90;
@@ -3045,6 +3046,7 @@ static void sel_go(void)
 {
     int32_t g = sel_game[sel_cur];
     if (g < 0) {                                         /* not made yet: a small wah-wah */
+        seq_on = 0;
         mv_sfx(0, 0, 140, 12, V_TRI);
         mv_sfx(1, 150, 260, 7, V_TRI);
         seq_n = 2;
@@ -3070,47 +3072,54 @@ static void sel_go(void)
     ui.redraw = 1;
 }
 
-static void sel_scene(uint32_t now)
+#define SEL_BPM8 188u                                    /* the select's pulse: eighth notes at 94 bpm (319 ms) */
+static const char *const sel_desc[6][2] = {
+    {"Meow plays a melody over a root.", "Play it back by ear. It climbs."},
+    {"Dr. Diggie plays a chord.", "Major, minor, or something worse?"},
+    {"A place-holder for now.", "More games are on the way."},
+    {"Still warming up.", "A new game is on the way."},
+    {"Still warming up.", "A new game is on the way."},
+    {"Still warming up.", "A new game is on the way."},
+};
+
+static void sel_arrow(int32_t x, int32_t cy, int left, uint16_t c)
 {
-    uint32_t i;
-    int32_t bob = ((now / 420u) & 1u) ? 1 : 0;
-    int32_t cur = sel_game[sel_cur];
-    mctext(10, &FONT_B, "SELECT YOUR GAME", C_WHITE);
-    mrect(40, 32, 160, 2, C_LINE);
-    for (i = 0; i < 6u; i++) {
-        int32_t x = 6 + (int32_t)(i % 3u) * 78, y = 42 + (int32_t)(i / 3u) * 66, g = sel_game[i], w;
-        int sel = i == sel_cur;
-        uint16_t edge = sel ? C_HI : C_LINE, bg = sel ? EO_RGB(38, 42, 60) : EO_RGB(18, 18, 24);
-        const char *lab = i == 0u ? "COPYCAT" : i == 1u ? "DOGTOR" : i == 2u ? "SIMON" : "SOON";
-        mrect(x, y, 72, 60, bg);
-        if (i == 0u) {
-            cast_paint(EO_CAST_CAT, sel ? 1u : 0u, x + 4, y + 2 + (sel ? bob : 0), 2, 3);
-        } else if (i == 1u) {
-            dog_paint_sc(sel ? DOG_WIN : DOG_IDLE, x + 18, y + 1 + (sel ? bob : 0), 3, 4);
-        } else if (i == 2u) {                /* Simon is the goldfish */
-            cast_paint(0u, sel ? 1u : 0u, x + 4, y + 2 + (sel ? bob : 0), 2, 3);
-        } else {
-            mtext(x + 29, y + 8, &FONT_L, "?", sel ? C_AMB : C_DIM);
-        }
-        mrect(x + 2, y + 46, 68, 12, bg);                /* the label, over whatever spilled down */
-        w = text_w(&FONT_XS, lab);
-        mtext(x + (72 - w) / 2, y + 46, &FONT_XS, lab, sel ? C_WHITE : C_GRAY);
-        mrect(x, y, 72, 2, edge);
-        mrect(x, y + 58, 72, 2, edge);
-        mrect(x, y, 2, 60, edge);
-        mrect(x + 70, y, 2, 60, edge);
-        (void)g;
+    int32_t r;
+    for (r = -8; r <= 8; r++) {
+        int32_t a = r < 0 ? -r : r;
+        mrect(left ? x + a : x, cy + r, 10 - a, 1, c);
     }
-    if (cur >= 0) {
-        const eo_char_t *c = &eo_chars[sel_cur];
-        mctext(173, &FONT_B, eo_game_name[cur], C_WHITE);
-        mctext(193, &FONT_S, c->cap, C_AMB);
-        mctext(209, &FONT_XS, c->quip, C_GRAY);
-    } else {
-        mctext(173, &FONT_B, "COMING SOON", C_AMB);
-        mctext(193, &FONT_S, "Still warming up.", C_GRAY);
+}
+
+static void sel_scene(uint32_t now)                      /* one game at a time, full screen */
+{
+    uint32_t b = now * SEL_BPM8 / 60000u, ph = now - b * 60000u / SEL_BPM8, i;
+    int32_t k, sh = (int32_t)(now / 5u % 48u), bob = ph < 90u ? 3 : 0, cur = sel_game[sel_cur];
+    const eo_char_t *c = &eo_chars[sel_cur];
+    uint16_t a = cur >= 0 ? EO_RGB(c->r, c->g, c->b) : EO_RGB(120, 120, 150);
+    for (k = -2; k < 11; k++)                            /* the pinstripes, in the game's colour */
+        mrect(k * 24 + sh, 0, 24, 240, (k & 1) ? mv_scale(a, ph < 90u ? 4u : 3u) : mv_scale(a, 2u));
+    if (cur == GAME_COPYCAT)
+        cast_paint(EO_CAST_CAT, ph < 90u ? 1u : 0u, 24, 30 + bob, 2, 1);
+    else if (cur == GAME_DOGTOR)
+        dog_paint_sc((b & 1u) ? DOG_WIN : DOG_LISTEN, 72, 30 + bob, 2, 1);
+    else if (cur == GAME_SIMON)                          /* Simon is the goldfish */
+        cast_paint(0u, ph < 90u ? 1u : 0u, 24, 30 + bob, 2, 1);
+    else
+        mctext(70 + bob, &FONT_L, "?", C_WHITE);
+    mrect(0, 0, 240, 28, C_BLACK);                       /* the header: the game */
+    mctext(5, &FONT_B, cur >= 0 ? c->game : "COMING SOON", a);
+    mrect(0, 176, 240, 64, C_BLACK);                     /* the footer: who, what, where */
+    for (i = 0; i < 6u; i++)                             /* the page dots */
+        mrect(120 - 33 + (int32_t)i * 12, 180, 9, 5, i == sel_cur ? C_WHITE : sel_game[i] >= 0 ? C_GRAY : C_LINE);
+    mctext(190, &FONT_S, cur >= 0 ? c->cap : "THE MYSTERY", C_AMB);
+    mctext(207, &FONT_XS, sel_desc[sel_cur][0], C_WHITE);
+    mctext(222, &FONT_XS, sel_desc[sel_cur][1], C_GRAY);
+    {                                                    /* the arrows: turn PRESETS for another game */
+        int32_t nudge = ph < 90u ? 3 : 0;
+        sel_arrow(6 - nudge, 100, 1, sel_cur > 0u ? C_WHITE : C_LINE);
+        sel_arrow(224 + nudge, 100, 0, sel_cur < 5u ? C_WHITE : C_LINE);
     }
-    mctext(224, &FONT_XS, "PRESETS MOVE     PLAY START", C_DIM);
 }
 
 static void draw(void)
@@ -3296,8 +3305,18 @@ void app_frame(void)
     input();
     if (ui.state == ST_MOVIE || ui.state == ST_SELECT) {   /* the movie and the select: a frame about every 33 ms */
         static uint32_t last_mv;
+        static uint32_t last_b = 0xFFFFFFFFu;
         if (ui.state == ST_MOVIE)
             movie_tick(now);
+        else if (now * SEL_BPM8 / 60000u != last_b) {    /* the select's pulse: G3, eighth notes at 94 bpm */
+            last_b = now * SEL_BPM8 / 60000u;
+            if (!seq_on) {
+                mv_sfx(0, 0, 110, 2, V_TRI);
+                seq_n = 1;
+                seq_end = 130;
+                eo_seq_start(0, 0);
+            }
+        }
         if (now / 33u != last_mv) {
             last_mv = now / 33u;
             ui.redraw = 1;
