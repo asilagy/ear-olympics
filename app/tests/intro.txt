@@ -1,4 +1,4 @@
-# Power on: the movie (ASilagy presents, the title, the music over the cast, the title again), any key skips it to the
+# Power on: the movie (ASilagy presents, a dissolve, the music over the cast, the cast building up, the title on the last stab), any key skips it to the
 # game select; PLAY there starts the highlighted game (Copycat introduces itself first, once); HOME from a game's ready
 # screen goes back to the select. States: 0 ready, 7 cat intro, 8 controls (three screens), 9 movie, 10 select.
 master 4096
@@ -7,12 +7,12 @@ wait 600
 expect state 9
 expect smp 0
 shot movie_presents.png
-wait 800
-shot movie_title_flash.png
-wait 700
-shot movie_title.png
-wait 1000
-# the presents and title screens are silent: no sound before the music
+# presents lingers, then a fast block dissolve to black (from 1.4 s), then a beat of black before the music (1.8 s)
+wait 850
+shot movie_dissolve.png
+wait 250
+shot movie_black.png
+# the presents and the black beat are silent: no sound before the music
 expect peak_db_max -100
 expect smp 0
 wait 200
@@ -27,7 +27,17 @@ wait 800
 shot movie_dog.png
 wait 1000
 shot movie_cast.png
-wait 3500
+# the montage ends at 5.6 s of music and the whole cast builds up to the last stab at 7.75 s; the title lands on it
+wait 3600
+shot movie_roster_building.png
+expect state 9
+wait 1200
+shot movie_roster.png
+wait 460
+shot movie_title_flash.png
+wait 120
+shot movie_title_shake.png
+wait 600
 shot movie_finale.png
 expect state 9
 # any key skips: the music stops, the select shows

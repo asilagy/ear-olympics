@@ -438,9 +438,10 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
 
 /* ----------------------------------------------------------------- the game --- */
 enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT };
-#define MV_TITLE_MS 1200u                /* the movie: ASilagy presents, then the title */
-#define MV_MUSIC_MS 3200u                /* the music starts: the montage */
-#define MV_FINALE 5600u                  /* (in the music) the title again */
+#define MV_PRES_MS 1700u                 /* the movie: ASilagy presents (up 0.5 s, still 0.9 s, a block dissolve 0.3 s) */
+#define MV_MUSIC_MS 1800u                /* then a beat of black, and the music starts: the montage */
+#define MV_ROSTER 5600u                  /* (in the music) the montage ends and the whole cast builds up, one by one */
+#define MV_FINALE 7750u                  /* (in the music) the last chord stab: the title lands */
 static uint32_t mv_t0, mv_m0;            /* the movie's start, and the music's */
 static uint8_t mv_stage, eo_cat_seen, sel_cur;   /* its sound cues done; the cat has introduced itself; the select's cursor */
 static void mv_end(void);                /* the power-on movie and the game select (below the screen code) */
@@ -2891,10 +2892,65 @@ static void art_paint(const uint8_t *rle, const uint16_t *row, const uint16_t *p
     }
 }
 
-static void mv_finale(uint32_t tm)                       /* the title again, waiting for a key */
+/* a dissolve to black: 8 x 8 blocks go dark in a dither order as p goes 0..16 (cheap: a few runs of black per block row) */
+static void mv_dissolve(uint32_t p)
+{
+    static const uint8_t BAYER[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+    int32_t by, bx;
+    for (by = 0; by < 30; by++) {
+        if (by * 8 + 8 <= mv_oy || by * 8 >= mv_oy + mv_h)
+            continue;                    /* not in this band */
+        bx = 0;
+        while (bx < 30) {
+            int32_t s;
+            if (BAYER[(by & 3) * 4 + (bx & 3)] >= p) {
+                bx++;
+                continue;
+            }
+            s = bx;
+            while (bx < 30 && BAYER[(by & 3) * 4 + (bx & 3)] < p)
+                bx++;
+            mrect(s * 8, by * 8, (bx - s) * 8, 8, C_BLACK);
+        }
+    }
+}
+
+static void mv_roster(uint32_t tm)                       /* the build-up to the last stab: the whole cast, one by one */
+{
+    uint32_t tr = tm - MV_ROSTER, i;
+    int32_t k, sh = (int32_t)(tm / 7u % 48u);
+    for (k = -2; k < 11; k++)
+        mrect(k * 24 + sh, 0, 24, 240, (k & 1) ? EO_RGB(30, 24, 52) : EO_RGB(20, 16, 36));
+    for (i = 0; i < 12u; i++) {
+        uint32_t at = i * 150u, age, pose;
+        int32_t x = (int32_t)(i & 3u) * 60 + 2, y = 24 + (int32_t)(i >> 2) * 62, bob = ((tr / 155u) & 1u) ? 2 : 0;
+        const eo_char_t *c = &eo_chars[i];
+        if (tr < at)
+            continue;
+        age = tr - at;
+        mrect(x, y, 56, 54, age < 30u ? C_WHITE : mv_scale(EO_RGB(c->r, c->g, c->b), 3u));
+        if (age < 30u)
+            continue;
+        pose = age >= (i == 8u ? 400u : 140u) ? 1u : 0u;
+        if (i == 0u)
+            cast_paint(EO_CAST_CAT, pose, x + 1, y + 7 + bob, 9, 16);
+        else if (i == 1u)
+            dog_paint_sc(((tr / 200u) & 1u) ? DOG_WIN : DOG_LISTEN, x + 13, y + 7 + bob, 5, 8);   /* 48 x 64 -> 30 x 40 */
+        else
+            cast_paint(i - 2u, pose, x + 1, y + 7 + bob, 9, 16);
+    }
+    mrect(0, 222, (int32_t)(tr * 240u / (MV_FINALE - MV_ROSTER)), 4, C_WHITE);   /* the charge before the stab */
+}
+
+static void mv_finale(uint32_t tm)                       /* the title lands on the last stab, then waits for a key */
 {
     uint32_t tf = tm - MV_FINALE;
-    art_paint(EO_TITLE_RLE, EO_TITLE_ROW, EO_TITLE_PAL, 0, 0, 8u);
+    int32_t sh = tf < 300u ? (int32_t)(((tf / 40u) & 1u) ? 3 : -3) * (int32_t)(300u - tf) / 300 : 0;
+    if (tf < 60u) {
+        mrect(0, 0, 240, 240, C_WHITE);
+        return;
+    }
+    art_paint(EO_TITLE_RLE, EO_TITLE_ROW, EO_TITLE_PAL, sh, -sh / 2, 8u);
     if (tf > 400u && ((tm / 400u) & 1u))
         mctext(212, &FONT_B, "PRESS PLAY", C_WHITE);
 }
@@ -2902,20 +2958,18 @@ static void mv_finale(uint32_t tm)                       /* the title again, wai
 static void mv_scene(uint32_t now)
 {
     uint32_t t = now - mv_t0;
-    if (t < MV_TITLE_MS) {               /* ASilagy presents: fades up and down */
-        uint32_t a = t < 500u ? t * 8u / 500u : t < 1000u ? 8u : (MV_TITLE_MS - t) * 8u / 200u;
+    if (t < MV_PRES_MS) {                /* ASilagy presents: up, still, then a fast block dissolve to black */
+        uint32_t a = t < 500u ? t * 8u / 500u : 8u;
         art_paint(EO_PRES_RLE, EO_PRES_ROW, EO_PRES_PAL, 0, 0, a);
-    } else if (t < MV_MUSIC_MS) {        /* the title: a flash, a little shake, then still */
-        uint32_t tt = t - MV_TITLE_MS;
-        int32_t sh = tt < 300u ? (int32_t)(((tt / 40u) & 1u) ? 3 : -3) * (int32_t)(300u - tt) / 300 : 0;
-        if (tt < 60u)
-            mrect(0, 0, 240, 240, C_WHITE);
-        else
-            art_paint(EO_TITLE_RLE, EO_TITLE_ROW, EO_TITLE_PAL, sh, -sh / 2, 8u);
+        if (t >= 1400u)
+            mv_dissolve((t - 1400u) * 16u / (MV_PRES_MS - 1400u));
+    } else if (t < MV_MUSIC_MS) {        /* a beat of black before the music */
     } else {
         uint32_t tm = now - mv_m0;
-        if (tm < MV_FINALE)
+        if (tm < MV_ROSTER)
             mv_montage(tm);
+        else if (tm < MV_FINALE)
+            mv_roster(tm);
         else
             mv_finale(tm);
     }
