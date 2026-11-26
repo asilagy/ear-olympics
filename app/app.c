@@ -3152,16 +3152,15 @@ static void sel_move(int32_t d)
 /* ---------------------------------------------------------------- Simone's introduction --- */
 /* A one-time show (per power-on) before Simone Says: a fortune teller who speaks in rhyme until her memory trips her up.
  * The text types a letter at a time with a bubbly blub for each (its pitch from the theme's scale); the down-triangle
- * says the card is done, and a key goes on. A synth theme in the double harmonic scale loops under it; on card 4 it
- * slows to a stop like a record, and returns on card 6. '~' is e-acute (the font has none; the accent is drawn). */
+ * says the card is done, and a key goes on. A synth theme in the double harmonic scale loops under it; it slows to a stop like a record on the "uh" of card 3, stays silent through cards 4 and 5, and returns on card 6. '~' is e-acute (the font has none; the accent is drawn). */
 typedef struct { const char *l[3]; int16_t ev_at; int8_t ev; } sim_card_t;   /* ev: 1 theme starts, -1 the record stops, at this typed letter */
 #define SIM_FULL 10u                     /* the first ten cards are the show; the last two are a repeat visit's */
 #define SIM_CARDS 12u
 static const sim_card_t sim_cards[SIM_CARDS] = {
     {{"Come closer, seeker, hear my call,", "for I see all. I am Simon~.", "I know it all."}, 0, 1},
     {{"Gaze into my crystal bowl,", "into my eyes,", "where your fate and future lies."}, 0, 0},
-    {{"I looked three seconds on, and saw", "the fate of every... uh. Hm.", ""}, 0, 0},
-    {{"It was right here.", "It was a... thing.", "It had a... shape."}, 19, -1},
+    {{"I looked three seconds on, and saw", "the fate of every... uh. Hm.", ""}, 56, -1},          /* the music drops out on "uh" */
+    {{"It was right here.", "It was a... thing.", "It had a... shape."}, 0, 0},
     {{"Aw shucks... I was doing so well...", "What was I saying?", ""}, 0, 0},
     {{"No matter! Spirits speak in four:", "Drip. Water. Splash. Splish.", ""}, 0, 1},
     {{"Repeat each word, then one word more,", "in order, as I said before.", ""}, 0, 0},

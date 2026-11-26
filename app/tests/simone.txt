@@ -27,22 +27,24 @@ wait 60
 tap PLAY
 wait 60
 expect simcard 2
-shot simone_3.png
+expect simmusic 1
+# card 3: the record slows on the "uh" of "every... uh. Hm."
+wait 2000
+shot simone_3_before.png
+wait 800
+expect simmusic 2
+shot simone_3_slowing.png
+wait 1000
+expect simmusic 3
+expect bend 100
+shot simone_3_silent.png
 tap PLAY
 wait 60
 tap PLAY
 wait 60
 expect simcard 3
-expect bend 100
-expect simmusic 1
-# card 4: the record slows after "It was right here."
-wait 1500
-expect simmusic 2
-shot simone_4_slowing.png
-wait 1200
 expect simmusic 3
-expect bend 100
-shot simone_4_silent.png
+shot simone_4.png
 tap PLAY
 wait 60
 tap PLAY
@@ -56,10 +58,7 @@ wait 60
 expect simcard 5
 expect simmusic 1
 shot simone_6.png
-wait 600
 # the long lines fit the screen (cards 7 to 10, each finished)
-tap PLAY
-wait 60
 tap PLAY
 wait 60
 tap PLAY
