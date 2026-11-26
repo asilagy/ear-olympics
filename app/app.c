@@ -2866,11 +2866,19 @@ static void mrect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c) { cv_r
 static void mtext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { cv_text(x, y - mv_oy, f, s, c); }
 static void mctext(int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { mtext((240 - text_w(f, s)) / 2, y, f, s, c); }
 
+static uint32_t eo_strlen(const char *s)               /* (the firmware has no libc) */
+{
+    uint32_t n = 0;
+    while (s[n])
+        n++;
+    return n;
+}
+
 static void mgame(int32_t y, const felucca_font_t *f, const char *s, uint16_t c)   /* a game's name, centred; the font has no e-acute, so SIMONE gets a drawn accent */
 {
     int32_t x = (240 - text_w(f, s)) / 2;
     mtext(x, y, f, s, c);
-    if (!strncmp(s, "SIMONE", 6)) {
+    if (s[0] == 'S' && s[1] == 'I' && s[2] == 'M' && s[3] == 'O' && s[4] == 'N' && s[5] == 'E') {
         int32_t ex = x + text_w(f, "SIMON"), ew = text_w(f, "E");
         mrect(ex + ew / 2, y - 1, 3, 2, c);
         mrect(ex + ew / 2 - 2, y + 1, 3, 2, c);
@@ -3171,7 +3179,7 @@ static uint32_t sim_len(const sim_card_t *c)             /* the letters in a car
     uint32_t i, n = 0;
     for (i = 0; i < 3u; i++)
         if (c->l[i][0])
-            n += (uint32_t)strlen(c->l[i]) + (i < 2u && c->l[i + 1u][0] ? 1u : 0u);
+            n += (uint32_t)eo_strlen(c->l[i]) + (i < 2u && c->l[i + 1u][0] ? 1u : 0u);
     return n;
 }
 
@@ -3179,7 +3187,7 @@ static char sim_at(const sim_card_t *c, uint32_t k)      /* the k-th letter of t
 {
     uint32_t i, n;
     for (i = 0; i < 3u; i++) {
-        n = (uint32_t)strlen(c->l[i]);
+        n = (uint32_t)eo_strlen(c->l[i]);
         if (k < n)
             return c->l[i][k];
         k -= n;
@@ -3317,7 +3325,7 @@ static void sim_key(uint32_t now)                        /* a key: finish the li
 static void sim_line(int32_t y, const char *s, uint32_t n, uint16_t col)   /* one line, typed up to n letters; '~' is e-acute */
 {
     char full[48], part[48];
-    uint32_t i, len = (uint32_t)strlen(s);
+    uint32_t i, len = (uint32_t)eo_strlen(s);
     int32_t x0;
     for (i = 0; i < len && i < 47u; i++)
         full[i] = s[i] == '~' ? 'e' : s[i];
@@ -3358,7 +3366,7 @@ static void sim_scene(uint32_t now)
     mrect(0, 150, 240, 90, C_BLACK);
     mrect(0, 150, 240, 2, EO_RGB(120, 100, 170));
     for (i = 0; i < 3u; i++) {
-        uint32_t len = (uint32_t)strlen(c->l[i]);
+        uint32_t len = (uint32_t)eo_strlen(c->l[i]);
         if (!len)
             continue;
         sim_line(158 + (int32_t)i * 19, c->l[i], n > used ? n - used : 0u, C_WHITE);
