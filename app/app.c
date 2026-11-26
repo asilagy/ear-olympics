@@ -3109,7 +3109,7 @@ static void sel_go(void)
 #define SEL_BPM8 188u                                    /* the select's pulse: eighth notes at 94 bpm (319 ms) */
 static const char *const sel_desc[6][2] = {
     {"Meow plays a melody over a root.", "Play it back by ear. It climbs."},
-    {"Dr. Diggie plays a chord.", "Major, minor, or something worse?"},
+    {"Help Dr. Diggie Diagnose the Chord", "Major, minor, or something worse?"},
     {"A place-holder for now.", "More games are on the way."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
