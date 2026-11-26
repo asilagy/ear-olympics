@@ -1,0 +1,34 @@
+# Debug mode: GLO three times in a row opens every level (and again closes them). From a fresh start: Copycat's open
+# levels are 1 + 3.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+tap GLO
+wait 100
+tap GLO
+wait 100
+expect open 3
+tap GLO
+wait 100
+expect open 34
+shot debug_on.png
+# two taps are not enough, and slow ones do not count
+tap GLO
+wait 1000
+tap GLO
+wait 1000
+tap GLO
+wait 100
+expect open 34
+# three more: off
+tap GLO
+wait 100
+tap GLO
+wait 100
+tap GLO
+wait 100
+expect open 3

@@ -446,6 +446,7 @@ static uint32_t mv_t0, mv_m0;            /* the movie's start, and the music's *
 static uint8_t mv_stage, eo_cat_seen, sel_cur;   /* its sound cues done; the cat has introduced itself; the select's cursor */
 static void mv_end(void);                /* the power-on movie and the game select (below the screen code) */
 static void sel_move(int32_t d);
+static void sel_blip(uint32_t key, uint8_t vo);
 static void sel_go(void);
 static void sel_enter(void);
 enum { TX_READY, TX_ROOT, TX_LISTEN, TX_WATCH, TX_TURN, TX_NICE, TX_MISS, TX_OVER, TX_GOOD };
@@ -684,6 +685,8 @@ static uint32_t eo_croot(void)           /* the root now: before a round, on a m
 static uint32_t eo_open(uint32_t g)      /* the highest level you may play: three above the highest completed */
 {
     uint32_t m = set.top[g] + EO_UNLOCK;
+    if (set.pad & 1u)                    /* debug mode: every level is open */
+        return eo_levels[g];
     return m > eo_levels[g] ? eo_levels[g] : m;
 }
 
@@ -1630,7 +1633,7 @@ static void settings_load(void)          /* the saved settings, or the defaults 
          set.game < GAMES && set.root >= ROOT_MIN && set.root <= ROOT_MAX;
     for (g = 0; ok && g < GAMES; g++)
         if (set.level[g] < 1u || set.level[g] > eo_levels[g] || set.prog[g] > (g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : g == GAME_DOGTOR ? DOGTOR_ROUNDS : EO_ROUNDS_UP) || set.top[g] > eo_levels[g] ||
-            set.level[g] > set.top[g] + EO_UNLOCK)
+            (set.level[g] > set.top[g] + EO_UNLOCK && !(set.pad & 1u)))
             ok = 0;
     if (set.voice >= VOICES)
         ok = 0;
@@ -1694,9 +1697,40 @@ void app_init(void)                      /* boot: the settings, and a quiet star
 #endif
 }
 
+static void eo_debug_tap(uint32_t new_btn, uint32_t now)   /* GLO three times in a row: debug mode, every level open */
+{
+    static uint32_t taps, last;
+    uint32_t g;
+    if (!(new_btn & (1u << B_GLO)))
+        return;
+    taps = (taps && now - last < 900u) ? taps + 1u : 1u;
+    last = now;
+    if (taps < 3u)
+        return;
+    taps = 0;
+    set.pad ^= 1u;
+    if (!(set.pad & 1u)) {               /* off: back inside the real unlock, so the saved levels stay valid */
+        for (g = 0; g < GAMES; g++) {
+            uint32_t m = set.top[g] + EO_UNLOCK;
+            if (set.level[g] > m) {
+                set.level[g] = (uint8_t)m;
+                set.prog[g] = 0;
+            }
+        }
+    }
+    set_dirty = 1;
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT) {
+        sel_blip((set.pad & 1u) ? 30u : 6u, V_TRI);
+    } else {
+        app_say("DEBUG", (set.pad & 1u) ? "ALL LEVELS OPEN" : "OFF");
+    }
+    ui.redraw = 1;
+}
+
 static void input(void)
 {
     uint32_t keys = plat_keys() | eo_midi_keys, btn = plat_buttons(), k;
+    eo_debug_tap(btn & ~ui.btn, plat_ms());
     if (ui.state == ST_MOVIE || ui.state == ST_SELECT) {   /* the movie: any key skips it; the select: PRESETS move, PLAY starts */
         uint32_t new_keys = keys & ~ui.keys, new_btn = btn & ~ui.btn;
         for (k = 0; k < NE; k++) {
@@ -3109,6 +3143,8 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
         mctext(70 + bob, &FONT_L, "?", C_WHITE);
     mrect(0, 0, 240, 28, C_BLACK);                       /* the header: the game */
     mctext(5, &FONT_B, cur >= 0 ? c->game : "COMING SOON", a);
+    if (set.pad & 1u)
+        mtext(4, 8, &FONT_XS, "DEBUG", C_AMB);
     mrect(0, 176, 240, 64, C_BLACK);                     /* the footer: who, what, where */
     for (i = 0; i < 6u; i++)                             /* the page dots */
         mrect(120 - 33 + (int32_t)i * 12, 180, 9, 5, i == sel_cur ? C_WHITE : sel_game[i] >= 0 ? C_GRAY : C_LINE);
