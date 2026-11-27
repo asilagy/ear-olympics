@@ -3564,9 +3564,10 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
     }
 }
 
-/* the screen is the keys and nothing else: C D E G big, in their colours, with the unused keys between them dim for
- * parity. The key that sounds (or that you hold) fills with its colour; its word sits on it. Simone is full size above
- * them, with what she is saying beside her. The numbers are in the foot. */
+/* the screen: Simone owns the top left, big; her quips are the top right (she speaks in rhyme until her memory trips her);
+ * the keys are pushed to the bottom: C D E G big, in their colours, with the unused keys between them dim for parity. The
+ * key that sounds (or that you hold) fills with its colour and its word sits on it. The numbers live in the header. The keys
+ * run from the middle band down into the foot, so they are painted twice, each time with its own top edge. */
 #define SIM_KX 6                         /* the left edge of the first white key */
 #define SIM_KP 46                        /* the pitch of the white keys: C D E F G, 44 wide */
 static void sim_key_label(int32_t x, int32_t w, int32_t y, const char *s, uint16_t c)
@@ -3574,12 +3575,12 @@ static void sim_key_label(int32_t x, int32_t w, int32_t y, const char *s, uint16
     cv_text(x + (w - text_w(&FONT_XS, s)) / 2, y, &FONT_XS, s, c);
 }
 
-static void sim_band(uint32_t now)
+static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in this band (negative: above it) */
 {
     static const uint8_t WH[5] = {7, 9, 11, 12, 14};         /* C D E F G */
     static const int8_t BL[3] = {8, 10, 13};                 /* C# D# F#: between C D, D E, F G */
     static const uint8_t BA[3] = {0, 1, 3};                  /* the white key each follows */
-    uint32_t i, tx = eo_text(), bright, mid, dim, any = 0;
+    uint32_t i, bright, mid, dim;
     key_levels(&bright, &mid, &dim);
     for (i = 0; i < 5u; i++) {                               /* the white keys */
         int32_t x = SIM_KX + (int32_t)i * SIM_KP;
@@ -3587,52 +3588,46 @@ static void sim_band(uint32_t now)
         int play = (k != 12u);                               /* F is not in play */
         int lit = play && (int)((bright >> k) & 1u);
         uint16_t c = !play ? C_LINE : lit ? SIM_COL[ix] : mv_scale(SIM_COL[ix], 2u);
-        cv_rect(x, 78, 44, 62, c);
-        if (lit) {
-            cv_rect(x, 78, 44, 3, C_WHITE);                  /* a bright rim: it is the one */
-            any = 1;
-        }
+        cv_rect(x, y0, 44, 90, c);
+        if (lit)
+            cv_rect(x, y0, 44, 3, C_WHITE);                  /* a bright rim: it is the one */
         if (play)
-            sim_key_label(x, 44, 124, SIM_WORD[ix], lit ? C_BLACK : mv_scale(SIM_COL[ix], 5u));
+            sim_key_label(x, 44, y0 + 74, SIM_WORD[ix], lit ? C_BLACK : mv_scale(SIM_COL[ix], 5u));
     }
     for (i = 0; i < 3u; i++)                                 /* the black keys: never in play, so dark */
-        cv_rect(SIM_KX + ((int32_t)BA[i] + 1) * SIM_KP - 15, 78, 26, 38, ((bright >> BL[i]) & 1u) ? C_HI : C_BLACK);
-    mv_oy = 0;                                               /* the sprite painter clips to this band */
-    mv_h = 144;
-    cast_paint(0u, any ? 1u : 0u, 6, 2 + (int32_t)((now / 700u) & 1u), 1, 1);   /* Simone, full size: the star */
-    cv_text(112, 28, &FONT_M, TX[tx], (tx == TX_WATCH || tx == TX_NICE) ? C_HI : C_WHITE);
+        cv_rect(SIM_KX + ((int32_t)BA[i] + 1) * SIM_KP - 15, y0, 26, 52, C_BLACK);
 }
 
-static void sim_foot(void)               /* Simone Says' foot: where you are, and the keys to press */
+static const char *sim_quip(uint32_t tx)                     /* what she says: rhyme, until she loses it */
 {
-    char t[48], n[12];
-    t[0] = 0;
-    text_cat(t, "LEVEL ");
-    int_text((int32_t)eo_level(), n);
-    text_cat(t, n);
-    if (ans_len && ui.state != ST_READY && ui.text != TX_OVER) {
-        text_cat(t, "   LENGTH ");
-        int_text((int32_t)ans_len, n);
-        text_cat(t, n);
-        if (eo_level() < SIMON_LEVELS) {
-            text_cat(t, "/");
-            int_text((int32_t)simon_goal(eo_level()), n);
-            text_cat(t, n);
-        }
+    uint32_t lv = eo_level();
+    if (ui.state == ST_READY) {
+        if (ui.text == TX_OVER)
+            return "The spirits sigh. The spirits... why?";
+        return lv >= 4u ? "One light. No more. Trust your ears, I implore." :
+               lv == 3u ? "The lights will fade. Your ears, be unafraid." : "Press PLAY, dear. The future's near.";
     }
-    text_cat(t, "   BEST ");
-    int_text(set.best[GAME_SIMON], n);
-    text_cat(t, n);
-    ctext(4, &FONT_XS, t, C_AMB);
-    if (ui.text == TX_OVER) {
-        t[0] = 0;
-        text_cat(t, "SCORE ");
-        int_text((int32_t)eo_score, n);
-        text_cat(t, n);
-        ctext(22, &FONT_S, t, C_HI);
-    }
-    ctext(ui.text == TX_OVER ? 42 : 24, &FONT_XS,
-          ui.state == ST_READY ? "PLAY START   PRESETS GAME   K1 LEVEL" : "HOME STOP", C_DIM);
+    if (tx == TX_WATCH)
+        return "Watch and hear. The fates are near.";
+    if (tx == TX_NICE)
+        return "Splendid! I knew it. ...Knew what?";
+    if (tx == TX_MISS)
+        return "Oh dear. The song, it disappeared.";
+    return "Now you play. Don't stray.";
+}
+
+static void sim_band(uint32_t now)
+{
+    uint32_t i, tx = eo_text(), bright, mid, dim, any = 0;
+    key_levels(&bright, &mid, &dim);
+    for (i = 0; i < 4u; i++)
+        if ((bright >> (SIMON_BASE + simon_level(1)->off[i])) & 1u)
+            any = 1;
+    mv_oy = 0;                                               /* the sprite painter clips to this band */
+    mv_h = 144;
+    cast_paint(0u, any ? 1u : 0u, -22, 4 + (int32_t)((now / 700u) & 1u), 3, 2);   /* Simone, big: the star */
+    wrap_text(104, 16, 132, &FONT_S, sim_quip(tx), (tx == TX_NICE || tx == TX_WATCH) ? C_HI : C_WHITE, 18);
+    sim_keys(114);
 }
 
 static void draw(void)
@@ -3691,9 +3686,32 @@ static void draw(void)
         }
     } else {
         int32_t x = cv_text(10, 6, &FONT_B, set.game == GAME_SIMON ? "SIMONE SAYS" : APP_NAME, C_WHITE);
-        const char *vn = eo_voice_name[eo_voice < VOICES ? eo_voice : 0u];   /* Simone's own bell, not the cat's setting */
-        cv_text(x + 8, 10, &FONT_XS, EO_VERSION, C_DIM);
-        cv_text(230 - text_w(&FONT_XS, vn), 10, &FONT_XS, vn, C_GRAY);
+        if (set.game == GAME_SIMON) {            /* the numbers live up here: LEVEL 1  3/5, or the version between games */
+            char h[32], hn[12];
+            h[0] = 0;
+            if (ui.state == ST_READY) {
+                text_cat(h, "LEVEL ");
+                int_text((int32_t)eo_level(), hn);
+                text_cat(h, hn);
+                text_cat(h, "  ");
+                text_cat(h, EO_VERSION);
+            } else {
+                text_cat(h, "LEVEL ");
+                int_text((int32_t)eo_level(), hn);
+                text_cat(h, hn);
+                text_cat(h, "  ");
+                int_text((int32_t)ans_len, hn);
+                text_cat(h, hn);
+                text_cat(h, "/");
+                int_text((int32_t)simon_goal(eo_level()), hn);
+                text_cat(h, hn);
+            }
+            cv_text(230 - text_w(&FONT_XS, h), 10, &FONT_XS, h, ui.state == ST_READY ? C_DIM : C_AMB);
+        } else {
+            const char *vn = eo_voice_name[eo_voice < VOICES ? eo_voice : 0u];
+            cv_text(x + 8, 10, &FONT_XS, EO_VERSION, C_DIM);
+            cv_text(230 - text_w(&FONT_XS, vn), 10, &FONT_XS, vn, C_GRAY);
+        }
     }
     cv_blit(0, 0);
     /* the middle: the game and its level, the big word, the progress, the numbers, a hint */
@@ -3800,7 +3818,7 @@ static void draw(void)
     /* the foot: Simon's keys (Copycat has none on the screen), and the volume for a moment after it changes */
     cv_begin(240, 60, C_BLACK);
     if (set.game == GAME_SIMON)
-        sim_foot();
+        sim_keys(-30);
     else if (ui.state == ST_READY)
         cc_facts();
     vol_overlay(36, now, pct);
