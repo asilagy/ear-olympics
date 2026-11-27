@@ -3953,9 +3953,9 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
         }
 }
 
-static const char *const sim_gap_say[6] = {"I see... great success! You just had it.", "The cards say: well done. Now pay my fee.",
-                                           "The crystal clears... I see... me! Hello!", "Spirits, awake! This one earns a cake.",
-                                           "My palm says the next note is... a note.", "Behold! I foresee a longer sequence!"};
+static const char *const sim_gap_say[6] = {"Darling, I see greatness. It looks like you.", "The cards adore you, dear. Now, my fee.",
+                                           "The crystal clears... I see... me! Hello!", "Oh sweet one, you have the gift. Let's lift!",
+                                           "My palm says the next note is... a note.", "Behold, my love! A longer sequence!"};
 static char sim_buf[48];
 static const char *sim_typed_text(const char *full, uint32_t n)   /* the first n letters of a line */
 {
@@ -3970,10 +3970,10 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     uint32_t lv = eo_level(), now = plat_ms();
     sim_alert = 0;
     if (ui.state == ST_WISH || (ui.state == ST_READY && ui.text == TX_OVER)) {   /* you have angered the spirits */
-        static const char *const talk[4] = {"No fear, dear. I foresaw this. ...Just now.",
-                                            "The spirits scowl. Their mood is foul.",
-                                            "Calm waters, dear. Now... who are you again?",
-                                            "Defeat is just the future arriving early."};
+        static const char *const talk[4] = {"No fear, darling. I foresaw this. ...Just now.",
+                                            "The spirits scowl, my dear. You're still my favorite.",
+                                            "Calm waters, sweet one. Now... who are you again?",
+                                            "Defeat is just the future, love, arriving early."};
         uint32_t t = now - sim_wish_t0, beat;
         if (t < 3600u) {                     /* the shout, once */
             sim_alert = 2;
@@ -3997,8 +3997,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         return sim_typed_text(sim_gap_say[ans_len % 6u], n);
     }
     if (ui.state == ST_LISTEN && seq_on) {
-        static const char *const fortune[4] = {"Hush! The spirits are speaking...", "I see a door. And... one door more.",
-                                               "The cards foretell: you'll do quite well.", "A tall dark stranger! ...A lamp. Danger."};
+        static const char *const fortune[4] = {"Come closer, darling. The spirits whisper...", "I see a door. And... one door more.",
+                                               "The cards foretell: you'll do quite well, dear.", "A tall dark stranger! ...Oh. It's you, gorgeous."};
         uint32_t g0 = sim_gap_at, g1 = sim_gap_at + sim_gap_len;
         if (now < sim_wish_until) {          /* a wish is being granted */
             sim_alert = 1;
@@ -4035,19 +4035,19 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             sim_alert = 2;
             return "BACKWARDS! LAST NOTE FIRST!";
         }
-        return "Backwards, dear. Last note first.";
+        return "Backwards, darling. Last note first.";
     }
     if (ui.state == ST_READY) {
-        return lv >= 4u ? "One light. No more. Trust your ears, I implore." :
-               lv == 3u ? "The lights will fade. Your ears, be unafraid." : "Press PLAY, dear. The future's near.";
+        return lv >= 4u ? "One light, my sweet. Your ears can't be beat." :
+               lv == 3u ? "The lights will fade, but you've such ears, my dear." : "Press PLAY, darling. Your future's calling.";
     }
     if (tx == TX_WATCH)
-        return "Watch and hear. The fates are near.";
+        return "Come closer, darling. Watch and hear.";
     if (tx == TX_NICE)
-        return "Splendid! I knew it. ...Knew what?";
+        return "Splendid, darling! I knew it. ...Knew what?";
     if (tx == TX_MISS)
-        return "Oh dear. The song, it disappeared.";
-    return "Now you play. Don't stray.";
+        return "Oh, my sweet. The song just disappeared.";
+    return "Now you play, my lovely. Don't stray.";
 }
 
 static uint32_t sim_any_lit(void)
@@ -4171,7 +4171,7 @@ static const char *const sim_up_say[SIMON_LEVELS + 1u][3] = {
     {0, 0, 0},
     {0, 0, 0},
     {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "I might forget. Don't fret!"},
-    {"Splendid! You listened well.", "The lights will fade. Be unafraid.", "I may stall. The crystal ball may call."},
+    {"Splendid, darling! You listened well.", "The lights will fade. Be unafraid.", "I may stall. The crystal ball may call."},
     {"A star pupil! Or a lucky fool.", "One light, no more. Trust your ears, I implore.", "Do too well, and the spirits yell!"},
 };
 static void sim_up_band(uint32_t now)
