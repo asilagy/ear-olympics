@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SIM = os.path.join(ROOT, "app", "build", "host", "earolympics_host")
 OUT = os.path.join(ROOT, "app", "tests")
 ROUNDS = 8           # level 1 of Copycat graduates after 8 melodies right; Simone Says after a sequence of 5
-SIMON_ROUNDS = 4     # simon_goal(1) in eo_simon.h: Simone Says graduates level 1 at a sequence of 4
+SIMON_ROUNDS = 3     # simon_goal(1) in eo_simon.h: Simone Says graduates level 1 at a sequence of 3
 HEAR_EXTRA = 0       # no double hearing any more: PLAY replays the melody
 
 
@@ -130,7 +130,7 @@ def gen_simon():
           "tap PLAY", "wait 100", "tap PLAY", "wait 100", "wait 1500", "tap PLAY", "wait 100", "shot levelup3.png", "tap PLAY", "wait 100",
           "tap PLAY", "wait 100", "expect state 11"]
     L += ["tap PLAY", "wait 100", "expect state 1", "expect level 2", "expect len 1", "expect dim 19072",
-          "tap HOME", "wait 50", "expect state 0", "reboot", "wait 600", "tap HOME", "wait 50", "expect level 2", "expect best 4"]
+          "tap HOME", "wait 50", "expect state 0", "reboot", "wait 600", "tap HOME", "wait 50", "expect level 2", "expect best %d" % SIMON_ROUNDS]
     return L
 
 

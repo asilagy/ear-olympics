@@ -628,8 +628,8 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
         {0, 0, 0},
         {0, 0, 0},
         {"FASTER NOW", "SIMONE MAY LOSE HER PLACE", "WATCH HER WORDS"},
-        {"SOMETIMES SHE STALLS", "OR CASTS A CRYSTAL BALL", "OR DOUBLES YOUR FORTUNE"},
-        {"LATE IN A LEVEL SHE DIMS THE LIGHTS", "THE OLDER NOTES SOUND IN THE DARK", "DO TOO WELL AND YOU PLAY BACKWARDS"},
+        {"A CRYSTAL BALL APPEARS", "BLUE SCREEN, THE WORDS ONLY", "SHE MAY STILL LOSE HER PLACE"},
+        {"SHE DOUBLES YOUR FORTUNE", "RIDDLES SAY HOW TO PLAY", "DO TOO WELL AND YOU PLAY BACKWARDS"},
     },
     {   /* Copycat: the new idea, a cat pun, then a word of cheer or a warning */
         {0, 0, 0},
@@ -1388,12 +1388,10 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
                 else if (fx == SIMON_FX_PRE)
                     sim_pre_first = 1;
                 if (!fx && !sim_cool) {          /* no trick two rounds running */
-                    uint32_t r = sim_fx_rand() >> 7;
                     if (ans_len >= 2u && sim_fx_rand() % 100u < simon_crystal_pct(lv))
                         fx = SIMON_FX_CRYSTAL;
                     else if (ans_len >= 3u && sim_fx_rand() % 100u < simon_lapse_pct(lv))
-                        fx = lv >= 4u ? (r % 3u == 0u ? SIMON_FX_LAPSE : r % 3u == 1u ? SIMON_FX_RESTART : SIMON_FX_STALL) :
-                             lv == 3u ? ((r & 1u) ? SIMON_FX_STALL : SIMON_FX_LAPSE) : SIMON_FX_LAPSE;
+                        fx = SIMON_FX_LAPSE;       /* (the stall and the restart are parked for later levels) */
                     else if (ans_len >= 3u && ans_len + 2u >= simon_goal(lv) && sim_fx_rand() % 100u < simon_dark_pct(lv))
                         fx = SIMON_FX_DARK;
                     else if (sim_pick_rule(lv, ans_len) && sim_fx_rand() % 100u < simon_twice_pct(lv))
@@ -3704,13 +3702,13 @@ static const sim_card_t sim_up_cards[3][3] = {
     },
     {
         {{"Level three! Oh, you're a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
-        {{"Sometimes I stall. The crystal ball may call.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 102, -1},
-        {{"Late in a level, I dim the lights. Trust your ears, my sweet.", "Hold your breath, my dear. Don't fall.", ""}, 0, 1},
+        {{"The crystal ball may call. Don't fall.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 95, -1},
+        {{"Blue and bubbly, words alone.", "Hold your breath. Make them your own.", ""}, 0, 1},
     },
     {
         {{"A star pupil, darling! Level four!", "Or luck. Who cares? Come, ask for more.", ""}, 0, 1},
         {{"Do too well, and the spirits yell!", "I had a dark premonition... a...", "a low, dark root... uh. Hm."}, 88, -1},
-        {{"Your ears must lead, my love. Indeed.", "Let's go. Through all the years.", ""}, 0, 1},
+        {{"A riddle will say how to play.", "Listen close. I'll light the way.", ""}, 0, 1},
     },
 };
 static uint8_t sim_card, sim_hi, sim_music, sim_ev_done;   /* the card now, and the one the show ends after */
@@ -4316,7 +4314,7 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             {"Press PLAY, darling. Your future's calling.", "Come closer, seeker. The bowl is warm... and so are you.", "Press PLAY, my dear. I see it clear. ...Or is it near?"},
             {"Press PLAY, my love. The stars above approve.", "The spirits hum. They say you're someone. Press PLAY, someone.", "Faster now, darling. Hold on to your fins."},
             {"Shh. The crystal hums. Sometimes... it lends a hand.", "Shh. The crystal hums. It knows what's coming. ...Press PLAY.", "The lights will wait, my sweet. Do not be late."},
-            {"Late in the game, my sweet, I dim the lights. Your ears can't be beat.", "Dim lights, my darling. Dim as my memory. ...What memory?", "The spirits are watching. Don't tell them I'm nervous."}};
+            {"Riddles, darling! I speak in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "The spirits are watching. Don't tell them I'm nervous."}};
         return rd[(lv < 1u ? 1u : lv > 4u ? 4u : lv) - 1u][sim_say_n % 3u];
     }
     if (tx == TX_WATCH) {
