@@ -3616,18 +3616,31 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     return "Now you play. Don't stray.";
 }
 
-static void sim_band(uint32_t now)
+#define SIM_SX (-34)                     /* Simone's art starts a way into her sprite box: this puts her bowl at the left edge */
+#define SIM_SY (-4)
+static uint32_t sim_any_lit(void)
 {
-    uint32_t i, tx = eo_text(), bright, mid, dim, any = 0;
+    uint32_t i, bright, mid, dim;
     key_levels(&bright, &mid, &dim);
     for (i = 0; i < 4u; i++)
         if ((bright >> (SIMON_BASE + simon_level(1)->off[i])) & 1u)
-            any = 1;
-    mv_oy = 0;                                               /* the sprite painter clips to this band */
-    mv_h = 144;
-    cast_paint(0u, any ? 1u : 0u, -22, 4 + (int32_t)((now / 700u) & 1u), 3, 2);   /* Simone, big: the star */
-    wrap_text(104, 16, 132, &FONT_S, sim_quip(tx), (tx == TX_NICE || tx == TX_WATCH) ? C_HI : C_WHITE, 18);
+            return 1;
+    return 0;
+}
+
+static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her, twice life size, over the keys: once per band */
+{
+    mv_oy = band_top;                                        /* the sprite painter clips to the band, in the middle band's coordinates */
+    mv_h = band_h;
+    cast_paint(0u, sim_any_lit() ? 1u : 0u, SIM_SX, SIM_SY + (int32_t)((now / 700u) & 1u), 2, 1);
+}
+
+static void sim_band(uint32_t now)
+{
+    uint32_t tx = eo_text();
     sim_keys(114);
+    sim_sprite(now, 0, 144);
+    wrap_text(124, 16, 112, &FONT_S, sim_quip(tx), (tx == TX_NICE || tx == TX_WATCH) ? C_HI : C_WHITE, 18);
 }
 
 static void draw(void)
@@ -3817,9 +3830,10 @@ static void draw(void)
     }
     /* the foot: Simon's keys (Copycat has none on the screen), and the volume for a moment after it changes */
     cv_begin(240, 60, C_BLACK);
-    if (set.game == GAME_SIMON)
+    if (set.game == GAME_SIMON) {
         sim_keys(-30);
-    else if (ui.state == ST_READY)
+        sim_sprite(now, 144, 60);        /* her bowl comes down over the keys: the foot's part of her */
+    } else if (ui.state == ST_READY)
         cc_facts();
     vol_overlay(36, now, pct);
     cv_blit(0, 180);
