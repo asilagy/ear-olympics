@@ -183,10 +183,6 @@ reboot
 wait 600
 tap HOME
 wait 50
-tap PLAY
-wait 50
-tap HOME
-wait 50
 expect game 1
 expect level 2
 expect prog 0

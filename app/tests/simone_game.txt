@@ -1,0 +1,52 @@
+# Simone Says' screen: the bubbles (one word per note), the goldfish, the pops on your turn. Pictures for a look; the
+# expectations are the structure. States: 0 ready, 1 watch, 2 your turn, 3 nice.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+shot sg_ready.png
+tap PLAY
+wait 600
+shot sg_watch1.png
+wait 290
+expect state 2
+key 11 down
+wait 30
+shot sg_press.png
+expect state 3
+key 11 up
+wait 1100
+expect state 1
+expect len 2
+wait 1470
+expect state 2
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+wait 1100
+expect state 1
+expect len 3
+wait 1300
+shot sg_watch3.png
+wait 1000
+expect state 2
+shot sg_turn3.png
+wait 3000
+shot sg_popping.png
+wait 2500
+shot sg_popped.png
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+shot sg_turn3_half.png

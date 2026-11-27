@@ -15,12 +15,37 @@ typedef struct {
     uint8_t off[SIMON_MAX_POOL];
 } simon_level_t;
 
-static const simon_level_t SIMON_LV[SIMON_LEVELS] = {
-    {4, {0, 2, 4, 7}},                                    /* 1: four keys: C D E G */
-    {5, {0, 2, 4, 7, 9}},                                 /* 2: five: the major pentatonic */
-    {8, {0, 2, 4, 5, 7, 9, 11, 12}},                      /* 3: the major scale, an octave */
-    {13, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}},     /* 4: every key of the octave */
+static const simon_level_t SIMON_LV[SIMON_LEVELS] = {   /* Simone Says: always the same four keys, C D E G. The levels are the pressure, not the notes */
+    {4, {0, 2, 4, 7}},
+    {4, {0, 2, 4, 7}},
+    {4, {0, 2, 4, 7}},
+    {4, {0, 2, 4, 7}},
 };
+
+/* a level graduates when you get a sequence this long: the wall is about 7 notes, past 9 you have to chunk */
+static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {5, 7, 9, 12};
+static inline uint32_t simon_goal(uint32_t level)
+{
+    return SIMON_GOAL[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
+}
+
+/* the fish's memory, on your turn: how long until the first bubble pops, then how long between pops (ms), by level */
+static const uint16_t SIMON_POP_GRACE[SIMON_LEVELS] = {2600, 1800, 1200, 800};
+static const uint16_t SIMON_POP_EVERY[SIMON_LEVELS] = {900, 650, 450, 320};
+static inline uint32_t simon_popped(uint32_t level, uint32_t since_ms, uint32_t len)   /* bubbles popped by now, oldest first */
+{
+    uint32_t i = level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u, n;
+    if (since_ms < SIMON_POP_GRACE[i])
+        return 0;
+    n = 1u + (since_ms - SIMON_POP_GRACE[i]) / SIMON_POP_EVERY[i];
+    return n > len ? len : n;
+}
+
+/* a note's word: the mnemonic. DRIP, WATER, SPLASH, SPLISH for the keys C D E G (offsets 0, 2, 4, 7) */
+static inline uint32_t simon_word_ix(uint32_t off)
+{
+    return off == 0u ? 0u : off == 2u ? 1u : off == 4u ? 2u : 3u;
+}
 
 static inline const simon_level_t *simon_level(uint32_t level)   /* level is 1-based, and clamped */
 {
@@ -38,11 +63,11 @@ static inline uint8_t simon_next(uint32_t level, uint32_t *rng, uint32_t prev)
     return o;
 }
 
-/* the tempo: a note every step_ms, quickening as the sequence grows, then no faster than 330 ms */
-static inline uint32_t simon_step_ms(uint32_t len)
+/* the tempo: a note every step_ms, quickening as the sequence grows and again at each level, then no faster than 300 ms */
+static inline uint32_t simon_step_ms(uint32_t len, uint32_t level)
 {
-    uint32_t cut = len > 4u ? 30u * (len - 4u) : 0u;
-    return cut > 320u ? 330u : 650u - cut;
+    uint32_t cut = (len > 4u ? 30u * (len - 4u) : 0u) + 40u * (level > 1u ? level - 1u : 0u);
+    return cut > 350u ? 300u : 650u - cut;
 }
 
 static inline uint32_t simon_note_ms(uint32_t step)  /* how long each note sounds within its step */

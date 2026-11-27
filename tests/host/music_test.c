@@ -184,12 +184,24 @@ int main(void)
             CHECK(7u + lv->off[j] <= 26u, "simon %u: note %u off the keyboard", level, lv->off[j]);
         printf("  ok   simon level %u: %u keys\n", level, lv->n);
     }
-    CHECK(simon_step_ms(1) == 650 && simon_step_ms(4) == 650 && simon_step_ms(5) == 620, "simon tempo start");
-    CHECK(simon_step_ms(20) == 330 && simon_step_ms(40) == 330, "simon tempo floor");
-    for (i = 2; i <= SIMON_MAX_LEN; i++)
-        CHECK(simon_step_ms(i) <= simon_step_ms(i - 1), "simon tempo never slows at %u", i);
-    CHECK(simon_note_ms(330) >= 160 && simon_note_ms(650) < 650, "simon note length");
+    CHECK(simon_step_ms(1, 1) == 650 && simon_step_ms(4, 1) == 650 && simon_step_ms(5, 1) == 620, "simon tempo start");
+    CHECK(simon_step_ms(20, 1) == 300 && simon_step_ms(40, 4) == 300, "simon tempo floor");
+    for (level = 1; level <= SIMON_LEVELS; level++)
+        for (i = 2; i <= SIMON_MAX_LEN; i++)
+            CHECK(simon_step_ms(i, level) <= simon_step_ms(i - 1, level), "simon tempo never slows at %u", i);
+    for (level = 2; level <= SIMON_LEVELS; level++)
+        CHECK(simon_step_ms(6, level) < simon_step_ms(6, level - 1), "simon level %u is quicker", level);
+    CHECK(simon_note_ms(300) >= 160 && simon_note_ms(650) < 650, "simon note length");
     CHECK(simon_pool_mask(1, 7) == ((1u << 7) | (1u << 9) | (1u << 11) | (1u << 14)), "simon pool mask");
+    CHECK(simon_goal(1) == 5 && simon_goal(2) == 7 && simon_goal(3) == 9 && simon_goal(4) == 12, "simon goals 5 7 9 12");
+    for (level = 1; level <= SIMON_LEVELS; level++)
+        CHECK(simon_pool_mask(level, 7) == simon_pool_mask(1, 7), "simon %u keeps the same four keys", level);
+    CHECK(simon_word_ix(0) == 0 && simon_word_ix(2) == 1 && simon_word_ix(4) == 2 && simon_word_ix(7) == 3, "simon words");
+    CHECK(simon_popped(1, 0, 6) == 0 && simon_popped(1, 2599, 6) == 0 && simon_popped(1, 2600, 6) == 1, "simon first pop after the grace");
+    CHECK(simon_popped(1, 2600 + 900, 6) == 2 && simon_popped(1, 99999, 6) == 6, "simon pops oldest first, capped at the length");
+    CHECK(simon_popped(4, 800, 9) == 1 && simon_popped(4, 800 + 320 * 3, 9) == 4, "simon pops faster at level 4");
+    for (level = 2; level <= SIMON_LEVELS; level++)
+        CHECK(SIMON_POP_GRACE[level - 1] < SIMON_POP_GRACE[level - 2] && SIMON_POP_EVERY[level - 1] < SIMON_POP_EVERY[level - 2], "simon pops sooner at level %u", level);
     printf("  ok   simon tempo and masks\n");
     {   /* the same seed, the same melody */
         uint32_t a = 77, b = 77;

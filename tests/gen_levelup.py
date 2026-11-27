@@ -20,8 +20,8 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SIM = os.path.join(ROOT, "app", "build", "host", "earolympics_host")
 OUT = os.path.join(ROOT, "app", "tests")
-ROUNDS = 8           # level 1 of Copycat graduates after 8 melodies right; Simon after a sequence of 10
-SIMON_ROUNDS = 10    # EO_ROUNDS_UP in app.c
+ROUNDS = 8           # level 1 of Copycat graduates after 8 melodies right; Simone Says after a sequence of 5
+SIMON_ROUNDS = 5     # simon_goal(1) in eo_simon.h: Simone Says graduates level 1 at a sequence of 5
 HEAR_EXTRA = 0       # no double hearing any more: PLAY replays the melody
 
 
@@ -52,7 +52,7 @@ def read_values(lines, names):
 
 def simon_step(n):
     cut = 30 * (n - 4) if n > 4 else 0
-    return 330 if cut > 320 else 650 - cut
+    return 300 if cut > 350 else 650 - cut
 
 
 def simon_listen_ms(n):             # how long a sequence of n notes takes to play: when your turn begins
@@ -110,7 +110,7 @@ def gen_misscost():
 
 
 def gen_simon():
-    L = ["wait 600", "tap HOME", "wait 50", "turn PRESET -1", "wait 30", "expect game 0", "expect level 1"]
+    L = ["wait 600", "tap HOME", "wait 50", "tap PLAY", "wait 50", "tap HOME", "wait 50", "turn PRESET -1", "wait 30", "expect game 0", "expect level 1"]
     for n in range(1, SIMON_ROUNDS + 1):
         if n == 1:
             L += ["tap PLAY", "wait %d" % (simon_listen_ms(1) + 100)]
@@ -124,11 +124,11 @@ def gen_simon():
             if i == n - 1:
                 L += ["expect state 3"]
             L += ["key %d up" % k]
-    # the tenth note's sequence played right: the ding, then the card, the level kept, the score is 10
+    # the fifth note's sequence played right: the ding, then the card, the level kept, the score is 5
     L += ["wait 700", "expect state 6", "expect text 8", "expect level 2", "expect top 1", "expect open 4", "expect score %d" % SIMON_ROUNDS,
           "expect store_writes 1", "expect dirty 0", "expect len 0", "shot levelup.png"]
-    L += ["tap PLAY", "wait 100", "expect state 1", "expect level 2", "expect len 1", "expect dim 84608",
-          "tap HOME", "wait 50", "expect state 0", "reboot", "wait 600", "tap HOME", "wait 50", "expect level 2", "expect best 10"]
+    L += ["tap PLAY", "wait 100", "expect state 1", "expect level 2", "expect len 1", "expect dim 19072",
+          "tap HOME", "wait 50", "expect state 0", "reboot", "wait 600", "tap HOME", "wait 50", "expect level 2", "expect best 5"]
     return L
 
 
@@ -143,16 +143,20 @@ def main():
         sys.exit("build the simulator first: ./build.sh --host")
     hdr = ["# RECORDED by tests/gen_levelup.py: do not edit; run `python3 tests/gen_levelup.py` after changing how a game",
            "# draws its notes or its timing. States: 0 ready, 1 listen/watch, 2 your turn, 3 nice, 6 the GOOD JOB card."]
-    write("levelup_copycat.txt",
-          hdr + ["# Copycat: eight melodies played right at level 1 graduate you to level 2, with the GOOD JOB card."],
-          gen_copycat())
+    only = sys.argv[1] if len(sys.argv) > 1 else ""      # `simon`: regenerate just Simone Says' test
+    names = ["levelup_simon.txt"] if only == "simon" else ["levelup_copycat.txt", "levelup_simon.txt", "misscost.txt"]
+    if "levelup_copycat.txt" in names:
+        write("levelup_copycat.txt",
+              hdr + ["# Copycat: eight melodies played right at level 1 graduate you to level 2, with the GOOD JOB card."],
+              gen_copycat())
     write("levelup_simon.txt",
-          hdr + ["# Simon: a sequence of ten played right at level 1 graduates you to level 2, with the GOOD JOB card."],
+          hdr + ["# Simone Says: a sequence of five played right at level 1 graduates you to level 2, with the GOOD JOB card."],
           gen_simon())
-    write("misscost.txt",
-          hdr + ["# Copycat: a miss takes two points off the progress toward the next level (3 right, a miss: 1)."],
-          gen_misscost())
-    for n in ("levelup_copycat.txt", "levelup_simon.txt", "misscost.txt"):
+    if "misscost.txt" in names:
+        write("misscost.txt",
+              hdr + ["# Copycat: a miss takes two points off the progress toward the next level (3 right, a miss: 1)."],
+              gen_misscost())
+    for n in names:
         fails = run(open(os.path.join(OUT, n)).read().splitlines())
         if fails:
             sys.exit("%s fails as recorded:\n  %s" % (n, "\n  ".join(fails)))

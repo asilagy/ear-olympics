@@ -43,7 +43,7 @@ expect root 7
 turn K1 1
 wait 30
 expect level 2
-expect dim 84608
+expect dim 19072
 turn K1 9
 wait 30
 expect level 3

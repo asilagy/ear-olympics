@@ -535,9 +535,9 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
     {   /* Simon */
         {0, 0, 0},
         {0, 0, 0},
-        {"FIVE KEYS ARE IN PLAY NOW", "ONE MORE NOTE TO KEEP TRACK OF", "SAME RULES, A BIGGER SET"},
-        {"EIGHT KEYS: THE MAJOR SCALE", "A FULL OCTAVE OF NOTES", "WATCH THE LIGHTS CLOSELY"},
-        {"ALL 13 KEYS OF THE OCTAVE", "EVERY SEMITONE IS IN PLAY", "HOW LONG A SEQUENCE CAN YOU HOLD?"},
+        {"THE SAME FOUR WORDS, FASTER", "HER BUBBLES POP SOONER NOW", "SEVEN IS THE WALL. GET PAST IT"},
+        {"HER MEMORY IS GETTING WORSE", "THE BUBBLES POP IN A BLINK", "CHUNK IT: THREES, NOT NINE THINGS"},
+        {"THIS IS THE FAST ONE", "NO ONE REMEMBERS TWELVE", "SHE HAS ALREADY FORGOTTEN THIS"},
     },
     {   /* Copycat: the new idea, a cat pun, then a word of cheer or a warning */
         {0, 0, 0},
@@ -718,7 +718,7 @@ static void dogtor_win_sound(void);
 static uint32_t eo_level(void) { return set.level[set.game]; }
 static uint32_t eo_rounds(uint32_t g)    /* melodies (Simon: sequence length) to play right to graduate the level now */
 {
-    return g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : g == GAME_DOGTOR ? DOGTOR_ROUNDS : EO_ROUNDS_UP;
+    return g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : g == GAME_DOGTOR ? DOGTOR_ROUNDS : simon_goal(set.level[g]);
 }
 static uint32_t eo_miss_cost(void)       /* a miss costs a quarter of the way: real progress, but not a reset */
 {
@@ -1101,8 +1101,8 @@ static void simon_grow(void)             /* one more note, then the whole sequen
 static void simon_play(void)             /* the whole sequence, lit as it sounds (also what a practice miss repeats) */
 {
     uint32_t i, step, len_ms;
-    step = eo_spd(simon_step_ms(ans_len));
-    len_ms = eo_spd(simon_note_ms(simon_step_ms(ans_len)));
+    step = eo_spd(simon_step_ms(ans_len, eo_level()));
+    len_ms = eo_spd(simon_note_ms(simon_step_ms(ans_len, eo_level())));
     for (i = 0; i < ans_len; i++) {
         seq_at[i] = (uint16_t)(400u + step * i);
         seq_len[i] = (uint16_t)len_ms;
@@ -1138,10 +1138,10 @@ static void simon_win(void)
         simon_over();
         return;
     }
-    if (ans_len >= EO_ROUNDS_UP)
+    if (ans_len >= simon_goal(eo_level()))
         eo_complete(GAME_SIMON);
-    eo_levelup = ans_len >= EO_ROUNDS_UP && set.level[GAME_SIMON] < SIMON_LEVELS;
-    if (eo_levelup) {                        /* a sequence of 10 graduates you: that is this game's score */
+    eo_levelup = ans_len >= simon_goal(eo_level()) && set.level[GAME_SIMON] < SIMON_LEVELS;
+    if (eo_levelup) {                        /* the level's goal length graduates you: that is this game's score */
         eo_score = ans_len;
         eo_new_best(eo_score);
     }
@@ -3515,6 +3515,143 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
     }
 }
 
+/* ---- Simone Says: the screen. The sequence is a row of word bubbles (the mnemonic: DRIP WATER SPLASH SPLISH, one per
+ * note); on your turn they pop oldest first, a goldfish's memory, and you play it back before it is gone. */
+static const char *const SIM_WORD[4] = {"DRIP", "WATER", "SPLASH", "SPLISH"};
+static const uint16_t SIM_COL[4] = {EO_RGB(90, 170, 255), EO_RGB(80, 220, 170), EO_RGB(255, 214, 80), EO_RGB(255, 120, 180)};
+static uint32_t sim_turn_t0, sim_popped_last;
+static uint8_t sim_prev_state;
+
+static uint32_t sim_popped_now(uint32_t now)             /* the bubbles that have popped, on your turn */
+{
+    if (ui.state != ST_TURN)
+        return 0;
+    return simon_popped(eo_level(), now - sim_turn_t0, ans_len);
+}
+
+static void sim_game_tick(uint32_t now)                  /* your turn begins: the clock starts; each pop has its sound */
+{
+    static uint32_t last_fr;
+    uint32_t pop;
+    if (ui.state == ST_TURN && sim_prev_state != ST_TURN) {
+        sim_turn_t0 = now;
+        sim_popped_last = 0;
+    }
+    sim_prev_state = ui.state;
+    pop = sim_popped_now(now);
+    if (pop > sim_popped_last) {
+        eo_blub_note = 88 + (int32_t)(pop % 3u) * 2;     /* a high bubble: it pops */
+        eo_blub_trig++;
+    }
+    sim_popped_last = pop;
+    if (now / 33u != last_fr) {                          /* the bubbles and the goldfish move: a frame about every 33 ms */
+        last_fr = now / 33u;
+        ui.redraw = 1;
+    }
+}
+
+static uint32_t sim_shown(void)                          /* how many bubbles are out: while it plays, the notes heard so far */
+{
+    uint32_t i, n = 0;
+    if (ui.state != ST_LISTEN)
+        return ans_len;
+    for (i = 0; i < ans_len; i++)
+        if (seq_at[i] <= seq_pos)
+            n++;
+    return n;
+}
+
+static void sim_pill(int32_t x, int32_t y, int32_t w, uint16_t c, int hollow, int done)
+{
+    if (hollow) {                                        /* popped: only the outline is left */
+        cv_rect(x, y, w, 1, c);
+        cv_rect(x, y + 14, w, 1, c);
+        cv_rect(x, y, 1, 15, c);
+        cv_rect(x + w - 1, y, 1, 15, c);
+        return;
+    }
+    cv_rect(x + 1, y, w - 2, 15, c);
+    cv_rect(x, y + 1, w, 13, c);
+    if (done)
+        cv_rect(x, y + 16, w, 2, C_WHITE);               /* played right already */
+}
+
+static void sim_band(uint32_t now)
+{
+    char t[48], n[12];
+    uint32_t i, tx = eo_text(), bright, mid, dim, shown = sim_shown(), popped = sim_popped_now(now);
+    int32_t x = 6, y = 15, flash = -1;
+    key_levels(&bright, &mid, &dim);
+    t[0] = 0;
+    text_cat(t, "LEVEL ");
+    int_text((int32_t)eo_level(), n);
+    text_cat(t, n);
+    if (ans_len && ui.state != ST_READY && ui.text != TX_OVER) {
+        text_cat(t, "   LENGTH ");
+        int_text((int32_t)ans_len, n);
+        text_cat(t, n);
+        if (eo_level() < SIMON_LEVELS) {
+            text_cat(t, "/");
+            int_text((int32_t)simon_goal(eo_level()), n);
+            text_cat(t, n);
+        }
+    }
+    text_cat(t, "   BEST ");
+    int_text(set.best[GAME_SIMON], n);
+    text_cat(t, n);
+    ctext(1, &FONT_XS, t, C_AMB);
+    for (i = 0; i < 4u; i++)                             /* the word of the note sounding or held */
+        if ((bright >> (SIMON_BASE + simon_level(1)->off[i])) & 1u)
+            flash = (int32_t)i;
+    mv_oy = 0;                                           /* the sprite painter clips to this band */
+    mv_h = 144;
+    cast_paint(0u, flash >= 0 ? 1u : 0u, 20, 70 + (int32_t)((now / 700u) & 1u), 1, 1);   /* Simone, in her bowl */
+    for (i = 0; i < shown && i < ans_len; i++) {         /* the bubbles */
+        uint32_t ix = simon_word_ix(ans[i] - SIMON_BASE);
+        int32_t w = text_w(&FONT_XS, SIM_WORD[ix]) + 10;
+        int lit = ui.state == ST_LISTEN && flash >= 0 && (uint32_t)flash == ix && i + 1u == shown;
+        if (x + w > 234) {
+            x = 6;
+            y += 19;
+        }
+        if (i < popped) {
+            sim_pill(x, y, w, mv_scale(SIM_COL[ix], 3u), 1, 0);
+        } else {
+            sim_pill(x, y, w, lit ? C_WHITE : (ui.state == ST_TURN && i < ans_pos) ? mv_scale(SIM_COL[ix], 6u) : SIM_COL[ix], 0,
+                     ui.state == ST_TURN && i < ans_pos);
+            cv_text(x + 5, y + 2, &FONT_XS, SIM_WORD[ix], C_BLACK);
+        }
+        x += w + 4;
+    }
+    if (ui.state == ST_READY || ui.text == TX_OVER) {    /* between games: how to start, and the way up */
+        if (ui.text == TX_OVER) {
+            t[0] = 0;
+            text_cat(t, "SCORE ");
+            int_text((int32_t)eo_score, n);
+            text_cat(t, n);
+            cv_text(124, 78, &FONT_S, t, C_HI);
+        } else {
+            cv_text(124, 78, &FONT_S, "PRESS PLAY", C_HI);
+        }
+        cv_text(124, 98, &FONT_XS, "PLAY START", C_DIM);
+        cv_text(124, 112, &FONT_XS, "PRESETS GAME", C_DIM);
+        cv_text(124, 126, &FONT_XS, "K1 LEVEL", C_DIM);
+        if (eo_level() < SIMON_LEVELS) {
+            t[0] = 0;
+            text_cat(t, "LEVEL UP AT ");
+            int_text((int32_t)simon_goal(eo_level()), n);
+            text_cat(t, n);
+            cv_text(6, 15, &FONT_XS, t, C_DIM);
+        }
+    } else {
+        cv_text(124, 78, &FONT_S, TX[tx], (tx == TX_WATCH || tx == TX_NICE) ? C_HI : C_WHITE);
+        if (flash >= 0)
+            cv_text(124, 100, &FONT_L, SIM_WORD[flash], SIM_COL[flash]);
+        else
+            cv_text(124, 128, &FONT_XS, "HOME STOP", C_DIM);
+    }
+}
+
 static void draw(void)
 {
     char t[48], n[12];
@@ -3594,6 +3731,9 @@ static void draw(void)
             ctext(80 + (int32_t)i * 15, &FONT_XS, ln[i], i ? C_GRAY : C_WHITE);
         ctext(128, &FONT_XS, "PLAY CONTINUE      HOME STOP", C_DIM);
         cv_blit(0, 36);
+    } else if (set.game == GAME_SIMON) {
+        sim_band(now);
+        cv_blit(0, 36);
     } else {
     t[0] = 0;
     text_cat(t, eo_game_name[set.game]);
@@ -3638,7 +3778,7 @@ static void draw(void)
         text_cat(t, n);
         if (eo_level() < SIMON_LEVELS) {
             text_cat(t, "/");
-            int_text((int32_t)EO_ROUNDS_UP, n);
+            int_text((int32_t)simon_goal(eo_level()), n);
             text_cat(t, n);
         }
     }
@@ -3661,7 +3801,7 @@ static void draw(void)
         text_cat(t, " RIGHT");
     } else {
         text_cat(t, "LEVEL UP: A SEQUENCE OF ");
-        int_text((int32_t)EO_ROUNDS_UP, n);
+        int_text((int32_t)simon_goal(eo_level()), n);
         text_cat(t, n);
     }
     ctext(91, &FONT_XS, t, C_DIM);
@@ -3801,6 +3941,8 @@ void app_frame(void)
         else
             copycat_round();
     }
+    if (set.game == GAME_SIMON && ui.state <= ST_LEVELUP)
+        sim_game_tick(now);
     if (set.game == GAME_DOGTOR && ui.state != ST_INTRO && ui.state != ST_CONTROLS && ui.state != ST_MOVIE && ui.state != ST_SELECT) {
         static uint32_t last_breath;
         uint32_t br = now / 600u;
