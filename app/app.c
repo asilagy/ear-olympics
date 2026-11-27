@@ -3970,10 +3970,10 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     uint32_t lv = eo_level(), now = plat_ms();
     sim_alert = 0;
     if (ui.state == ST_WISH || (ui.state == ST_READY && ui.text == TX_OVER)) {   /* you have angered the spirits */
-        static const char *const talk[4] = {"They're cross with YOU, dear. Not me. I'm lovely.",
-                                            "I'd offer a refund. I have no refund.",
-                                            "The fates are tired. So am I. Blub.",
-                                            "Even a seer can miss. ...Not me, but a seer."};
+        static const char *const talk[4] = {"No fear, dear. I foresaw this. ...Just now.",
+                                            "The spirits scowl. Their mood is foul.",
+                                            "Calm waters, dear. Now... who are you again?",
+                                            "Defeat is just the future arriving early."};
         uint32_t t = now - sim_wish_t0, beat;
         if (t < 3600u) {                     /* the shout, once */
             sim_alert = 2;
