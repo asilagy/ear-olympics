@@ -165,7 +165,7 @@ static inline float eo_note_inc(int32_t note)    /* a note's phase step per fram
 #define WF_C3 2113u
 static int16_t wf_d[WF_D], wf_c1[WF_C1], wf_c2[WF_C2], wf_c3[WF_C3];
 static uint32_t wf_i, wf_j1, wf_j2, wf_j3;
-static float wf_lp, wf_wet;
+static float wf_lp, wf_lp2, wf_wet, wf_k1, wf_k2, wf_k3;   /* (the k's damp each reverb loop: the highs die first, so it never rings like metal) */
 static uint8_t wf_was;
 static int16_t wf_clamp(float x)
 {
@@ -184,7 +184,7 @@ static float eo_underwater(float s)
             wf_c2[k] = 0;
         for (k = 0; k < WF_C3; k++)
             wf_c3[k] = 0;
-        wf_lp = 0.0f;
+        wf_lp = wf_lp2 = wf_k1 = wf_k2 = wf_k3 = 0.0f;
     }
     wf_was = eo_water;
     wf_wet += ((eo_water ? 1.0f : 0.0f) - wf_wet) * (eo_water ? 0.00012f : 0.00004f);   /* in over about 0.2 s, out over 0.6 s */
@@ -193,7 +193,8 @@ static float eo_underwater(float s)
         return s;
     }
     wf_lp += (s - wf_lp) * 0.11f;        /* about 800 Hz */
-    x = wf_lp;
+    wf_lp2 += (wf_lp - wf_lp2) * 0.5f;   /* a second pole: softer still */
+    x = wf_lp2;
     d = (float)wf_d[wf_i];
     wf_d[wf_i] = wf_clamp(x + d * 0.5f);
     if (++wf_i >= WF_D)
@@ -201,9 +202,12 @@ static float eo_underwater(float s)
     y1 = (float)wf_c1[wf_j1];
     y2 = (float)wf_c2[wf_j2];
     y3 = (float)wf_c3[wf_j3];
-    wf_c1[wf_j1] = wf_clamp(x + y1 * 0.72f);
-    wf_c2[wf_j2] = wf_clamp(x + y2 * 0.70f);
-    wf_c3[wf_j3] = wf_clamp(x + y3 * 0.68f);
+    wf_k1 += (y1 - wf_k1) * 0.3f;
+    wf_k2 += (y2 - wf_k2) * 0.3f;
+    wf_k3 += (y3 - wf_k3) * 0.3f;
+    wf_c1[wf_j1] = wf_clamp(x + wf_k1 * 0.66f);
+    wf_c2[wf_j2] = wf_clamp(x + wf_k2 * 0.64f);
+    wf_c3[wf_j3] = wf_clamp(x + wf_k3 * 0.62f);
     if (++wf_j1 >= WF_C1)
         wf_j1 = 0;
     if (++wf_j2 >= WF_C2)
@@ -211,7 +215,7 @@ static float eo_underwater(float s)
     if (++wf_j3 >= WF_C3)
         wf_j3 = 0;
     r = (y1 + y2 + y3) * (1.0f / 3.0f);
-    return s * (1.0f - wf_wet) + wf_wet * (x + 0.5f * d + 0.55f * r);
+    return s * (1.0f - wf_wet) + wf_wet * (x + 0.45f * d + 0.4f * r);
 }
 
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
@@ -597,6 +601,7 @@ static void sel_move(int32_t d);
 static void sel_blip(uint32_t key, uint8_t vo);
 static void sim_end(void);
 static void sim_key(uint32_t now);
+static void sim_enter_up(void);
 static void sel_go(void);
 static void sel_enter(void);
 enum { TX_READY, TX_ROOT, TX_LISTEN, TX_WATCH, TX_TURN, TX_NICE, TX_MISS, TX_OVER, TX_GOOD };
@@ -1821,6 +1826,8 @@ static void eo_enter_levelup(void)       /* ten rounds right: the next level, ke
     sim_up_t0 = plat_ms();
     if (set.game == GAME_COPYCAT)
         play_levelup_song();
+    if (set.game == GAME_SIMON && !set.mode && eo_level() >= 2u && eo_level() <= 4u)
+        sim_enter_up();                  /* (her level-up is a little show, like her introduction) */
     int_text((int32_t)eo_level(), n);
     app_say("LEVEL", n);
     if (set.game == GAME_DOGTOR)
@@ -3547,6 +3554,25 @@ static const sim_card_t sim_cards[SIM_CARDS] = {
     {{"Oh. Did I do this part already?", "...Yes? Okay. Carry on.", ""}, 0, 0},
 };
 static const uint8_t SIM_SCALE[8] = {0, 1, 4, 5, 7, 8, 11, 12};   /* the double harmonic scale, from A */
+static const sim_card_t *sim_set = sim_cards;           /* the cards being shown: her introduction, or a level-up's */
+static uint8_t sim_up_mode;              /* the cards are a level-up's: the end starts the new level */
+static const sim_card_t sim_up_cards[3][3] = {
+    {
+        {{"Splendid, darling! Level two!", "I knew you'd pass. ...I knew. I do.", ""}, 0, 1},
+        {{"Now faster, faster! Pure disaster.", "I had a dark premonition... a...", "a... uh. Hm."}, 73, -1},
+        {{"No matter! If I lose my way,", "remind me, dear. Then we'll play.", ""}, 0, 1},
+    },
+    {
+        {{"Level three! Oh, you're a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
+        {{"The lights will fade. Be unafraid.", "I had a dark premonition... a...", "a... crystal... uh. Hm."}, 84, -1},
+        {{"I may stall. The crystal ball may call.", "Hold your breath, my dear. Don't fall.", ""}, 0, 1},
+    },
+    {
+        {{"A star pupil, darling! Level four!", "Or luck. Who cares? Come, ask for more.", ""}, 0, 1},
+        {{"Do too well, and the spirits yell!", "I had a dark premonition... a...", "a... backwards... uh. Hm."}, 86, -1},
+        {{"One light, no more. Trust your ears.", "Let's go, my love. Through all the years.", ""}, 0, 1},
+    },
+};
 static uint8_t sim_card, sim_hi, sim_music, sim_ev_done;   /* the card now, and the one the show ends after */
 static uint32_t sim_t0, sim_stop_t;
 static uint16_t sim_typed_last;
@@ -3631,8 +3657,25 @@ static void sim_music_off(void)
 
 static void sim_enter(uint32_t again)
 {
+    sim_set = sim_cards;
+    sim_up_mode = 0;
     sim_card = again ? SIM_FULL : 0u;
     sim_hi = again ? SIM_CARDS : SIM_FULL;
+    sim_t0 = plat_ms();
+    sim_typed_last = 0;
+    sim_ev_done = 0;
+    sim_music = 0;
+    ui.state = ST_SIMONE;
+    ui.redraw = 1;
+}
+
+static void sim_enter_up(void)           /* a level is done: she tells you what is new, over the theme, a card at a time */
+{
+    uint32_t ly = eo_level();
+    sim_set = sim_up_cards[ly - 2u];
+    sim_up_mode = 1;
+    sim_card = 0;
+    sim_hi = 3;
     sim_t0 = plat_ms();
     sim_typed_last = 0;
     sim_ev_done = 0;
@@ -3644,6 +3687,12 @@ static void sim_enter(uint32_t again)
 static void sim_end(void)
 {
     sim_music_off();
+    if (sim_up_mode) {                   /* on to the new level */
+        sim_up_mode = 0;
+        sim_set = sim_cards;
+        eo_start_game();
+        return;
+    }
     ans_len = 0;
     ui.text = TX_READY;
     ui.state = ST_READY;
@@ -3653,7 +3702,7 @@ static void sim_end(void)
 
 static void sim_tick(uint32_t now)                       /* the typing's blubs, the card's music cue, the theme's loop */
 {
-    const sim_card_t *c = &sim_cards[sim_card];
+    const sim_card_t *c = &sim_set[sim_card];
     uint32_t n = sim_typed(c, now - sim_t0);
     if (n != sim_typed_last) {
         if (n > sim_typed_last && sim_at(c, n - 1u) != ' ') {
@@ -3695,7 +3744,7 @@ static void sim_next(uint32_t now)
 
 static void sim_key(uint32_t now)                        /* a key: finish the line, or go on to the next card */
 {
-    const sim_card_t *c = &sim_cards[sim_card];
+    const sim_card_t *c = &sim_set[sim_card];
     if (sim_typed(c, now - sim_t0) < sim_len(c))
         sim_t0 = now - 60000u;
     else
@@ -3733,7 +3782,7 @@ static void sim_line(int32_t y, const char *s, uint32_t n, uint16_t col)   /* on
 
 static void sim_scene(uint32_t now)
 {
-    const sim_card_t *c = &sim_cards[sim_card];
+    const sim_card_t *c = &sim_set[sim_card];
     uint32_t el = now - sim_t0, n = sim_typed(c, el), tot = sim_len(c), i, used = 0;
     int32_t bob = ((now / 500u) & 1u) ? 2 : 0;
     mrect(0, 0, 240, 150, EO_RGB(22, 10, 40));
@@ -4759,7 +4808,7 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "simcard"))
         *got = sim_card;
     else if (!strcmp(what, "simtyped"))
-        *got = (int)sim_typed(&sim_cards[sim_card], plat_ms() - sim_t0);
+        *got = (int)sim_typed(&sim_set[sim_card], plat_ms() - sim_t0);
     else if (!strcmp(what, "simmusic"))
         *got = sim_music;
     else if (!strcmp(what, "bend"))

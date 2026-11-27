@@ -65,7 +65,7 @@ wait 30
 expect state 3
 key 11 up
 wait 700
-expect state 6
+expect state 11
 expect text 8
 expect level 2
 expect top 1
@@ -75,10 +75,21 @@ expect store_writes 1
 expect dirty 0
 expect len 0
 shot levelup.png
-wait 3300
+wait 2500
 shot levelup2.png
-wait 3300
+tap PLAY
+wait 100
+tap PLAY
+wait 100
+wait 1500
+tap PLAY
+wait 100
 shot levelup3.png
+tap PLAY
+wait 100
+tap PLAY
+wait 100
+expect state 11
 tap PLAY
 wait 100
 expect state 1

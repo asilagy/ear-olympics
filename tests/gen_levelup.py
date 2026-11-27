@@ -125,8 +125,10 @@ def gen_simon():
                 L += ["expect state 3"]
             L += ["key %d up" % k]
     # the fifth note's sequence played right: the ding, then the card, the level kept, the score is 5
-    L += ["wait 700", "expect state 6", "expect text 8", "expect level 2", "expect top 1", "expect open 4", "expect score %d" % SIMON_ROUNDS,
-          "expect store_writes 1", "expect dirty 0", "expect len 0", "shot levelup.png", "wait 3300", "shot levelup2.png", "wait 3300", "shot levelup3.png"]
+    L += ["wait 700", "expect state 11", "expect text 8", "expect level 2", "expect top 1", "expect open 4", "expect score %d" % SIMON_ROUNDS,
+          "expect store_writes 1", "expect dirty 0", "expect len 0", "shot levelup.png", "wait 2500", "shot levelup2.png",
+          "tap PLAY", "wait 100", "tap PLAY", "wait 100", "wait 1500", "tap PLAY", "wait 100", "shot levelup3.png", "tap PLAY", "wait 100",
+          "tap PLAY", "wait 100", "expect state 11"]
     L += ["tap PLAY", "wait 100", "expect state 1", "expect level 2", "expect len 1", "expect dim 19072",
           "tap HOME", "wait 50", "expect state 0", "reboot", "wait 600", "tap HOME", "wait 50", "expect level 2", "expect best 4"]
     return L
