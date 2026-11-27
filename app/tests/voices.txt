@@ -37,7 +37,7 @@ key 26 up
 wait 150
 turn K2 1
 wait 100
-expect note 60
+expect note 72
 wait 600
 tap HOME
 wait 50
@@ -71,7 +71,7 @@ key 26 up
 wait 150
 turn K2 1
 wait 100
-expect note 60
+expect note 72
 wait 600
 tap HOME
 wait 50
@@ -105,7 +105,7 @@ key 26 up
 wait 150
 turn K2 1
 wait 100
-expect note 60
+expect note 72
 wait 600
 tap HOME
 wait 50
@@ -139,7 +139,7 @@ key 26 up
 wait 150
 turn K2 1
 wait 100
-expect note 60
+expect note 72
 wait 600
 tap HOME
 wait 50
@@ -173,7 +173,7 @@ key 26 up
 wait 150
 turn K2 1
 wait 100
-expect note 60
+expect note 72
 wait 600
 tap HOME
 wait 50

@@ -45,7 +45,7 @@ expect len 3
 expect gap 1700
 # the pre-roll is 1.6 s, then E4 sounds, then G4, then the lapse: silence, still watching
 wait 1900
-expect note 64
+expect note 76
 wait 1500
 expect note -1
 expect state 1
@@ -53,11 +53,11 @@ expect gaprestart 1
 expect seqn 5
 # she starts again from the top: E4 G4 C4
 wait 1300
-expect note 64
+expect note 76
 wait 530
-expect note 67
+expect note 79
 wait 530
-expect note 60
+expect note 72
 wait 500
 expect state 2
 expect pos 0

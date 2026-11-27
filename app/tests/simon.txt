@@ -22,7 +22,7 @@ expect len 1
 expect ans0 11
 expect note -1
 wait 400
-expect note 64
+expect note 76
 expect bright 2048
 wait 400
 expect state 2
@@ -36,7 +36,7 @@ expect state 3
 expect text 5
 expect pending 1
 # the success sound does not cut your last note: it rings while you hold the key, and the ding waits for you to let go
-expect note 64
+expect note 76
 shot nice.png
 key 11 up
 wait 100
@@ -73,7 +73,7 @@ wait 50
 expect state 4
 expect text 6
 expect score 2
-expect note 64
+expect note 76
 expect bright 2048
 shot miss.png
 key 26 up

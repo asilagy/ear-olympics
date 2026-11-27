@@ -467,7 +467,7 @@ void app_tick(void)
     if (act >= 0) {
         voice_vel = 0.9f;
         voice_fx = seq_vo[act];
-        voice_note = KEY_NOTE0 + seq_key[act];
+        voice_note = KEY_NOTE0 + seq_key[act] + (set.game == GAME_SIMON && seq_key[act] <= 26u ? 12 : 0);   /* her bell sounds an octave up: easier to hear */
         seq_lit = (seq_key[act] <= 26u && seq_vo[act] == 0xFFu && (seq_show == 1u || (seq_show == 2u && seq_hl[act]))) ? 1u << seq_key[act] : 0u;
     } else {
         voice_note = -1;
@@ -1130,6 +1130,7 @@ static void simon_grow(void)             /* one more note, then the whole sequen
  * and the lights dazzle; and sometimes a LAPSE in the middle, in which she stalls, shrinks and either starts over from the top
  * or picks up where she left off. All of it is announced in her voice and none of it changes the answer. */
 #define SIM_GAP 1700u                    /* how long a lapse lasts */
+static uint8_t sim_push_snd;             /* the push's hum is on */
 static uint32_t sim_pre;                 /* the pre-roll's length in ms (0: none) */
 static uint32_t sim_gap_at, sim_gap_len; /* the lapse: when it starts in the sequence's ms, and how long (0: none) */
 static uint8_t sim_gap_restart;          /* 1: she starts again from the top, 0: she goes on from where she was */
@@ -1982,14 +1983,14 @@ static void input(void)
             if (!seq_on && set.game != GAME_DOGTOR) {
                 voice_fx = 0xFFu;
                 voice_vel = 0.8f;
-                voice_note = note;
+                voice_note = note + (set.game == GAME_SIMON ? 12 : 0);
             }
             if (ui.state == ST_TURN && !seq_on) {
                 judge(k);                    /* a miss starts the answer, which takes the voice over */
                 if (ui.state != ST_TURN)
                     break;
             }
-        } else if (!(keys & bit) && (ui.keys & bit) && !seq_on && voice_note == note && set.game != GAME_DOGTOR) {
+        } else if (!(keys & bit) && (ui.keys & bit) && !seq_on && voice_note == note + (set.game == GAME_SIMON ? 12 : 0) && set.game != GAME_DOGTOR) {
             voice_note = -1;
         }
     }
@@ -3638,8 +3639,15 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
     if (now / 33u != last_fr) {
         last_fr = now / 33u;
         ui.redraw = 1;
-        if (sim_in_preroll())
+        if (sim_in_preroll()) {
+            uint32_t ph = seq_pos % 900u, tri = ph < 450u ? ph : 900u - ph;      /* the push has a sound: a low hum that climbs as she nears */
             lights();                        /* the dazzle moves with no input */
+            eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12 + (int32_t)(tri / 45u), 0.35f);
+            sim_push_snd = 1;
+        } else if (sim_push_snd) {
+            sim_push_snd = 0;
+            eo_drone_set(-1, 0.0f);
+        }
     }
 }
 
@@ -3698,6 +3706,10 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
 {
     uint32_t lv = eo_level();
     if (ui.state == ST_LISTEN && seq_on) {
+        static const char *const fortune[4] = {"Your fortune's bright: a snack tonight.", "I see a door. And... one door more.",
+                                               "The cards foretell: you'll do quite well.", "A tall dark stranger! ...A lamp. Danger."};
+        if (lv >= 2u && seq_pos >= sim_pre && !(sim_gap_len && seq_pos >= sim_gap_at && seq_pos < sim_gap_at + sim_gap_len + 1400u))
+            return fortune[((seq_pos - sim_pre) / 1500u + lv) & 3u];   /* her fortune-telling: read the keys, not her */
         if (sim_pre && seq_pos < sim_pre)
             return seq_pos < sim_pre / 2u ? "Look into my eyes. Deeper... deeper..." : "Keep your focus on the keys...";
         if (sim_gap_len && seq_pos >= sim_gap_at && seq_pos < sim_gap_at + sim_gap_len)
@@ -3732,13 +3744,15 @@ static uint32_t sim_any_lit(void)
 
 static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her, big, over the keys: once per band */
 {
-    int32_t num = 20, ox, oy, pose = (int32_t)sim_any_lit();
+    int32_t num = 20, ox, oy, sway = 0, pose = (int32_t)sim_any_lit();
     if (ui.state == ST_LISTEN && seq_on) {
         if (sim_pre && seq_pos < sim_pre) {  /* the push: she swells toward you and falls back, over and over, eyes wide */
             uint32_t ph = seq_pos % 900u;
             int32_t tri = ph < 450u ? (int32_t)ph : (int32_t)(900u - ph);       /* 0..450..0 */
             num = 20 + sim_env(seq_pos, 0u, sim_pre) * tri * 14 / 450 / 8;
             pose = 1;
+            sway = (int32_t)(seq_pos % 900u < 450u ? seq_pos % 450u : 450u - seq_pos % 450u) / 45 - 5;   /* and rocks side to side */
+            sway = sway * sim_env(seq_pos, 0u, sim_pre) / 8;
         } else if (sim_gap_len && seq_pos >= sim_gap_at && seq_pos < sim_gap_at + sim_gap_len) {
             num = 20 - sim_env(seq_pos, sim_gap_at, sim_gap_at + sim_gap_len) * 7 / 8;     /* the lapse: she shrinks back */
         }
@@ -3747,7 +3761,7 @@ static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her,
     oy = 76 - (9 * num) / 2;
     mv_oy = band_top;                        /* the sprite painter clips to the band, in the middle band's coordinates */
     mv_h = band_h;
-    cast_paint(0u, (uint32_t)pose, ox, oy + (int32_t)((now / 700u) & 1u), num, 8);
+    cast_paint(0u, (uint32_t)pose, ox + sway, oy + (int32_t)((now / 700u) & 1u), num, 8);
 }
 
 static void sim_band(uint32_t now)

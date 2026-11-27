@@ -28,7 +28,7 @@ master 4096
 peakreset
 key 7 down
 wait 150
-expect note 60
+expect note 72
 expect bright 128
 expect peak_db_min -14
 expect peak_db_max -3
