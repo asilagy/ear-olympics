@@ -64,34 +64,13 @@ key 11 down
 wait 30
 expect state 3
 key 11 up
-wait 1100
-expect state 1
-expect len 5
-wait 3282
-expect state 2
-key 11 down
-wait 30
-key 11 up
-key 14 down
-wait 30
-key 14 up
-key 7 down
-wait 30
-key 7 up
-key 11 down
-wait 30
-key 11 up
-key 14 down
-wait 30
-expect state 3
-key 14 up
 wait 700
 expect state 6
 expect text 8
 expect level 2
 expect top 1
 expect open 4
-expect score 5
+expect score 4
 expect store_writes 1
 expect dirty 0
 expect len 0
@@ -110,4 +89,4 @@ wait 600
 tap HOME
 wait 50
 expect level 2
-expect best 5
+expect best 4

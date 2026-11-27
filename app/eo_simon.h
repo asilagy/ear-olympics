@@ -33,15 +33,21 @@ static inline uint32_t simon_lit_count(uint32_t level)
  * that she has a lapse in the middle of it. Level 1 has neither: easy at the start. */
 static inline uint32_t simon_pre_ms(uint32_t level)
 {
-    return level >= 2u ? 1600u : 0u;
+    return level < 2u ? 0u : level == 2u ? 1800u : 2200u;
 }
 static inline uint32_t simon_lapse_pct(uint32_t level)
 {
-    return level <= 1u ? 0u : level == 2u ? 30u : level == 3u ? 45u : 60u;
+    return level <= 1u ? 0u : level == 2u ? 15u : level == 3u ? 40u : 55u;
+}
+
+/* the crystal ball: the chance, in percent, that a round is played on a blue screen with only the words (levels 3 and up) */
+static inline uint32_t simon_crystal_pct(uint32_t level)
+{
+    return level <= 2u ? 0u : level == 3u ? 20u : 35u;
 }
 
 /* a level graduates when you get a sequence this long: the wall is about 7 notes, past 9 you have to chunk */
-static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {5, 7, 9, 12};
+static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {4, 5, 6, 7};
 static inline uint32_t simon_goal(uint32_t level)
 {
     return SIMON_GOAL[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];

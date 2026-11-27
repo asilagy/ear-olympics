@@ -194,7 +194,7 @@ int main(void)
     CHECK(simon_note_ms(300) >= 160 && simon_note_ms(650) < 650, "simon note length");
     CHECK(simon_pool_mask(1, 7) == ((1u << 7) | (1u << 9) | (1u << 11) | (1u << 14)), "simon pool mask");
     CHECK(simon_lit_count(1) >= 20 && simon_lit_count(2) >= 20 && simon_lit_count(3) == 3 && simon_lit_count(4) == 1, "simon lights fade at levels 3 and 4");
-    CHECK(simon_goal(1) == 5 && simon_goal(2) == 7 && simon_goal(3) == 9 && simon_goal(4) == 12, "simon goals 5 7 9 12");
+    CHECK(simon_goal(1) == 4 && simon_goal(2) == 5 && simon_goal(3) == 6 && simon_goal(4) == 7, "simon goals 4 5 6 7");
     for (level = 1; level <= SIMON_LEVELS; level++)
         CHECK(simon_pool_mask(level, 7) == simon_pool_mask(1, 7), "simon %u keeps the same four keys", level);
     CHECK(simon_word_ix(0) == 0 && simon_word_ix(2) == 1 && simon_word_ix(4) == 2 && simon_word_ix(7) == 3, "simon words");

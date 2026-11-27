@@ -1,7 +1,6 @@
-# Simone's lapse (level 4, the simulator's fixed random state): in round 3 she plays two notes, stalls for 1.7 s of silence, starts
-# again from the top, and plays all three. The game stays in WATCH (state 1) all the way through; then it is your turn.
-# Simone Says' fading lights: at level 4 only her newest note lights as she replays the sequence; the older notes sound in
-# the dark (an ear test). Debug mode (GLO x3) opens the levels. The simulator's random state is fixed: keys 11, 14, 7.
+# Simone's lapse, forced (the simulator can be told which effect to play): in round 3 she plays two notes, stops for 2.4 s of
+# silence while her words flash up on the big card, starts again from the top, and plays all three. The game stays in WATCH
+# (state 1) all the way through; then it is your turn. Level 4: only her newest note lights.
 wait 600
 tap HOME
 wait 50
@@ -23,14 +22,14 @@ turn K1 1
 turn K1 1
 wait 30
 expect level 4
+expect fx3 3
 tap PLAY
-tap PLAY
-wait 3500
+wait 5000
 expect state 2
 key 11 down
 wait 30
 key 11 up
-wait 5500
+wait 9000
 expect state 2
 expect len 2
 key 11 down
@@ -39,25 +38,29 @@ key 11 up
 key 14 down
 wait 30
 key 14 up
-wait 1400
+wait 1800
 expect state 1
 expect len 3
-expect gap 1700
-# the pre-roll is 1.6 s, then E4 sounds, then G4, then the lapse: silence, still watching
-wait 1900
+expect gap 2400
+expect gaprestart 1
+expect stall 0
+expect seqn 5
+# the pre-roll is 2.2 s, then E4 sounds, then G4, then the lapse: silence, still watching
+wait 1945
 expect note 76
-wait 1500
+wait 500
+expect note 79
+wait 800
 expect note -1
 expect state 1
-expect gaprestart 1
-expect seqn 5
+shot lapse_card.png
 # she starts again from the top: E4 G4 C4
-wait 1300
+wait 2150
 expect note 76
-wait 530
-expect note 79
-wait 530
-expect note 72
 wait 500
+expect note 79
+wait 550
+expect note 72
+wait 1000
 expect state 2
 expect pos 0
