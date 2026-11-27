@@ -1428,6 +1428,8 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
             if (ans_len < 3u)
                 sim_mute = 1;                /* (one silent note needs a note before and after it) */
             sim_mute_ix = (uint8_t)(sim_mute == 2u ? 1u + sim_fx_rand() % (ans_len - 2u) : 0u);
+            step = step * 4u / 3u;           /* a slower pace: a moment to recalibrate */
+            len_ms = len_ms * 4u / 3u;
         } else if (fx == SIMON_FX_TWICE) {
             uint32_t rr = f == 9u ? 1u : (f >= 11u && f <= 14u) ? f - 9u : sim_pick_rule(lv, ans_len);   /* a riddle: its rule */
             if (rr) {
@@ -1465,7 +1467,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
     }                     /* the spirits' anger: two beats of words */
     if (!hint)
         sim_distract = (uint8_t)(sim_pre || sim_gap_len || sim_crystal || sim_sleepy || sim_dark || sim_mute || sim_twice || angry);
-    base = 400u + sim_pre;
+    base = 400u + sim_pre + (sim_mute ? 700u : 0u);   /* (use your eyes: a beat for her to shrink away before the first word) */
     for (i = 0; i < ans_len; i++) {          /* the notes before the lapse, or all of them when there is none (or a stall) */
         uint32_t at, ln = len_ms;
         if (lapse && !sim_gap_stall && i > k)
@@ -4483,6 +4485,15 @@ static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her,
             num = 20 - sim_env(seq_pos, sim_gap_at, sim_gap_at + sim_gap_len) * 7 / 8;     /* the lapse: she shrinks back */
         }
     }
+    if (sim_mute && ((ui.state == ST_LISTEN && seq_on && seq_pos >= sim_pre) || (ui.state == ST_TURN && now - sim_turn_t0 < 600u))) {
+        /* use your eyes: she shrinks away like a mode 7 sprite sliding off to the horizon, then comes back when it is your turn */
+        int32_t t = ui.state == ST_LISTEN ? (int32_t)(seq_pos - sim_pre) : 600 - (int32_t)(now - sim_turn_t0);
+        num = t >= 600 ? 0 : 20 - t * 20 / 600;
+        if (num < 1)
+            return;
+        sway = (20 - num) / 3;
+        hop = (20 - num) * 2;                /* up toward the horizon as she shrinks */
+    }
     ox = 80 - 6 * num;                       /* the bowl stays centred on the same spot as she swells */
     oy = 76 - (9 * num) / 2;
     mv_oy = band_top;                        /* the sprite painter clips to the band, in the middle band's coordinates */
@@ -4622,6 +4633,8 @@ static void sim_band(uint32_t now)
     const char *q;
     sim_keys(114);
     sim_sprite(now, 0, 144);
+    if (sim_mute && ui.state == ST_LISTEN && seq_on && seq_pos >= sim_pre)
+        return;                              /* use your eyes: she is gone, and only the words show */
     q = sim_quip(tx);
     if (sim_alert) {                         /* this one matters: a big card across the screen, its border flashing (red: the spirits are angry) */
         uint16_t bc = sim_alert == 2u ? ((now / 220u) & 1u ? EO_RGB(255, 60, 60) : C_HI) : ((now / 220u) & 1u ? C_HI : C_AMB);
