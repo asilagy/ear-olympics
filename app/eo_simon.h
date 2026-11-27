@@ -23,7 +23,7 @@ static const simon_level_t SIMON_LV[SIMON_LEVELS] = {   /* Simone Says: always t
 };
 
 /* how many of the newest notes light as she replays the sequence: the older ones sound in the dark (an ear test) */
-static const uint8_t SIMON_LIT[SIMON_LEVELS] = {255, 255, 4, 2};
+static const uint8_t SIMON_LIT[SIMON_LEVELS] = {255, 255, 255, 255};   /* (the lights stay on: going dark is her trick, late in a level, not the rule) */
 static inline uint32_t simon_lit_count(uint32_t level)
 {
     return SIMON_LIT[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
@@ -45,20 +45,30 @@ static inline uint32_t simon_lapse_pct(uint32_t level)
 }
 
 /* her tricks, in the order a player meets them (like a first level of a platformer: one new thing at a time, in a short round) */
-enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP, SIMON_FX_TWICE };
+enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP, SIMON_FX_TWICE, SIMON_FX_DARK };
 /* which trick debuts at which round (the sequence length) of which level: forced once a game */
 static inline uint32_t simon_debut(uint32_t level, uint32_t len)
 {
     return level == 1u ? (len == 3u ? SIMON_FX_PRE : 0u) :
            level == 2u ? (len == 3u ? SIMON_FX_LAPSE : len == 4u ? SIMON_FX_SLEEP : 0u) :
-           level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : len == 3u ? SIMON_FX_TWICE : len == 4u ? SIMON_FX_STALL : 0u) :
-                         (len == 4u ? SIMON_FX_RESTART : 0u);
+           level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : len == 3u ? SIMON_FX_TWICE : len == 4u ? SIMON_FX_STALL : len == 5u ? SIMON_FX_DARK : 0u) :
+                         (len == 4u ? SIMON_FX_RESTART : len == 5u ? SIMON_FX_DARK : 0u);
 }
 
 /* sleepy: the screen goes gray-blue and ripples, her notes drift in a long reverb (from level 2) */
 static inline uint32_t simon_sleep_pct(uint32_t level)
 {
     return level <= 1u ? 0u : level == 2u ? 12u : 14u;
+}
+
+/* the lights go out: late in a level (the pattern is learned by then), the older notes sound in the dark. Alone: never with another trick */
+static inline uint32_t simon_dark_pct(uint32_t level)
+{
+    return level <= 2u ? 0u : level == 3u ? 20u : 25u;
+}
+static inline uint32_t simon_dark_lit(uint32_t level)    /* how many of the newest notes still light */
+{
+    return level <= 3u ? 2u : 1u;
 }
 
 /* the double fortune: the chance that you must play each note twice (levels 3 and up, short sequences) */

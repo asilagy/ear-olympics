@@ -626,8 +626,8 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
         {0, 0, 0},
         {0, 0, 0},
         {"FASTER NOW", "SIMONE MAY LOSE HER PLACE", "WATCH HER WORDS"},
-        {"THE LIGHTS ARE FADING", "ONLY HER NEWEST THREE NOTES SHINE", "SOMETIMES SHE STALLS, OR CASTS A CRYSTAL BALL"},
-        {"ONLY THE LAST NOTE LIGHTS UP", "THE REST SOUND IN THE DARK", "DO TOO WELL AND YOU PLAY BACKWARDS"},
+        {"SOMETIMES SHE STALLS", "OR CASTS A CRYSTAL BALL", "OR DOUBLES YOUR FORTUNE"},
+        {"LATE IN A LEVEL SHE DIMS THE LIGHTS", "THE OLDER NOTES SOUND IN THE DARK", "DO TOO WELL AND YOU PLAY BACKWARDS"},
     },
     {   /* Copycat: the new idea, a cat pun, then a word of cheer or a warning */
         {0, 0, 0},
@@ -1255,6 +1255,7 @@ static uint32_t sim_gap_at, sim_gap_len; /* the lapse: when it starts in the seq
 static uint8_t sim_gap_restart;          /* 1: she starts again from the top, 0: she goes on from where she was */
 static uint8_t sim_gap_stall;            /* 1: no gap: she holds one note a long time, thinking */
 static uint8_t sim_say_n;                /* counts her rounds: it picks which of her lines she says, so they come round slowly */
+static uint8_t sim_dark;                 /* 1: this round the older notes sound in the dark */
 static uint8_t sim_twice;                /* 1: this round you play each note twice (the double fortune) */
 static uint8_t sim_sleepy;               /* 1: this round is sleepy: gray-blue, rippling, with a long reverb */
 static uint8_t sim_crystal;              /* 1: this round is in the crystal ball: a blue screen, bubbles and the words only */
@@ -1303,7 +1304,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         sim_back = 0;
     }
     sim_angry_pre = (uint8_t)angry;
-    lit = hint ? 255u : simon_lit_count(lv);
+    lit = 255u;
     step = eo_spd(simon_step_ms(ans_len, lv));
     len_ms = eo_spd(simon_note_ms(simon_step_ms(ans_len, lv)));
     sim_pre = 0u;
@@ -1313,6 +1314,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
     sim_gap_stall = 0;
     sim_crystal = 0;
     sim_sleepy = 0;
+    sim_dark = 0;
     if (!hint) {
         sim_twice = 0;
         sim_say_n++;
@@ -1325,6 +1327,8 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
                 fx = ans_len >= 2u ? SIMON_FX_CRYSTAL : 0u;
             } else if (f >= 2u && f <= 4u) {
                 fx = ans_len >= 3u ? SIMON_FX_LAPSE + (f - 2u) : 0u;
+            } else if (f == 10u) {
+                fx = ans_len >= 2u ? SIMON_FX_DARK : 0u;
             } else if (f == 9u) {
                 fx = ans_len >= 2u && ans_len <= 4u ? SIMON_FX_TWICE : 0u;
             } else if (f == 8u) {
@@ -1344,6 +1348,8 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
                     else if (ans_len >= 3u && sim_fx_rand() % 100u < simon_lapse_pct(lv))
                         fx = lv >= 4u ? (r % 3u == 0u ? SIMON_FX_LAPSE : r % 3u == 1u ? SIMON_FX_RESTART : SIMON_FX_STALL) :
                              lv == 3u ? ((r & 1u) ? SIMON_FX_STALL : SIMON_FX_LAPSE) : SIMON_FX_LAPSE;
+                    else if (ans_len >= 3u && ans_len + 2u >= simon_goal(lv) && sim_fx_rand() % 100u < simon_dark_pct(lv))
+                        fx = SIMON_FX_DARK;
                     else if (ans_len >= 2u && ans_len <= 4u && sim_fx_rand() % 100u < simon_twice_pct(lv))
                         fx = SIMON_FX_TWICE;
                     else if (ans_len >= 2u && sim_fx_rand() % 100u < simon_sleep_pct(lv))
@@ -1360,6 +1366,9 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
             sim_crystal = 1;                 /* the crystal ball: everything slower */
             step = step * 3u / 2u;
             len_ms = len_ms * 3u / 2u;
+        } else if (fx == SIMON_FX_DARK) {
+            sim_dark = 1;                    /* the lights go out: only the newest notes still light */
+            lit = simon_dark_lit(lv);
         } else if (fx == SIMON_FX_TWICE) {
             sim_twice = 1;                   /* the double fortune: each note twice */
         } else if (fx == SIMON_FX_SLEEP) {
@@ -1374,6 +1383,8 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         }
         if (fx == SIMON_FX_PRE || fx == SIMON_FX_CRYSTAL || (f >= 2u && f <= 4u && fx))
             sim_pre = simon_pre_ms(lv);      /* (the crystal ball always has it: it is the announcement) */
+        if (sim_dark)
+            sim_pre = 4200u;                 /* two beats of words */
         if (sim_twice && !hint)
             sim_pre = 4200u;                 /* two beats of words */
         if (sim_sleepy)
@@ -3629,13 +3640,13 @@ static const sim_card_t sim_up_cards[3][3] = {
     },
     {
         {{"Level three! Oh, you're a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
-        {{"The lights will fade. Be unafraid.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 91, -1},
-        {{"I may stall. The crystal ball may call.", "Hold your breath, my dear. Don't fall.", ""}, 0, 1},
+        {{"Sometimes I stall. The crystal ball may call.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 102, -1},
+        {{"Late in a level, I dim the lights. Trust your ears, my sweet.", "Hold your breath, my dear. Don't fall.", ""}, 0, 1},
     },
     {
         {{"A star pupil, darling! Level four!", "Or luck. Who cares? Come, ask for more.", ""}, 0, 1},
         {{"Do too well, and the spirits yell!", "I had a dark premonition... a...", "a low, dark root... uh. Hm."}, 88, -1},
-        {{"One light, no more. Trust your ears.", "Let's go, my love. Through all the years.", ""}, 0, 1},
+        {{"Your ears must lead, my love. Indeed.", "Let's go. Through all the years.", ""}, 0, 1},
     },
 };
 static uint8_t sim_card, sim_hi, sim_music, sim_ev_done;   /* the card now, and the one the show ends after */
@@ -4156,6 +4167,10 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             sim_alert = 2;
             return seq_pos < sim_pre / 2u ? "YOU'VE ANGERED THE SPIRITS" : "NOW PLAY IT BACKWARDS!";
         }
+        if (sim_dark && sim_pre && seq_pos < sim_pre) {
+            sim_alert = 1;
+            return seq_pos < sim_pre / 2u ? "I'll dim the lights, my darling dear..." : "...but you will hear! TRUST YOUR EARS!";
+        }
         if (sim_twice && sim_pre && seq_pos < sim_pre) {
             sim_alert = 1;
             return seq_pos < sim_pre / 2u ? "I double your fortune, the future is nice..." : "...but only if you REPEAT EACH NOTE TWICE!";
@@ -4187,6 +4202,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
                 return eyes[sim_say_n % 3u];
             }
         }
+        if (sim_dark)
+            return "Eyes closed, ears open, darling. Or the other way round.";
         if (sim_sleepy)
             return "Zzz... listen, darling... zzz...";
         if (lv >= 2u && ans_len >= 3u && !sim_crystal)
@@ -4210,8 +4227,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         static const char *const rd[4][3] = {
             {"Press PLAY, darling. Your future's calling.", "Come closer, seeker. The bowl is warm... and so are you.", "Press PLAY, my dear. I see it clear. ...Or is it near?"},
             {"Press PLAY, my love. The stars above approve.", "The spirits hum. They say you're someone. Press PLAY, someone.", "Faster now, darling. Hold on to your fins."},
-            {"The lights will fade, but you've such ears, my dear.", "Shh. The crystal hums. It knows what's coming. ...Press PLAY.", "Trust your ears, my sweet. The lights are incomplete."},
-            {"One light, my sweet. Your ears can't be beat.", "Two little lights. Dim as my memory. ...What memory?", "The spirits are watching. Don't tell them I'm nervous."}};
+            {"Shh. The crystal hums. Sometimes... it lends a hand.", "Shh. The crystal hums. It knows what's coming. ...Press PLAY.", "The lights will wait, my sweet. Do not be late."},
+            {"Late in the game, my sweet, I dim the lights. Your ears can't be beat.", "Dim lights, my darling. Dim as my memory. ...What memory?", "The spirits are watching. Don't tell them I'm nervous."}};
         return rd[(lv < 1u ? 1u : lv > 4u ? 4u : lv) - 1u][sim_say_n % 3u];
     }
     if (tx == TX_WATCH) {
@@ -4359,8 +4376,8 @@ static const char *const sim_up_say[SIMON_LEVELS + 1u][3] = {
     {0, 0, 0},
     {0, 0, 0},
     {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "I might forget. Don't fret!"},
-    {"Splendid, darling! You listened well. A lovely spell.", "The lights will fade. Be unafraid.", "I may stall. The crystal ball may call."},
-    {"A star pupil, I swear! Or luck. Who cares?", "One light, no more. Trust your ears, I implore.", "Do too well, and the spirits yell!"},
+    {"Splendid, darling! You listened well. A lovely spell.", "Sometimes I stall. The crystal ball may call.", "Late in a level, I dim the lights."},
+    {"A star pupil, I swear! Or luck. Who cares?", "Your ears must lead, my love. Indeed.", "Do too well, and the spirits yell!"},
 };
 static void sim_up_band(uint32_t now)
 {
