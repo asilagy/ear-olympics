@@ -1,0 +1,25 @@
+# Meow's cameo in the pause between rounds (forced: fx7): the cat sprite is as big as the bowl and faces it; she screams, then
+# asks who Meow is. The typed lines keep a bubble each.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect fx7 7
+tap PLAY
+wait 1500
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 1500
+shot cameo_a.png
+wait 1500
+shot cameo_b.png
+wait 2600
+shot cameo_c.png

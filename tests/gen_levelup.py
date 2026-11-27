@@ -115,7 +115,7 @@ def gen_simon():
         if n == 1:
             L += ["tap PLAY", "wait %d" % (simon_listen_ms(1) + 100)]
         else:
-            L += ["wait 2800", "expect state 1", "expect len %d" % n,
+            L += ["wait 4400", "expect state 1", "expect len %d" % n,
                   "wait %d" % (simon_listen_ms(n) + 30)]
         L += ["expect state 2"]
         keys = read_values(L, ["ans%d" % i for i in range(n)])

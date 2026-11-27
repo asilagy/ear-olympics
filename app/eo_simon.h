@@ -33,7 +33,7 @@ static inline uint32_t simon_lit_count(uint32_t level)
  * that she has a lapse in the middle of it. Level 1 has neither: easy at the start. */
 static inline uint32_t simon_pre_ms(uint32_t level)
 {
-    return level <= 2u ? 1800u : 2200u;
+    return level <= 2u ? 1800u : 2400u;
 }
 static inline uint32_t simon_pre_pct(uint32_t level)   /* how often a round has the pre-roll (percent): rare enough to stay a surprise */
 {

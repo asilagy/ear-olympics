@@ -28,7 +28,7 @@ expect state 1
 # round 1: a pre-roll (the swell and the dazzle, 2.2 s), then one note: the newest is the only one, and it lights
 wait 800
 expect pre 1
-wait 1800
+wait 2000
 expect note 76
 expect bright 2048
 wait 600
@@ -36,11 +36,11 @@ expect state 2
 key 11 down
 wait 30
 key 11 up
-wait 3100
+wait 4700
 expect state 1
 expect len 2
 # round 2: the first note (E4) sounds in the dark, the second (G4) lights
-wait 2500
+wait 2700
 expect note 76
 expect bright 0
 wait 500

@@ -38,29 +38,29 @@ key 11 up
 key 14 down
 wait 30
 key 14 up
-wait 3500
+wait 5100
 expect state 1
 expect len 3
-expect gap 2400
+expect gap 3200
 expect gaprestart 1
 expect stall 0
 expect seqn 5
-# the pre-roll is 2.2 s, then E4 sounds, then G4, then the lapse: silence, still watching
-wait 1945
+# the pre-roll is 2.4 s, then E4 sounds, then G4, then the lapse: silence, still watching
+wait 2145
 expect note 76
 wait 500
 expect note 79
-wait 800
+wait 900
 expect note -1
 expect state 1
 shot lapse_card.png
 # she starts again from the top: E4 G4 C4
-wait 2150
+wait 2800
 expect note 76
-wait 500
-expect note 79
 wait 550
+expect note 79
+wait 530
 expect note 72
-wait 1000
+wait 500
 expect state 2
 expect pos 0

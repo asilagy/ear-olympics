@@ -27,13 +27,13 @@ expect state 2
 key 11 down
 wait 30
 key 11 up
-wait 3200
+wait 4800
 expect state 1
 expect len 2
 expect crystal 1
 expect pre 1
 shot crystal_announce.png
-wait 1900
+wait 2100
 expect pre 0
 expect crystal 1
 wait 400

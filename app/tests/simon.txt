@@ -44,7 +44,7 @@ expect note -1
 wait 200
 # the ding is above the top key (key 31 = 84): not a note you could play
 expect note 84
-wait 2700
+wait 4300
 expect state 1
 expect len 2
 expect ans0 11
@@ -59,7 +59,7 @@ key 11 up
 key 14 down
 wait 30
 key 14 up
-wait 3100
+wait 4700
 expect state 1
 expect len 3
 expect ans2 7
