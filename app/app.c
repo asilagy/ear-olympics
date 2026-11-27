@@ -525,6 +525,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 static uint16_t seq_at[SEQ_MAX], seq_len[SEQ_MAX];    /* each note: when it starts and how long it sounds, ms */
 static uint8_t seq_key[SEQ_MAX];                      /* and its key */
 static uint8_t seq_vo[SEQ_MAX], seq_vo_stage[SEQ_MAX];   /* each note's own voice (0xFF: the chosen one); the stage is filled first */
+static uint8_t seq_mute[SEQ_MAX];                     /* and whether it is silent (Simone: only when sim_mute is on) */
+static uint8_t sim_mute;                              /* 1: this round every note is silent; 2: one of them is (use your eyes) */
 static uint8_t seq_hl[SEQ_MAX];                       /* and whether it lights, when only some notes do */
 static uint32_t seq_n, seq_end;
 static volatile uint32_t seq_pos;        /* ms since the start */
@@ -555,7 +557,7 @@ void app_tick(void)
     if (act >= 0) {
         voice_vel = 0.9f;
         voice_fx = seq_vo[act];
-        voice_note = KEY_NOTE0 + seq_key[act] + (set.game == GAME_SIMON && seq_key[act] <= 26u ? 12 : 0);   /* her bell sounds an octave up: easier to hear */
+        voice_note = (set.game == GAME_SIMON && sim_mute && seq_mute[act]) ? -1 : KEY_NOTE0 + seq_key[act] + (set.game == GAME_SIMON && seq_key[act] <= 26u ? 12 : 0);   /* her bell sounds an octave up: easier to hear; a silent note only lights */
         seq_lit = (seq_key[act] <= 26u && seq_vo[act] == 0xFFu && (seq_show == 1u || (seq_show == 2u && seq_hl[act]))) ? 1u << seq_key[act] : 0u;
     } else {
         voice_note = -1;
@@ -1243,7 +1245,8 @@ static uint8_t sim_good;                 /* rounds won in a row, without a wish 
 static uint8_t sim_angry;                /* the next round is the angry one: played backwards */
 static uint8_t sim_back;                 /* this round is to be played backwards (last note first) */
 static uint8_t sim_angry_pre;            /* this round's pre-roll is the spirits' anger */
-static uint8_t sim_seen, sim_cool, sim_pre_first;   /* the tricks shown this game (a bit each); the last round had one; the pre-roll is the first one */
+static uint16_t sim_seen;
+static uint8_t sim_cool, sim_pre_first;   /* the tricks shown this game (a bit each); the last round had one; the pre-roll is the first one */
 static uint8_t sim_hint;                 /* the next sequence is a wish: everything lit, no tricks */
 static uint8_t sim_wish_peek;            /* the wish being granted is a peek in your turn (not a second try) */
 static uint32_t sim_turn_t0, sim_wish_t0, sim_wish_until, sim_gap_t0, sim_typed_n;
@@ -1256,7 +1259,8 @@ static uint8_t sim_gap_restart;          /* 1: she starts again from the top, 0:
 static uint8_t sim_gap_stall;            /* 1: no gap: she holds one note a long time, thinking */
 static uint8_t sim_say_n;                /* counts her rounds: it picks which of her lines she says, so they come round slowly */
 static uint8_t sim_dark;                 /* 1: this round the older notes sound in the dark */
-static uint8_t sim_twice;                /* 1: this round you play each note twice (the double fortune) */
+static uint8_t sim_distract;             /* the round just played had a trick: she is extra complimentary after it */
+static uint8_t sim_twice, sim_rule, sim_rule_seen, sim_exp_n, sim_exp[SEQ_MAX], sim_mute_ix;   /* a riddle round: its rule (1..5), and the keys it takes, in order */                /* 1: this round you play each note twice (the double fortune) */
 static uint8_t sim_sleepy;               /* 1: this round is sleepy: gray-blue, rippling, with a long reverb */
 static uint8_t sim_crystal;              /* 1: this round is in the crystal ball: a blue screen, bubbles and the words only */
 static uint32_t sim_up_t0;               /* when the level-up scene began */
@@ -1281,13 +1285,49 @@ static uint32_t sim_fx_rand(void)        /* its own little generator, so the seq
 static uint8_t sim_expect(void)          /* the key you should play next: the sequence's next, or its last when it is backwards */
 {
     if (sim_twice)
-        return ans[ans_pos >> 1];
+        return sim_exp[ans_pos];
     return sim_back ? ans[ans_len - 1u - ans_pos] : ans[ans_pos];
+}
+
+static void sim_build(void)              /* the keys a riddle round takes, from the sequence and the rule */
+{
+    uint32_t i, n = 0, l = ans_len;
+    for (i = 0; i < l; i++) {
+        if (sim_rule == 4u && i == 0u)
+            continue;
+        if (sim_rule == 3u && i != 0u && i != l - 1u)
+            continue;
+        sim_exp[n++] = ans[i];
+        if (sim_rule == 1u || (sim_rule == 5u && i == l - 1u)) {
+            sim_exp[n++] = ans[i];
+        } else if (sim_rule == 2u && i == 1u) {
+            sim_exp[n++] = ans[i];
+            sim_exp[n++] = ans[i];
+        }
+    }
+    sim_exp_n = (uint8_t)n;
+}
+
+static uint32_t sim_pick_rule(uint32_t lv, uint32_t len)   /* a rule you may meet now: the first you have not yet, else any */
+{
+    uint32_t r, ok = 0, k, pick = 0;
+    for (r = 1; r <= 5u; r++)
+        if (simon_rule_ok(r, len, lv) && !((sim_rule_seen >> r) & 1u))
+            return r;
+    for (r = 1; r <= 5u; r++)
+        ok += simon_rule_ok(r, len, lv);
+    if (!ok)
+        return 0u;
+    k = sim_fx_rand() % ok;
+    for (r = 1; r <= 5u; r++)
+        if (simon_rule_ok(r, len, lv) && k-- == 0u)
+            pick = r;
+    return pick;
 }
 
 static uint32_t sim_need(void)           /* how many keys this round takes: the notes, or double */
 {
-    return sim_twice ? ans_len * 2u : ans_len;
+    return sim_twice ? sim_exp_n : ans_len;
 }
 
 static void simon_play(void)             /* the whole sequence, lit as it sounds (also what a practice miss repeats) */
@@ -1315,8 +1355,10 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
     sim_crystal = 0;
     sim_sleepy = 0;
     sim_dark = 0;
+    sim_mute = 0;
     if (!hint) {
         sim_twice = 0;
+        sim_rule = 0;
         sim_say_n++;
     }
     sim_pre_first = 0;
@@ -1327,6 +1369,10 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
                 fx = ans_len >= 2u ? SIMON_FX_CRYSTAL : 0u;
             } else if (f >= 2u && f <= 4u) {
                 fx = ans_len >= 3u ? SIMON_FX_LAPSE + (f - 2u) : 0u;
+            } else if (f == 15u || f == 16u) {
+                fx = ans_len >= 2u ? SIMON_FX_EYES : 0u;
+            } else if (f >= 11u && f <= 14u) {
+                fx = ans_len >= 2u ? SIMON_FX_TWICE : 0u;
             } else if (f == 10u) {
                 fx = ans_len >= 2u ? SIMON_FX_DARK : 0u;
             } else if (f == 9u) {
@@ -1350,8 +1396,10 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
                              lv == 3u ? ((r & 1u) ? SIMON_FX_STALL : SIMON_FX_LAPSE) : SIMON_FX_LAPSE;
                     else if (ans_len >= 3u && ans_len + 2u >= simon_goal(lv) && sim_fx_rand() % 100u < simon_dark_pct(lv))
                         fx = SIMON_FX_DARK;
-                    else if (ans_len >= 2u && ans_len <= 4u && sim_fx_rand() % 100u < simon_twice_pct(lv))
+                    else if (sim_pick_rule(lv, ans_len) && sim_fx_rand() % 100u < simon_twice_pct(lv))
                         fx = SIMON_FX_TWICE;
+                    else if (ans_len >= 2u && sim_fx_rand() % 100u < simon_eyes_pct(lv))
+                        fx = SIMON_FX_EYES;
                     else if (ans_len >= 2u && sim_fx_rand() % 100u < simon_sleep_pct(lv))
                         fx = SIMON_FX_SLEEP;
                     else if (sim_fx_rand() % 100u < simon_pre_pct(lv))
@@ -1359,7 +1407,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
                 }
                 sim_cool = fx ? 1u : 0u;
                 if (fx)
-                    sim_seen |= (uint8_t)(1u << fx);
+                    sim_seen |= (uint16_t)(1u << fx);
             }
         }
         if (fx == SIMON_FX_CRYSTAL) {
@@ -1369,8 +1417,19 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         } else if (fx == SIMON_FX_DARK) {
             sim_dark = 1;                    /* the lights go out: only the newest notes still light */
             lit = simon_dark_lit(lv);
+        } else if (fx == SIMON_FX_EYES) {
+            sim_mute = (uint8_t)(f == 16u || (f != 15u && ans_len >= 3u && sim_fx_rand() % 2u) ? 2u : 1u);
+            if (ans_len < 3u)
+                sim_mute = 1;                /* (one silent note needs a note before and after it) */
+            sim_mute_ix = (uint8_t)(sim_mute == 2u ? 1u + sim_fx_rand() % (ans_len - 2u) : 0u);
         } else if (fx == SIMON_FX_TWICE) {
-            sim_twice = 1;                   /* the double fortune: each note twice */
+            uint32_t rr = f == 9u ? 1u : (f >= 11u && f <= 14u) ? f - 9u : sim_pick_rule(lv, ans_len);   /* a riddle: its rule */
+            if (rr) {
+                sim_rule = (uint8_t)rr;
+                sim_rule_seen |= (uint8_t)(1u << rr);
+                sim_twice = 1;
+                sim_build();
+            }
         } else if (fx == SIMON_FX_SLEEP) {
             sim_sleepy = 1;                  /* sleepy: slower, dreamier */
             step = step * 3u / 2u;
@@ -1383,7 +1442,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         }
         if (fx == SIMON_FX_PRE || fx == SIMON_FX_CRYSTAL || (f >= 2u && f <= 4u && fx))
             sim_pre = simon_pre_ms(lv);      /* (the crystal ball always has it: it is the announcement) */
-        if (sim_dark)
+        if (sim_dark || sim_mute)
             sim_pre = 4200u;                 /* two beats of words */
         if (sim_twice && !hint)
             sim_pre = 4200u;                 /* two beats of words */
@@ -1398,6 +1457,8 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         len_ms = len_ms * 7u / 5u;
         lit = 255u;
     }                     /* the spirits' anger: two beats of words */
+    if (!hint)
+        sim_distract = (uint8_t)(sim_pre || sim_gap_len || sim_crystal || sim_sleepy || sim_dark || sim_mute || sim_twice || angry);
     base = 400u + sim_pre;
     for (i = 0; i < ans_len; i++) {          /* the notes before the lapse, or all of them when there is none (or a stall) */
         uint32_t at, ln = len_ms;
@@ -1410,6 +1471,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         seq_len[n] = (uint16_t)ln;
         seq_key[n] = (hint && sim_back) ? ans[ans_len - 1u - i] : ans[i];   /* a wish in a backwards round plays it in the order you play it */
         seq_hl[n] = (uint8_t)(i + lit >= ans_len);   /* the lights fade as the levels rise */
+        seq_mute[n] = (uint8_t)(sim_mute == 1u || (sim_mute == 2u && i == sim_mute_ix));
         seq_end = at + ln;
         n++;
     }
@@ -1425,6 +1487,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
             seq_len[n] = (uint16_t)len_ms;
             seq_key[n] = ans[i];
             seq_hl[n] = (uint8_t)(i + lit >= ans_len);
+            seq_mute[n] = 0;
             seq_end = at + len_ms;
             n++;
         }
@@ -1440,7 +1503,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
 
 static uint32_t sim_in_preroll(void)     /* her pre-roll is on: the swell and the dazzle, before the sequence */
 {
-    return ui.state == ST_LISTEN && seq_on && sim_pre && seq_pos < sim_pre && !sim_sleepy;
+    return ui.state == ST_LISTEN && seq_on && sim_pre && seq_pos < sim_pre && !sim_sleepy && !sim_twice && !sim_dark && !sim_mute;
 }
 
 static void sim_dazzle_leds(uint32_t *bright, uint32_t *mid, uint32_t *dim)   /* two crests run along the keys, past each other */
@@ -1896,6 +1959,7 @@ static void eo_start_game(void)
     if (set.game == GAME_SIMON) {
         sim_wishes = 3;
         sim_seen = 0;
+        sim_rule_seen = 0;
         sim_cool = 0;
         sim_good = 0;
         sim_angry = 0;
@@ -4102,6 +4166,11 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
         }
 }
 
+static const char *const sim_praise[8] = {      /* after a round with a trick: she is delighted with you */
+    "You saw right through my trick! My, aren't you quick!", "Brilliant, darling! Even the spirits gasped. ...I knew. Obviously.",
+    "The spirits swoon! You're in tune!", "Through every wobble, you did not hobble. Marvelous!",
+    "Stunning, my sweet! Not a single missed beat!", "I tried to trick you, dear. You laughed. I'm impressed. And a bit scared.",
+    "Oh, you magnificent creature. The crystal bows to you.", "A flawless feat! You are a treat. Come, take a seat!"};
 static const char *const sim_gap_say[8] = {
     "Darling, I see a star. Oh... it's you! There you are!", "The cards adore you, dear. My fee is near.",
     "The crystal clears... I see... me! Hello!",             "Oh sweet one, you have the gift. Let's lift!",
@@ -4151,8 +4220,11 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             sim_full = t < 3200u ? "AHHHH!! MEOW DON'T EAT ME!" : "...wait, who's Meow?";
             return sim_typed_text(t < 3200u ? "AHHHH!! MEOW DON'T EAT ME!" : "...wait, who's Meow?", n);
         }
-        sim_full = sim_gap_say[(ans_len + sim_say_n) & 7u];
-        return sim_typed_text(sim_gap_say[(ans_len + sim_say_n) & 7u], n);
+        {
+            const char *g = sim_distract ? sim_praise[sim_say_n & 7u] : sim_gap_say[(ans_len + sim_say_n) & 7u];
+            sim_full = g;
+            return sim_typed_text(g, n);
+        }
     }
     if (ui.state == ST_LISTEN && seq_on) {
         static const char *const fortune[6] = {"Come close, my dear. The spirits are near.", "I see a door. And... one door more.",
@@ -4172,8 +4244,18 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             return seq_pos < sim_pre / 2u ? "I'll dim the lights, my darling dear..." : "...but you will hear! TRUST YOUR EARS!";
         }
         if (sim_twice && sim_pre && seq_pos < sim_pre) {
+            static const char *const ra[6] = {0, "I double your fortune, the future is nice...", "The omens are nice. I'll say it twice...",
+                                              "Ignore the middle, that's the riddle...", "The first note's shy. Let it pass by...", "The last note loves a bow, you know..."};
+            static const char *const rb[6] = {0, "...but only if you REPEAT EACH NOTE TWICE!", "...the SECOND note must be played THRICE!",
+                                              "...play only the FIRST and the LAST. Be fast!", "...and play all the REST. Do your best!", "...so play it TWICE before you go!"};
             sim_alert = 1;
-            return seq_pos < sim_pre / 2u ? "I double your fortune, the future is nice..." : "...but only if you REPEAT EACH NOTE TWICE!";
+            return seq_pos < sim_pre / 2u ? ra[sim_rule] : rb[sim_rule];
+        }
+        if (sim_mute && sim_pre && seq_pos < sim_pre) {
+            sim_alert = 1;
+            if (sim_mute == 1u)
+                return seq_pos < sim_pre / 2u ? "You've used your ears, my dear..." : "...now use your EYES! Watch the words appear!";
+            return seq_pos < sim_pre / 2u ? "One note is shy. It makes no sound..." : "...so watch the WORD that floats around!";
         }
         if (sim_sleepy && sim_pre && seq_pos < sim_pre) {
             sim_alert = 1;
@@ -4202,6 +4284,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
                 return eyes[sim_say_n % 3u];
             }
         }
+        if (sim_mute)
+            return sim_mute == 1u ? "Read the words, darling. Read them." : "Ears... and eyes, my sweet. Both.";
         if (sim_dark)
             return "Eyes closed, ears open, darling. Or the other way round.";
         if (sim_sleepy)
@@ -4209,12 +4293,16 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         if (lv >= 2u && ans_len >= 3u && !sim_crystal)
             return fortune[(ans_len + lv + sim_say_n) % 6u];     /* one fortune a round, held: read the keys, not her */
     }
-    if (ui.state == ST_TURN && sim_twice) {  /* the double fortune: say it again at the start of your turn */
+    if (ui.state == ST_TURN && sim_twice) {  /* a riddle: say the rule again at the start of your turn */
+        static const char *const rt[6] = {0, "EACH NOTE TWICE!", "2ND NOTE THRICE!", "FIRST AND LAST ONLY!", "SKIP THE FIRST NOTE!", "LAST NOTE TWICE!"};
+        static const char *const rx[6] = {0, "Each note twice, my dear. Do it nice!", "Note two, three times. Mind the rhymes!",
+                                          "Just the ends, my friends. The middle bends.", "The first is shy, my dear. Let it disappear.",
+                                          "Last note twice, my dear. Make it clear."};
         if (now - sim_turn_t0 < 3000u) {
             sim_alert = 1;
-            return "EACH NOTE TWICE!";
+            return rt[sim_rule];
         }
-        return "Each note twice, my dear. Do it nice!";
+        return rx[sim_rule];
     }
     if (ui.state == ST_TURN && sim_back) {   /* the angry round: you play it backwards */
         if (now - sim_turn_t0 < 3600u) {
@@ -4240,7 +4328,7 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     if (tx == TX_NICE) {
         static const char *const n[4] = {"Splendid, darling! I knew it. ...Knew what?", "Ooh, you glow! The spirits know.",
                                          "Magnificent! A perfect run. ...Of what, my sweet? Fun.", "I felt that in my fins. Delicious. Again!"};
-        return n[sim_say_n & 3u];
+        return sim_distract ? sim_praise[(sim_say_n + 3u) & 7u] : n[sim_say_n & 3u];
     }
     if (tx == TX_MISS) {
         static const char *const m[3] = {"Oh, my sweet. The song disappeared. ...How weird!", "Alas, my dear. The note's not here. ...Was it ever near?",
@@ -4274,7 +4362,7 @@ static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her,
         pose = 1;
     }
     if (ui.state == ST_LISTEN && seq_on) {
-        if (sim_pre && seq_pos < sim_pre && !sim_sleepy) {  /* the push: she swells toward you and falls back, over and over, eyes wide */
+        if (sim_pre && seq_pos < sim_pre && !sim_sleepy && !sim_twice && !sim_dark && !sim_mute) {  /* the push: she swells toward you and falls back, over and over, eyes wide */
             uint32_t ph = seq_pos % 900u;
             int32_t tri = ph < 450u ? (int32_t)ph : (int32_t)(900u - ph);       /* 0..450..0 */
             num = 20 + sim_env(seq_pos, 0u, sim_pre) * tri * 14 / 450 / 8;
@@ -4290,6 +4378,17 @@ static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her,
     mv_oy = band_top;                        /* the sprite painter clips to the band, in the middle band's coordinates */
     mv_h = band_h;
     cast_paint(0u, (uint32_t)pose, ox + sway, oy - hop + (int32_t)((now / 700u) & 1u), num, 8);
+}
+
+static int32_t sim_eyes_word(void)       /* a silent note is sounding: its word (0..3), to show big; else -1 */
+{
+    uint32_t i;
+    if (set.game != GAME_SIMON || ui.state != ST_LISTEN || !seq_on || !sim_mute || (sim_pre && seq_pos < sim_pre))
+        return -1;
+    for (i = 0; i < seq_n; i++)
+        if (seq_pos >= seq_at[i] && seq_pos < (uint32_t)seq_at[i] + seq_len[i] && seq_mute[i])
+            return (int32_t)simon_word_ix((uint32_t)seq_key[i] - SIMON_BASE);
+    return -1;
 }
 
 static uint32_t sim_crystal_on(void)     /* the crystal ball is showing: her pre-roll is over and her sequence is playing */
@@ -4634,7 +4733,15 @@ static void draw(void)
         ctext(128, &FONT_XS, "PLAY CONTINUE      HOME STOP", C_DIM);
         sim_blit(0, 36);
     } else if (set.game == GAME_SIMON) {
+        int32_t ew = sim_eyes_word();
+        if (ew >= 0) {                       /* use your eyes: the silent note's word, big and rippling, over her bowl */
+            cv_begin(240, 144, C_BLACK);
+            sim_crystal_mask((uint32_t)ew);
+            cv_begin(240, 144, C_BLACK);
+        }
         sim_band(now);
+        if (ew >= 0)
+            sim_crystal_paint(now, (uint32_t)ew);
         sim_blit(0, 36);
     } else {
     t[0] = 0;

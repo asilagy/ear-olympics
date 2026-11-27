@@ -1,0 +1,38 @@
+# A riddle round (forced: fx11): the second note must be played three times. Round 2 is C then G (keys 11, 14): the keys it takes are 11 14 14 14.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect fx11 11
+tap PLAY
+wait 1500
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 4400
+expect state 1
+expect len 2
+wait 6500
+expect state 2
+shot riddle_turn.png
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+key 14 down
+wait 30
+key 14 up
+expect state 2
+key 14 down
+wait 30
+expect state 3
+key 14 up

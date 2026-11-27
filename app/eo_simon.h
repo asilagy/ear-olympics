@@ -45,12 +45,12 @@ static inline uint32_t simon_lapse_pct(uint32_t level)
 }
 
 /* her tricks, in the order a player meets them (like a first level of a platformer: one new thing at a time, in a short round) */
-enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP, SIMON_FX_TWICE, SIMON_FX_DARK };
+enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP, SIMON_FX_TWICE, SIMON_FX_DARK, SIMON_FX_EYES };   /* (TWICE is the riddle family: each has its own rule) */
 /* which trick debuts at which round (the sequence length) of which level: forced once a game */
 static inline uint32_t simon_debut(uint32_t level, uint32_t len)
 {
     return level == 1u ? (len == 3u ? SIMON_FX_PRE : 0u) :
-           level == 2u ? (len == 3u ? SIMON_FX_LAPSE : len == 4u ? SIMON_FX_SLEEP : 0u) :
+           level == 2u ? (len == 2u ? SIMON_FX_EYES : len == 3u ? SIMON_FX_LAPSE : len == 4u ? SIMON_FX_SLEEP : 0u) :
            level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : len == 3u ? SIMON_FX_TWICE : len == 4u ? SIMON_FX_STALL : len == 5u ? SIMON_FX_DARK : 0u) :
                          (len == 4u ? SIMON_FX_RESTART : len == 5u ? SIMON_FX_DARK : 0u);
 }
@@ -71,10 +71,26 @@ static inline uint32_t simon_dark_lit(uint32_t level)    /* how many of the newe
     return level <= 3u ? 2u : 1u;
 }
 
+/* use your eyes: the notes are silent, only the words (and the lights) show: the whole sequence, or one note of it */
+static inline uint32_t simon_eyes_pct(uint32_t level)
+{
+    return level <= 1u ? 0u : 12u;
+}
+
+/* the riddles: a rule, in verse, for how to play the round back. Which rules a level may use, and how long the round may be */
+static inline uint32_t simon_rule_ok(uint32_t rule, uint32_t len, uint32_t level)
+{
+    if (level < 3u || rule < 1u || rule > 5u)
+        return 0u;
+    if (rule == 1u || rule == 2u || rule == 5u)
+        return level >= (rule == 5u ? 4u : 3u) && len >= 2u && len <= 4u;
+    return level >= 4u && len >= 3u && len <= 5u;       /* 3: first and last only; 4: skip the first */
+}
+
 /* the double fortune: the chance that you must play each note twice (levels 3 and up, short sequences) */
 static inline uint32_t simon_twice_pct(uint32_t level)
 {
-    return level <= 2u ? 0u : level == 3u ? 12u : 15u;
+    return level <= 2u ? 0u : level == 3u ? 15u : 20u;
 }
 
 /* the crystal ball: the chance, in percent, that a round is played on a blue screen with only the words (levels 3 and up) */

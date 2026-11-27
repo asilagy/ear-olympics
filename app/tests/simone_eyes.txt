@@ -1,0 +1,29 @@
+# Use your eyes (forced: fx15): the whole sequence is silent, only the words and the lights show. Round 2 is E4 then G4.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect fx15 15
+tap PLAY
+wait 1500
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 4400
+expect state 1
+expect len 2
+wait 4600
+expect note -1
+expect bright 2048
+shot eyes_a.png
+wait 600
+expect note -1
+expect bright 16384
+shot eyes_b.png
