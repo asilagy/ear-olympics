@@ -2765,8 +2765,8 @@ static int32_t wrap_text(int32_t x, int32_t y, int32_t w, const felucca_font_t *
                         pre[j] = pl[j];
                     pre[j] = 0;
                     ex = x + text_w(f, pre) + ew / 2;
-                    cv_rect(ex, ay, ew / 3 + 1, ew / 4 + 1, c);
-                    cv_rect(ex - ew / 4, ay + ew / 4 + 1, ew / 3 + 1, ew / 4 + 1, c);
+                    cv_rect(ex, ay, 2, 1, c);                /* a thin acute: two short strokes */
+                    cv_rect(ex - 1, ay + 1, 2, 1, c);
                 }
         }
         y += lh;
@@ -3429,8 +3429,8 @@ static void mctext(int32_t y, const felucca_font_t *f, const char *s, uint16_t c
                 pre[j] = pl[j];
             pre[j] = 0;
             ex = x0 + text_w(f, pre) + ew / 2;
-            mrect(ex, y + 1, ew / 3 + 1, ew / 4 + 1, c);
-            mrect(ex - ew / 4, y + 1 + ew / 4 + 1, ew / 3 + 1, ew / 4 + 1, c);
+            mrect(ex, y + 1, 2, 1, c);
+            mrect(ex - 1, y + 2, 2, 1, c);
         }
 }
 
@@ -3763,7 +3763,7 @@ static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][5] = {
         {{"Some notes are shy. Use your eye.", "I had a dark premonition... a...", "a raccoon in a trench coat... uh. Hm."}, 98, -1},
         {{"Read the words, my sweet.", "Drip, water, splash, repeat.", ""}, 0, 1},
         {{"Another firmware calls your name,", "a drum machine, a different game?", ""}, 0, 0},
-        {{"But darling, none will help your ear", "like Simon~ the Clairvoyant,", "so stay right here."}, 0, 1},
+        {{"But darling, none will help your ear", "like Simon~, so stay right here.", ""}, 0, 1},
     },
     {
         {{"Level six! Oh, what a mix!", "Simon~ taught the spirits the tricks.", ""}, 0, 1},
@@ -3991,8 +3991,8 @@ static void sim_line(int32_t y, const char *s, uint32_t n, uint16_t col)   /* on
                 pre[j] = full[j];
             pre[j] = 0;
             ex = x0 + text_w(f, pre) + text_w(f, "e") / 2;
-            mrect(ex, y + 1, 3, 2, col);
-            mrect(ex - 2, y + 3, 3, 2, col);
+            mrect(ex, y + 1, 2, 1, col);
+            mrect(ex - 1, y + 2, 2, 1, col);
         }
 }
 
