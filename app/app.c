@@ -71,7 +71,7 @@ static const float eo_voice_gain[VOICES_ALL] = {1.15f, 1.0f, 1.3f, 1.5f, 1.25f, 
 /* one cycle each, normalised, first sample again at the end: warm (the old voice), the drone, triangle, square, and a
  * bright saw for the meow's resonances */
 static float eo_wt[WT_N + 1u], eo_wt_soft[WT_N + 1u], eo_wt_tri[WT_N + 1u], eo_wt_sq[WT_N + 1u], eo_wt_saw[WT_N + 1u];
-static volatile uint8_t eo_voice;        /* the melody voice's sound: V_* (mirrors the setting) */
+static volatile uint8_t eo_voice;        /* the melody voice's sound: V_* (mirrors the setting; Simone has her own, a bell) */
 static volatile uint8_t voice_fx = 0xFFu; /* the sequence's own voice for the note sounding now (V_CATFX, V_CATSAD), or 0xFF */
 
 static volatile uint32_t eo_midi_keys;       /* the keys held from MIDI (a bit per key), as if pressed on the FM-1 */
@@ -1617,13 +1617,14 @@ static void level_step(int32_t d)
     app_say("LEVEL", n);
 }
 
+static void eo_voice_sync(void);
 static void voice_step(int32_t d)        /* K2: the melody voice, with a short note to hear it */
 {
     int32_t v = clamp((int32_t)set.voice + d, 0, (int32_t)VOICES - 1);
     if (v == (int32_t)set.voice)
         return;
     set.voice = (uint8_t)v;
-    eo_voice = set.voice;
+    eo_voice_sync();
     set_dirty = 1;
     if (ui.state == ST_READY) {              /* a short note to hear it (not in the middle of a round) */
         seq_at[0] = 0;
@@ -1689,12 +1690,18 @@ static void melody_step(int32_t d)       /* SELECT during your turn: hear the me
     app_say("NOTE", t);
 }
 
+static void eo_voice_sync(void)          /* the cat meows; Simone is a goldfish, so she gets a bell of her own */
+{
+    eo_voice = set.game == GAME_SIMON ? (uint8_t)V_BELL : set.voice;
+}
+
 static void eo_game_step(int32_t d)
 {
     int32_t g = clamp((int32_t)set.game + d, 0, (int32_t)GAMES - 1);
     if (g == (int32_t)set.game)
         return;
     set.game = (uint8_t)g;
+    eo_voice_sync();
     set_dirty = 1;
     ans_len = 0;
     ui.text = TX_READY;
@@ -1733,7 +1740,7 @@ static void settings_load(void)          /* the saved settings, or the defaults 
         set.speed = SPEED_DEF;
     if (set.mode > 1u)
         set.mode = 0;
-    eo_voice = set.voice;
+    eo_voice_sync();
 }
 
 void app_init(void)                      /* boot: the settings, and a quiet start (the simulator's reboot keeps RAM) */
@@ -3443,6 +3450,7 @@ static void sel_go(void)
         set.game = (uint8_t)g;
         set_dirty = 1;
     }
+    eo_voice_sync();
     ans_len = 0;
     ui.text = TX_READY;
     ui.state = ST_READY;
