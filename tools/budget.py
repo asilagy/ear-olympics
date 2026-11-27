@@ -65,6 +65,16 @@ PLANNED = [
 ]
 
 
+# RESERVES: what we have said we will build, as proposed allowances (change them here as the plans firm up). The tool adds
+# them to what is in the code and tells you if the whole plan would not fit.
+RESERVES = [
+    ("Cast poses: game hosts to 4, everyone else to 3", 17 * POSE),
+    ("Cutscene stills: ~5 full-screen pictures at ~12 KB (live-drawn scenes, like the prologue, cost almost nothing)", 5 * 12_000),
+    ("Three more games' sprites and audio (Name That Interval, Beep Sweep, Tweet Sheet), ~20 KB each", 3 * 20_000),
+    ("The shuffled end-game and finale: extra sprites and audio", 20_000),
+]
+
+
 def main():
     flagged = 0
     rows = []
@@ -94,6 +104,16 @@ def main():
     for what, b in PLANNED:
         over = b > room
         print(f"  {what:76} +{b:8,}  {'(would cross 50% of the slot with the data now)' if over else ''}")
+    reserved = sum(b for _, b in RESERVES)
+    print("\nReserved for what is planned (proposed allowances):")
+    for what, b in RESERVES:
+        print(f"  {what:100} {b:8,}")
+    full = data + reserved
+    print(f"  {'IF EVERYTHING PLANNED SHIPS (data now + reserves)':100} {full:8,}  = {full * 100 / SLOT:.0f}% of the slot, before any code")
+    if full > SLOT * 0.5:
+        print(f"  <-- THE PLAN DOES NOT FIT under the 50% rule by {full - SLOT * 0.5:,.0f} bytes. To make room: compress or trim the intro music, "
+              "compress the cast sprites, pack Dogtor's sprites, draw scenes live, share art between games.")
+        flagged += 1
     print(f"\nWorking rule: keep the DATA under 50% of the slot ({SLOT // 2:,} bytes) until the code size is known; "
           f"{room:,.0f} bytes of room now.")
     print("Anything that every game would use (fonts, shared sprites, music) is the first to flag.")
