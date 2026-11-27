@@ -852,8 +852,8 @@ static void key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 /* the power-on movie's lights: once the music starts, a stadium wave rolls along the keys, left to right and round again,
  * a bright crest with a half-lit swell ahead of it and a dim wake behind */
 #define MV_WAVE_AT 5720u
-#define MV_STAB1 7500u                   /* the last two chord stabs, in ms of music */
-#define MV_STAB2 7790u
+#define MV_STAB1 7480u                   /* the last two chord stabs, in ms of music */
+#define MV_STAB2 7800u
 static uint32_t mv_wave_t0;              /* when the music began (0: not yet) */
 static void movie_wave(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 {
