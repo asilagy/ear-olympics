@@ -3765,8 +3765,8 @@ static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][5] = {
         {{"Level six! Oh, what a mix!", "Simon~ taught the spirits all these tricks.", ""}, 0, 1},
         {{"My riddles say how to play today.", "I had a dark premonition... a...", "a dog... in scrubs... uh. Hm."}, 89, -1},
         {{"Listen close, my dear.", "The riddle makes it clear.", ""}, 0, 1},
-        {{"Simon~ swims in a bowl so round,", "inside a box that makes synth sound.", ""}, 0, 0},
-        {{"So many firmwares, so much fun,", "only Simon~ knows the... the... one...", "The FM... FM-what? ...FM-1!"}, 0, 1},
+        {{"Simon~ lives in a box called FM-1...", "what's an FM-1? ...It was fun.", ""}, 0, 0},
+        {{"Simon~ once knew. Simon~ forgot.", "Simon~ hasn't got a clue.", ""}, 0, 1},
     },
     {
         {{"Level seven! Simon~ is in heaven!", "Even her crystal says you're clever.", ""}, 0, 1},
