@@ -852,14 +852,30 @@ static void key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 /* the power-on movie's lights: once the music starts, a stadium wave rolls along the keys, left to right and round again,
  * a bright crest with a half-lit swell ahead of it and a dim wake behind */
 #define MV_WAVE_AT 5720u
+#define MV_STAB1 7480u                   /* the last two chord stabs, in ms of music */
+#define MV_STAB2 7800u
 static uint32_t mv_wave_t0;              /* when the music began (0: not yet) */
 static void movie_wave(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 {
-    uint32_t t, head, k, span = NKEYS + 10u;
+    uint32_t t, head, k;
     if (!mv_wave_t0 || plat_ms() < mv_wave_t0)
         return;
     t = plat_ms() - mv_wave_t0;
-    head = (t / 55u) % span;              /* one key every 55 ms: the lap takes about two seconds */
+    if (t + MV_WAVE_AT >= MV_STAB1 && t + MV_WAVE_AT < MV_STAB1 + 220u) {      /* the two last chord stabs: every key lights */
+        *bright = (1u << NKEYS) - 1u;
+        return;
+    }
+    if (t + MV_WAVE_AT >= MV_STAB2 && t + MV_WAVE_AT < MV_STAB2 + 220u) {
+        *bright = (1u << NKEYS) - 1u;
+        return;
+    }
+    if (t + MV_WAVE_AT >= MV_STAB2 + 220u && t + MV_WAVE_AT < MV_STAB2 + 520u) {   /* and the second one rings out, dimmer */
+        *mid = (1u << NKEYS) - 1u;
+        return;
+    }
+    head = t / 55u;                       /* one key every 55 ms: the sweep crosses the keys once, in about a second and a half */
+    if (head >= NKEYS + 4u)
+        return;
     for (k = 0; k < NKEYS; k++) {
         int32_t d = (int32_t)head - (int32_t)k;      /* 0: the crest; positive: behind it */
         if (d == 0)

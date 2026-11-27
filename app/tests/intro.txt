@@ -44,6 +44,8 @@ wait 400
 shot movie_roster_building.png
 expect state 9
 wait 1200
+# a chord stab: every key lights
+expect wave 134217727
 shot movie_roster.png
 wait 460
 shot movie_title_flash.png
