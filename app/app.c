@@ -3563,8 +3563,8 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
 }
 
 /* the screen is the keys and nothing else: C D E G big, in their colours, with the unused keys between them dim for
- * parity. The key that sounds (or that you hold) fills with its colour; its word sits on it. Simone is small, up in the
- * corner with what she is saying. The numbers are in the foot. */
+ * parity. The key that sounds (or that you hold) fills with its colour; its word sits on it. Simone is full size above
+ * them, with what she is saying beside her. The numbers are in the foot. */
 #define SIM_KX 6                         /* the left edge of the first white key */
 #define SIM_KP 46                        /* the pitch of the white keys: C D E F G, 44 wide */
 static void sim_key_label(int32_t x, int32_t w, int32_t y, const char *s, uint16_t c)
@@ -3585,20 +3585,20 @@ static void sim_band(uint32_t now)
         int play = (k != 12u);                               /* F is not in play */
         int lit = play && (int)((bright >> k) & 1u);
         uint16_t c = !play ? C_LINE : lit ? SIM_COL[ix] : mv_scale(SIM_COL[ix], 2u);
-        cv_rect(x, 38, 44, 100, c);
+        cv_rect(x, 78, 44, 62, c);
         if (lit) {
-            cv_rect(x, 38, 44, 3, C_WHITE);                  /* a bright rim: it is the one */
+            cv_rect(x, 78, 44, 3, C_WHITE);                  /* a bright rim: it is the one */
             any = 1;
         }
         if (play)
-            sim_key_label(x, 44, 118, SIM_WORD[ix], lit ? C_BLACK : mv_scale(SIM_COL[ix], 5u));
+            sim_key_label(x, 44, 124, SIM_WORD[ix], lit ? C_BLACK : mv_scale(SIM_COL[ix], 5u));
     }
     for (i = 0; i < 3u; i++)                                 /* the black keys: never in play, so dark */
-        cv_rect(SIM_KX + ((int32_t)BA[i] + 1) * SIM_KP - 15, 38, 26, 62, ((bright >> BL[i]) & 1u) ? C_HI : C_BLACK);
+        cv_rect(SIM_KX + ((int32_t)BA[i] + 1) * SIM_KP - 15, 78, 26, 38, ((bright >> BL[i]) & 1u) ? C_HI : C_BLACK);
     mv_oy = 0;                                               /* the sprite painter clips to this band */
     mv_h = 144;
-    cast_paint(0u, any ? 1u : 0u, 2, 1 + (int32_t)((now / 700u) & 1u), 1, 2);   /* Simone, small, in her corner */
-    cv_text(58, 8, &FONT_S, TX[tx], (tx == TX_WATCH || tx == TX_NICE) ? C_HI : C_WHITE);
+    cast_paint(0u, any ? 1u : 0u, 6, 2 + (int32_t)((now / 700u) & 1u), 1, 1);   /* Simone, full size: the star */
+    cv_text(112, 28, &FONT_M, TX[tx], (tx == TX_WATCH || tx == TX_NICE) ? C_HI : C_WHITE);
 }
 
 static void sim_foot(void)               /* Simone Says' foot: where you are, and the keys to press */
