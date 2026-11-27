@@ -45,14 +45,20 @@ static inline uint32_t simon_lapse_pct(uint32_t level)
 }
 
 /* her tricks, in the order a player meets them (like a first level of a platformer: one new thing at a time, in a short round) */
-enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL };
+enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP };
 /* which trick debuts at which round (the sequence length) of which level: forced once a game */
 static inline uint32_t simon_debut(uint32_t level, uint32_t len)
 {
     return level == 1u ? (len == 3u ? SIMON_FX_PRE : 0u) :
-           level == 2u ? (len == 3u ? SIMON_FX_LAPSE : 0u) :
+           level == 2u ? (len == 3u ? SIMON_FX_LAPSE : len == 4u ? SIMON_FX_SLEEP : 0u) :
            level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : len == 4u ? SIMON_FX_STALL : 0u) :
                          (len == 4u ? SIMON_FX_RESTART : 0u);
+}
+
+/* sleepy: the screen goes gray-blue and ripples, her notes drift in a long reverb (from level 2) */
+static inline uint32_t simon_sleep_pct(uint32_t level)
+{
+    return level <= 1u ? 0u : level == 2u ? 12u : 18u;
 }
 
 /* the crystal ball: the chance, in percent, that a round is played on a blue screen with only the words (levels 3 and up) */

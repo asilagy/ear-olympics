@@ -1,0 +1,27 @@
+# The sleepy round (forced: fx8): a two-beat announcement, then a slow gray-blue rippling sequence with a long reverb.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect fx8 8
+tap PLAY
+wait 1500
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 4400
+expect state 1
+expect len 2
+wait 1500
+shot sleepy_a.png
+wait 2600
+shot sleepy_b.png
+wait 2000
+shot sleepy_c.png
