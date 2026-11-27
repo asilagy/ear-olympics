@@ -1233,6 +1233,7 @@ static uint8_t sim_hint;                 /* the next sequence is a wish: everyth
 static uint8_t sim_wish_peek;            /* the wish being granted is a peek in your turn (not a second try) */
 static uint32_t sim_turn_t0, sim_wish_t0, sim_wish_until, sim_gap_t0, sim_typed_n;
 static uint8_t sim_cameo, sim_cameo_last;   /* this pause has Meow in it; and the last one did */
+static uint8_t sim_purr_on;              /* Meow's purr is sounding */
 static uint8_t sim_push_snd;             /* the push's hum is on */
 static uint32_t sim_pre;                 /* the pre-roll's length in ms (0: none) */
 static uint32_t sim_gap_at, sim_gap_len; /* the lapse: when it starts in the sequence's ms, and how long (0: none) */
@@ -3884,7 +3885,11 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
         if (sim_in_preroll()) {
             uint32_t ph = seq_pos % 900u, tri = ph < 450u ? ph : 900u - ph;      /* the push has a sound: a low hum that climbs as she nears */
             lights();                        /* the dazzle moves with no input */
-            (void)tri;                       /* (no hum here any more: the purr belongs to Meow) */
+            eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12 + (int32_t)(tri / 45u), 0.35f);
+            sim_push_snd = 1;
+        } else if (sim_push_snd) {
+            sim_push_snd = 0;
+            eo_drone_set(-1, 0.0f);
         }
         {   /* Meow's cameo purrs while he sits by the bowl (the second beat) */
             uint32_t pt = now - sim_gap_t0;
@@ -3892,9 +3897,9 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
             if (want) {
                 voice_fx = V_PURR;
                 voice_note = KEY_NOTE0 + (int32_t)ROOT_MIN - 12;
-                sim_push_snd = 1;
-            } else if (sim_push_snd) {
-                sim_push_snd = 0;
+                sim_purr_on = 1;
+            } else if (sim_purr_on) {
+                sim_purr_on = 0;
                 voice_note = -1;
                 voice_fx = 0xFFu;
             }
