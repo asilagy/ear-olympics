@@ -3891,6 +3891,27 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
             sim_push_snd = 0;
             eo_drone_set(-1, 0.0f);
         }
+        {   /* a lapse has its own sounds: a sagging "uh-oh" of blubs when the big words come, a bright one when she remembers */
+            static uint8_t fi;
+            static const uint16_t fs_t[5] = {0, 220, 440, 1200, 1450}, ft_t[2] = {0, 1800};
+            static const uint8_t fs_n[5] = {81, 77, 72, 67, 62}, ft_n[2] = {74, 67};
+            if (ui.state == ST_LISTEN && seq_on && sim_gap_len && seq_pos >= sim_gap_at) {
+                uint32_t d = seq_pos - sim_gap_at, nmax = sim_gap_stall ? 2u : 5u;
+                uint32_t want = sim_gap_stall ? (d >= ft_t[1] ? 2u : 1u) : (d >= fs_t[4] ? 5u : d >= fs_t[3] ? 4u : d >= fs_t[2] ? 3u : d >= fs_t[1] ? 2u : 1u);
+                while (fi < want && fi < nmax) {
+                    eo_blub_note = sim_gap_stall ? ft_n[fi] : fs_n[fi];
+                    eo_blub_trig++;
+                    fi++;
+                }
+                if (seq_pos >= sim_gap_at + sim_gap_len && fi < 8u) {     /* she remembers */
+                    eo_blub_note = 88;
+                    eo_blub_trig++;
+                    fi = 8u;
+                }
+            } else {
+                fi = 0;
+            }
+        }
         {   /* Meow's cameo purrs while he sits by the bowl (the second beat) */
             uint32_t pt = now - sim_gap_t0;
             uint8_t want = (uint8_t)(ui.state == ST_GAP && sim_cameo && pt >= 3200u && pt < 6000u && !seq_on);
