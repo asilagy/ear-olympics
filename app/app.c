@@ -3884,11 +3884,20 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
         if (sim_in_preroll()) {
             uint32_t ph = seq_pos % 900u, tri = ph < 450u ? ph : 900u - ph;      /* the push has a sound: a low hum that climbs as she nears */
             lights();                        /* the dazzle moves with no input */
-            eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12 + (int32_t)(tri / 45u), 0.35f);
-            sim_push_snd = 1;
-        } else if (sim_push_snd) {
-            sim_push_snd = 0;
-            eo_drone_set(-1, 0.0f);
+            (void)tri;                       /* (no hum here any more: the purr belongs to Meow) */
+        }
+        {   /* Meow's cameo purrs while he sits by the bowl (the second beat) */
+            uint32_t pt = now - sim_gap_t0;
+            uint8_t want = (uint8_t)(ui.state == ST_GAP && sim_cameo && pt >= 3200u && pt < 6000u && !seq_on);
+            if (want) {
+                voice_fx = V_PURR;
+                voice_note = KEY_NOTE0 + (int32_t)ROOT_MIN - 12;
+                sim_push_snd = 1;
+            } else if (sim_push_snd) {
+                sim_push_snd = 0;
+                voice_note = -1;
+                voice_fx = 0xFFu;
+            }
         }
     }
 }
