@@ -851,11 +851,12 @@ static void key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 
 /* the power-on movie's lights: once the music starts, a stadium wave rolls along the keys, left to right and round again,
  * a bright crest with a half-lit swell ahead of it and a dim wake behind */
+#define MV_WAVE_AT 5720u
 static uint32_t mv_wave_t0;              /* when the music began (0: not yet) */
 static void movie_wave(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 {
     uint32_t t, head, k, span = NKEYS + 10u;
-    if (!mv_wave_t0)
+    if (!mv_wave_t0 || plat_ms() < mv_wave_t0)
         return;
     t = plat_ms() - mv_wave_t0;
     head = (t / 55u) % span;              /* one key every 55 ms: the lap takes about two seconds */
@@ -3255,7 +3256,7 @@ static void movie_tick(uint32_t now)                     /* the music starts wit
 {
     if (mv_stage == 0u && now >= mv_m0) {
         mv_stage = 1;
-        mv_wave_t0 = now ? now : 1u;
+        mv_wave_t0 = now + MV_WAVE_AT;      /* the wave starts with the arpeggio, 5.72 s into the music */
         eo_smp_trig++;
     }
 }

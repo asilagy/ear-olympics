@@ -18,11 +18,10 @@ expect smp 0
 expect wave 0
 wait 200
 expect smp 1
-# the music starts and a stadium wave rolls along the keys: a lit crest at the left end, then moving right
+# the music starts; the keys stay dark until the arpeggio at 5.72 s
 wait 60
-expect wave 8
+expect wave 0
 wait 220
-expect wave 128
 peakreset
 wait 600
 # the music is audible, and does not clip
@@ -33,8 +32,15 @@ wait 800
 shot movie_dog.png
 wait 1000
 shot movie_cast.png
+# the stadium wave starts with the arpeggio, 5.72 s into the music: nothing before it, then a lit crest at the left end that moves right
+wait 2880
+expect wave 0
+wait 100
+expect wave 2
+wait 220
+expect wave 32
 # the montage ends at 5.6 s of music and the whole cast builds up to the last stab at 7.75 s; the title lands on it
-wait 3600
+wait 400
 shot movie_roster_building.png
 expect state 9
 wait 1200
