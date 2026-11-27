@@ -3698,14 +3698,14 @@ static const sim_card_t sim_cards[SIM_CARDS] = {
 static const uint8_t SIM_SCALE[8] = {0, 1, 4, 5, 7, 8, 11, 12};   /* the double harmonic scale, from A */
 static const sim_card_t *sim_set = sim_cards;           /* the cards being shown: her introduction, or a level-up's */
 static uint8_t sim_up_mode;              /* the cards are a level-up's: the end starts the new level */
-static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][3] = {
+static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][5] = {
     {
-        {{"Level two! You glow, you do.", "I knew you'd pass. ...I knew. I do.", ""}, 0, 1},
+        {{"Level two! I see you glow.", "I knew you'd pass. ...I knew. I do.", ""}, 0, 1},
         {{"Your eyes grow heavy, dear. Sleep is near.", "I had a dark premonition... a...", "a tabby... uh. Hm."}, 87, -1},
         {{"No matter! Drowsy or bright,", "we'll play till the stars say good night.", ""}, 0, 1},
     },
     {
-        {{"Level three! Oh, you're a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
+        {{"Level three! I see a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
         {{"The crystal ball may call. Don't fall.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 95, -1},
         {{"Blue and bubbly, words alone.", "Hold your breath. Make them your own.", ""}, 0, 1},
     },
@@ -3715,23 +3715,27 @@ static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][3] = {
         {{"If I forget, don't fret.", "Just wait, and I'll remember yet.", ""}, 0, 1},
     },
     {
-        {{"Level five! You're so alive!", "The spirits hum. They say you thrive.", ""}, 0, 1},
+        {{"Level five! I feel you thrive!", "The spirits hum. I hum along.", ""}, 0, 1},
         {{"Some notes are shy. Use your eye.", "I had a dark premonition... a...", "a raccoon... in a trench coat... uh. Hm."}, 100, -1},
         {{"Read the words, my sweet.", "Drip, water, splash, repeat.", ""}, 0, 1},
+        {{"Another firmware calls your name,", "a drum machine, a different game?", ""}, 0, 0},
+        {{"But darling, none will help your ear", "like Simon~ the Clairvoyant,", "so stay right here."}, 0, 1},
     },
     {
-        {{"Level six! Oh, what a mix!", "You've got the spirits doing tricks.", ""}, 0, 1},
+        {{"Level six! Oh, what a mix!", "I taught the spirits all these tricks.", ""}, 0, 1},
         {{"My riddles say how to play today.", "I had a dark premonition... a...", "a dog... in scrubs... uh. Hm."}, 89, -1},
         {{"Listen close, my dear.", "The riddle makes it clear.", ""}, 0, 1},
     },
     {
-        {{"Level seven! Pure heaven!", "Even the crystal says you're clever.", ""}, 0, 1},
+        {{"Level seven! I'm in heaven!", "Even my crystal says you're clever.", ""}, 0, 1},
         {{"I'll dim the lights. Your ears take flight.", "I had a dark premonition... a...", "a speaker... that talks... uh. Hm."}, 104, -1},
         {{"Close your eyes. Don't be shy.", "Your ears will see them passing by.", ""}, 0, 1},
     },
     {
-        {{"Level eight! The final gate!", "Oh darling, you were worth the wait.", ""}, 0, 1},
+        {{"Level eight! The final gate!", "Oh darling, I knew you'd be worth the wait.", ""}, 0, 1},
         {{"All my tricks, in any weather.", "I had a dark premonition... a...", "a low, dark root... uh. Hm. Coming."}, 84, -1},
+        {{"Another firmware calls your name,", "a synth, a sampler... it's all the same...", ""}, 0, 0},
+        {{"No, wait. It isn't. Come back, my dear,", "only I, Simon~, will train your ear.", ""}, 0, 0},
         {{"Do too well, and the spirits yell!", "But you'll be fine. ...Probably. Farewell.", ""}, 0, 1},
     },
 };
@@ -3837,7 +3841,8 @@ static void sim_enter_up(void)           /* a level is done: she tells you what 
     sim_set = sim_up_cards[ly - 2u];
     sim_up_mode = 1;
     sim_card = 0;
-    sim_hi = 3;
+    for (sim_hi = 3; sim_hi < 5u && sim_set[sim_hi].l[0]; sim_hi++)
+        ;
     sim_t0 = plat_ms();
     sim_typed_last = 0;
     sim_ev_done = 0;
