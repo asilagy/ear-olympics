@@ -3616,8 +3616,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     return "Now you play. Don't stray.";
 }
 
-#define SIM_SX (-34)                     /* Simone's art starts a way into her sprite box: this puts her bowl at the left edge */
-#define SIM_SY (-4)
+#define SIM_SX (-40)                     /* Simone's art starts a way into her sprite box: this puts her bowl at the left edge */
+#define SIM_SY (-14)
 static uint32_t sim_any_lit(void)
 {
     uint32_t i, bright, mid, dim;
@@ -3628,11 +3628,11 @@ static uint32_t sim_any_lit(void)
     return 0;
 }
 
-static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her, twice life size, over the keys: once per band */
+static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her, two and a half times life size, over the keys: once per band */
 {
     mv_oy = band_top;                                        /* the sprite painter clips to the band, in the middle band's coordinates */
     mv_h = band_h;
-    cast_paint(0u, sim_any_lit() ? 1u : 0u, SIM_SX, SIM_SY + (int32_t)((now / 700u) & 1u), 2, 1);
+    cast_paint(0u, sim_any_lit() ? 1u : 0u, SIM_SX, SIM_SY + (int32_t)((now / 700u) & 1u), 5, 2);
 }
 
 static void sim_band(uint32_t now)
@@ -3640,7 +3640,7 @@ static void sim_band(uint32_t now)
     uint32_t tx = eo_text();
     sim_keys(114);
     sim_sprite(now, 0, 144);
-    wrap_text(124, 16, 112, &FONT_S, sim_quip(tx), (tx == TX_NICE || tx == TX_WATCH) ? C_HI : C_WHITE, 18);
+    wrap_text(154, 14, 82, &FONT_S, sim_quip(tx), (tx == TX_NICE || tx == TX_WATCH) ? C_HI : C_WHITE, 18);
 }
 
 static void draw(void)
@@ -3699,15 +3699,13 @@ static void draw(void)
         }
     } else {
         int32_t x = cv_text(10, 6, &FONT_B, set.game == GAME_SIMON ? "SIMONE SAYS" : APP_NAME, C_WHITE);
-        if (set.game == GAME_SIMON) {            /* the numbers live up here: LEVEL 1  3/5, or the version between games */
+        if (set.game == GAME_SIMON) {            /* the numbers live up here: LEVEL 1, then LEVEL 1  3/5 in a round */
             char h[32], hn[12];
             h[0] = 0;
             if (ui.state == ST_READY) {
                 text_cat(h, "LEVEL ");
                 int_text((int32_t)eo_level(), hn);
                 text_cat(h, hn);
-                text_cat(h, "  ");
-                text_cat(h, EO_VERSION);
             } else {
                 text_cat(h, "LEVEL ");
                 int_text((int32_t)eo_level(), hn);
@@ -3719,7 +3717,7 @@ static void draw(void)
                 int_text((int32_t)simon_goal(eo_level()), hn);
                 text_cat(h, hn);
             }
-            cv_text(230 - text_w(&FONT_XS, h), 10, &FONT_XS, h, ui.state == ST_READY ? C_DIM : C_AMB);
+            cv_text(230 - text_w(&FONT_XS, h), 10, &FONT_XS, h, C_AMB);
         } else {
             const char *vn = eo_voice_name[eo_voice < VOICES ? eo_voice : 0u];
             cv_text(x + 8, 10, &FONT_XS, EO_VERSION, C_DIM);
