@@ -3595,7 +3595,7 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
             sim_key_label(x, 44, y0 + 74, SIM_WORD[ix], lit ? C_BLACK : mv_scale(SIM_COL[ix], 5u));
     }
     for (i = 0; i < 3u; i++)                                 /* the black keys: never in play, so dark */
-        cv_rect(SIM_KX + ((int32_t)BA[i] + 1) * SIM_KP - 15, y0, 26, 52, C_BLACK);
+        cv_rect(SIM_KX + ((int32_t)BA[i] + 1) * SIM_KP - 15, y0 + 16, 26, 46, C_BLACK);   /* hung below the keys' top edge, so it never reads as a hole in them */
 }
 
 static const char *sim_quip(uint32_t tx)                     /* what she says: rhyme, until she loses it */
