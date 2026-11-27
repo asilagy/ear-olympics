@@ -3700,12 +3700,12 @@ static const sim_card_t *sim_set = sim_cards;           /* the cards being shown
 static uint8_t sim_up_mode;              /* the cards are a level-up's: the end starts the new level */
 static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][5] = {
     {
-        {{"Level two! I see you glow.", "I knew you'd pass. ...I knew. I do.", ""}, 0, 1},
+        {{"Level two! Simon~ sees you glow.", "Simon~ knew you'd pass. ...She knew.", ""}, 0, 1},
         {{"Your eyes grow heavy, dear. Sleep is near.", "I had a dark premonition... a...", "a tabby... uh. Hm."}, 87, -1},
         {{"No matter! Drowsy or bright,", "we'll play till the stars say good night.", ""}, 0, 1},
     },
     {
-        {{"Level three! I see a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
+        {{"Level three! Simon~ spots a gem.", "The spirits clap. Simon~ claps too.", ""}, 0, 1},
         {{"The crystal ball may call. Don't fall.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 95, -1},
         {{"Blue and bubbly, words alone.", "Hold your breath. Make them your own.", ""}, 0, 1},
     },
@@ -3715,24 +3715,24 @@ static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][5] = {
         {{"If I forget, don't fret.", "Just wait, and I'll remember yet.", ""}, 0, 1},
     },
     {
-        {{"Level five! I feel you thrive!", "The spirits hum. I hum along.", ""}, 0, 1},
+        {{"Level five! Simon~ feels you thrive!", "The spirits hum. Simon~ hums along.", ""}, 0, 1},
         {{"Some notes are shy. Use your eye.", "I had a dark premonition... a...", "a raccoon... in a trench coat... uh. Hm."}, 100, -1},
         {{"Read the words, my sweet.", "Drip, water, splash, repeat.", ""}, 0, 1},
         {{"Another firmware calls your name,", "a drum machine, a different game?", ""}, 0, 0},
         {{"But darling, none will help your ear", "like Simon~ the Clairvoyant,", "so stay right here."}, 0, 1},
     },
     {
-        {{"Level six! Oh, what a mix!", "I taught the spirits all these tricks.", ""}, 0, 1},
+        {{"Level six! Oh, what a mix!", "Simon~ taught the spirits all these tricks.", ""}, 0, 1},
         {{"My riddles say how to play today.", "I had a dark premonition... a...", "a dog... in scrubs... uh. Hm."}, 89, -1},
         {{"Listen close, my dear.", "The riddle makes it clear.", ""}, 0, 1},
     },
     {
-        {{"Level seven! I'm in heaven!", "Even my crystal says you're clever.", ""}, 0, 1},
+        {{"Level seven! Simon~ is in heaven!", "Even her crystal says you're clever.", ""}, 0, 1},
         {{"I'll dim the lights. Your ears take flight.", "I had a dark premonition... a...", "a speaker... that talks... uh. Hm."}, 104, -1},
         {{"Close your eyes. Don't be shy.", "Your ears will see them passing by.", ""}, 0, 1},
     },
     {
-        {{"Level eight! The final gate!", "Oh darling, I knew you'd be worth the wait.", ""}, 0, 1},
+        {{"Level eight! The final gate!", "Oh darling, Simon~ knew you'd be worth it.", ""}, 0, 1},
         {{"All my tricks, in any weather.", "I had a dark premonition... a...", "a low, dark root... uh. Hm. Coming."}, 84, -1},
         {{"Another firmware calls your name,", "a synth, a sampler... it's all the same...", ""}, 0, 0},
         {{"No, wait. It isn't. Come back, my dear,", "only I, Simon~, will train your ear.", ""}, 0, 0},
@@ -4221,13 +4221,13 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
 static const char *const sim_praise[8] = {      /* after a round with a trick: she is delighted with you */
     "You saw right through my trick! My, aren't you quick!", "Brilliant, darling! Even the spirits gasped. ...I knew. Obviously.",
     "The spirits swoon! You're in tune!", "Through every wobble, you did not hobble. Marvelous!",
-    "Stunning, my sweet! Not a single missed beat!", "I tried to trick you, dear. You laughed. I'm impressed. And a bit scared.",
+    "Stunning, my sweet! Not a single missed beat!", "Simone tried to trick you, dear. You laughed. Simone is impressed. And a bit scared.",
     "Oh, you magnificent creature. The crystal bows to you.", "A flawless feat! You are a treat. Come, take a seat!"};
 static const char *const sim_gap_say[8] = {
-    "Darling, I see a star. Oh... it's you! There you are!", "The cards adore you, dear. My fee is near.",
-    "The crystal clears... I see... me! Hello!",             "Oh sweet one, you have the gift. Let's lift!",
+    "Simone sees a star, darling. Oh... it's you! There you are!", "The cards adore you, dear. Simone's fee is near.",
+    "The crystal clears... I see... me! Hello!",             "Oh sweet one, you have the gift. Simone is swept! Let's lift!",
     "My palm says the next note is... a note.",              "Behold, my love, a longer chain! Do not complain.",
-    "I'm getting a message from the spirits. It says... blub.", "Stay close, darling. I have a feeling. ...Or a snack. Same thing."};
+    "Simone is getting a message from the spirits. It says... blub.", "Stay close, darling. Simone has a feeling. ...Or a snack. Same thing."};
 static char sim_buf[96];
 static const char *sim_full;            /* the whole of a line being typed: the card is sized for it, so it never grows or changes font as it types */
 static const char *sim_typed_text(const char *full, uint32_t n)   /* the first n letters of a line */
@@ -4244,7 +4244,7 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     sim_alert = 0;
     sim_full = 0;
     if (ui.state == ST_WISH || (ui.state == ST_READY && ui.text == TX_OVER)) {   /* you have angered the spirits */
-        static const char *const talk[6] = {"No fear, darling. I foresaw this. ...Just now.",
+        static const char *const talk[6] = {"No fear, darling. Simone foresaw this. ...Just now.",
                                             "The spirits scowl, my sweet. Still, you're a treat.",
                                             "Calm waters, sweet one. Now... who are you again?",
                                             "Defeat, my dear, is the future drawing near.",
@@ -4368,9 +4368,9 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             {"Press PLAY, darling. Your future's calling.", "Come closer, seeker. The bowl is warm... and so are you.", "Press PLAY, my dear. I see it clear. ...Or is it near?"},
             {"Press PLAY, my love. The stars above approve.", "The spirits hum. They say you're someone. Press PLAY, someone.", "Faster now, darling. Hold on to your fins."},
             {"Shh. The crystal hums. Sometimes... it lends a hand.", "Press PLAY, my sweet. The water's neat.", "Third time's the charm, darling. ...Is it the third?"},
-            {"Mind my memory, darling. It's a leaky bowl.", "Press PLAY. If I forget, don't fret.", "Your turn to shine, my dear. I'll try to stay here."},
+            {"Mind Simone's memory, darling. It's a leaky bowl.", "Press PLAY. If Simone forgets, don't fret.", "Your turn to shine, my dear. Simone will try to stay here."},
             {"Watch my words, my sweet. Your eyes can eat.", "Press PLAY. Some notes may hide away.", "Drip, water, splash... Press PLAY, I'll dash."},
-            {"Riddles, darling! I speak in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "Press PLAY. A rule is coming your way."},
+            {"Riddles, darling! Simone speaks in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "Press PLAY. A rule is coming your way."},
             {"The lights may dim. Don't be grim.", "Trust your ears, my dear. The lights may disappear.", "Press PLAY, my sweet. Let's feel the beat."},
             {"Everything at once, my darling. Don't panic. ...I'm panicking.", "The finale, my dear. The end is near.", "One last PLAY, my love. The spirits are above."}};
         return rd[(lv < 1u ? 1u : lv > 8u ? 8u : lv) - 1u][sim_say_n % 3u];
@@ -4382,8 +4382,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         return w[sim_say_n % 5u];
     }
     if (tx == TX_NICE) {
-        static const char *const n[4] = {"Splendid, darling! I knew it. ...Knew what?", "Ooh, you glow! The spirits know.",
-                                         "Magnificent! A perfect run. ...Of what, my sweet? Fun.", "I felt that in my fins. Delicious. Again!"};
+        static const char *const n[4] = {"Splendid, darling! Simone knew it. ...Knew what?", "Ooh, you glow! The spirits know.",
+                                         "Magnificent! A perfect run. ...Of what, my sweet? Fun.", "Simone felt that in her fins. Delicious. Again!"};
         return sim_distract ? sim_praise[(sim_say_n + 3u) & 7u] : n[sim_say_n & 3u];
     }
     if (tx == TX_MISS) {
@@ -4530,8 +4530,8 @@ static void sim_crystal_layer(uint32_t now, int32_t y0, int32_t word)   /* the w
 static const char *const sim_up_say[SIMON_LEVELS + 1u][3] = {
     {0, 0, 0},
     {0, 0, 0},
-    {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "I might forget. Don't fret!"},
-    {"Splendid, darling! You listened well. A lovely spell.", "Sometimes I stall. The crystal ball may call.", "Late in a level, I dim the lights."},
+    {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "Simone might forget. Don't fret!"},
+    {"Splendid, darling! You listened well. A lovely spell.", "Sometimes Simone stalls. The crystal ball may call.", "Late in a level, Simone dims the lights."},
     {"A star pupil, I swear! Or luck. Who cares?", "Your ears must lead, my love. Indeed.", "Do too well, and the spirits yell!"},
 };
 static void sim_up_band(uint32_t now)
