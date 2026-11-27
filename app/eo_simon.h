@@ -6,7 +6,7 @@
 #pragma once
 #include "eo_music.h"
 
-#define SIMON_LEVELS 4u
+#define SIMON_LEVELS 8u
 #define SIMON_MAX_LEN 20u                    /* a game that gets here is won */
 #define SIMON_MAX_POOL 13u
 
@@ -16,14 +16,12 @@ typedef struct {
 } simon_level_t;
 
 static const simon_level_t SIMON_LV[SIMON_LEVELS] = {   /* Simone Says: always the same four keys, C D E G. The levels are the pressure, not the notes */
-    {4, {0, 2, 4, 7}},
-    {4, {0, 2, 4, 7}},
-    {4, {0, 2, 4, 7}},
-    {4, {0, 2, 4, 7}},
+    {4, {0, 2, 4, 7}}, {4, {0, 2, 4, 7}}, {4, {0, 2, 4, 7}}, {4, {0, 2, 4, 7}},
+    {4, {0, 2, 4, 7}}, {4, {0, 2, 4, 7}}, {4, {0, 2, 4, 7}}, {4, {0, 2, 4, 7}},
 };
 
 /* how many of the newest notes light as she replays the sequence: the older ones sound in the dark (an ear test) */
-static const uint8_t SIMON_LIT[SIMON_LEVELS] = {255, 255, 255, 255};   /* (the lights stay on: going dark is her trick, late in a level, not the rule) */
+static const uint8_t SIMON_LIT[SIMON_LEVELS] = {255, 255, 255, 255, 255, 255, 255, 255};   /* (the lights stay on: going dark is her trick, late in a level, not the rule) */
 static inline uint32_t simon_lit_count(uint32_t level)
 {
     return SIMON_LIT[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
@@ -35,79 +33,68 @@ static inline uint32_t simon_pre_ms(uint32_t level)
 {
     return level <= 2u ? 1800u : 2400u;
 }
-static inline uint32_t simon_pre_pct(uint32_t level)   /* how often a round has the pre-roll (percent): rare enough to stay a surprise */
-{
-    return level <= 1u ? 0u : level == 2u ? 15u : level == 3u ? 15u : 10u;
-}
-static inline uint32_t simon_lapse_pct(uint32_t level)
-{
-    return level <= 1u ? 0u : level == 2u ? 15u : 20u;
-}
-
-/* her tricks, in the order a player meets them (like a first level of a platformer: one new thing at a time, in a short round) */
+/* her tricks, in the order a player meets them: ONE new trick per level (WarioWare: show it once on a short round, let them play
+ * it, then it joins a small random pool; a later level twists it). The chance, in percent, a round has each, by level 1..8.
+ * The first few are about looks and sound (polish, not difficulty); the rules and the memory tricks come later. */
 enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP, SIMON_FX_TWICE, SIMON_FX_DARK, SIMON_FX_EYES };   /* (TWICE is the riddle family: each has its own rule) */
-/* which trick debuts at which round (the sequence length) of which level: forced once a game */
-static inline uint32_t simon_debut(uint32_t level, uint32_t len)   /* ONE new trick per level, once, on a short round (WarioWare: introduce, let them play it, then twist) */
+static const uint8_t SIMON_PCT_PRE[SIMON_LEVELS]     = {0, 15, 12, 10, 10, 10, 10, 10};   /* the dazzle (level 1 debut) */
+static const uint8_t SIMON_PCT_SLEEP[SIMON_LEVELS]   = {0, 15, 15, 12, 12, 12, 12, 12};   /* sleepy: gray-blue, rippling (level 2) */
+static const uint8_t SIMON_PCT_CRYSTAL[SIMON_LEVELS] = {0, 0, 20, 15, 15, 15, 15, 15};    /* the crystal ball (level 3) */
+static const uint8_t SIMON_PCT_LAPSE[SIMON_LEVELS]   = {0, 0, 0, 20, 15, 15, 15, 15};     /* she loses her place (level 4); level 8 adds the stall and the restart */
+static const uint8_t SIMON_PCT_EYES[SIMON_LEVELS]    = {0, 0, 0, 0, 20, 12, 12, 12};       /* use your eyes: silent words (level 5) */
+static const uint8_t SIMON_PCT_RIDDLE[SIMON_LEVELS]  = {0, 0, 0, 0, 0, 15, 12, 20};        /* riddles: a rule for how to play it back (level 6; more rules at 7 and 8) */
+static const uint8_t SIMON_PCT_DARK[SIMON_LEVELS]    = {0, 0, 0, 0, 0, 0, 20, 20};        /* lights out (level 7) */
+static inline uint32_t simon_pct(const uint8_t *t, uint32_t level)
+{
+    return t[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
+}
+static inline uint32_t simon_pre_pct(uint32_t level) { return simon_pct(SIMON_PCT_PRE, level); }
+static inline uint32_t simon_sleep_pct(uint32_t level) { return simon_pct(SIMON_PCT_SLEEP, level); }
+static inline uint32_t simon_crystal_pct(uint32_t level) { return simon_pct(SIMON_PCT_CRYSTAL, level); }
+static inline uint32_t simon_lapse_pct(uint32_t level) { return simon_pct(SIMON_PCT_LAPSE, level); }
+static inline uint32_t simon_eyes_pct(uint32_t level) { return simon_pct(SIMON_PCT_EYES, level); }
+static inline uint32_t simon_twice_pct(uint32_t level) { return simon_pct(SIMON_PCT_RIDDLE, level); }
+static inline uint32_t simon_dark_pct(uint32_t level) { return simon_pct(SIMON_PCT_DARK, level); }
+
+/* which trick debuts at which round (the sequence length) of which level: forced once a level (the last level is the finale: no debut) */
+static inline uint32_t simon_debut(uint32_t level, uint32_t len)
 {
     return level == 1u ? (len == 3u ? SIMON_FX_PRE : 0u) :
-           level == 2u ? (len == 3u ? SIMON_FX_LAPSE : 0u) :
+           level == 2u ? (len == 3u ? SIMON_FX_SLEEP : 0u) :
            level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : 0u) :
-                         (len == 4u ? SIMON_FX_TWICE : 0u);
+           level == 4u ? (len == 3u ? SIMON_FX_LAPSE : 0u) :
+           level == 5u ? (len == 2u ? SIMON_FX_EYES : 0u) :
+           level == 6u ? (len == 3u ? SIMON_FX_TWICE : 0u) :
+           level == 7u ? (len == 4u ? SIMON_FX_DARK : 0u) : 0u;
 }
 
-/* sleepy: the screen goes gray-blue and ripples, her notes drift in a long reverb (from level 2) */
-static inline uint32_t simon_sleep_pct(uint32_t level)
+/* lights out: how many of the newest notes still light */
+static inline uint32_t simon_dark_lit(uint32_t level)
 {
-    (void)level;
-    return 0u;                                           /* parked: sleepy waits for a later level */
+    return level == 7u ? 2u : 1u;
 }
 
-/* the lights go out: late in a level (the pattern is learned by then), the older notes sound in the dark. Alone: never with another trick */
-static inline uint32_t simon_dark_pct(uint32_t level)
-{
-    (void)level;
-    return 0u;                                           /* parked: the lights-out round waits for a later level */
-}
-static inline uint32_t simon_dark_lit(uint32_t level)    /* how many of the newest notes still light */
-{
-    return level <= 3u ? 2u : 1u;
-}
-
-/* use your eyes: the notes are silent, only the words (and the lights) show: the whole sequence, or one note of it */
-static inline uint32_t simon_eyes_pct(uint32_t level)
-{
-    (void)level;
-    return 0u;                                           /* parked: use-your-eyes waits for a later level */
-}
-
-/* the riddles: a rule, in verse, for how to play the round back. Which rules a level may use, and how long the round may be */
+/* the riddles: a rule, in verse, for how to play the round back. Which rules a level may use, and how long the round may be:
+ * 1 each note twice (level 6), 2 the second note thrice (7), 3 first and last only, 4 skip the first, 5 last note twice (8) */
 static inline uint32_t simon_rule_ok(uint32_t rule, uint32_t len, uint32_t level)
 {
-    return rule == 1u && level >= 4u && len >= 2u && len <= 4u;   /* (the other four rules are parked for later levels) */
-}
-
-/* the double fortune: the chance that you must play each note twice (levels 3 and up, short sequences) */
-static inline uint32_t simon_twice_pct(uint32_t level)
-{
-    return level <= 3u ? 0u : 15u;
-}
-
-/* the crystal ball: the chance, in percent, that a round is played on a blue screen with only the words (levels 3 and up) */
-static inline uint32_t simon_crystal_pct(uint32_t level)
-{
-    return level <= 2u ? 0u : level == 3u ? 25u : 15u;
+    if (rule < 1u || rule > 5u)
+        return 0u;
+    if (level < (rule == 1u ? 6u : rule == 2u ? 7u : 8u))
+        return 0u;
+    return (rule == 3u || rule == 4u) ? (len >= 3u && len <= 5u) : (len >= 2u && len <= 4u);
 }
 
 /* a level graduates when you get a sequence this long: the wall is about 7 notes, past 9 you have to chunk */
-static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {3, 4, 5, 5};
+static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {4, 4, 5, 5, 5, 6, 6, 6};
 static inline uint32_t simon_goal(uint32_t level)
 {
     return SIMON_GOAL[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
 }
 
 /* the fish's memory, on your turn: how long until the first bubble pops, then how long between pops (ms), by level */
-static const uint16_t SIMON_POP_GRACE[SIMON_LEVELS] = {2600, 2000, 1500, 1200};
-static const uint16_t SIMON_POP_EVERY[SIMON_LEVELS] = {900, 700, 550, 450};
+static const uint16_t SIMON_POP_GRACE[SIMON_LEVELS] = {2600, 2400, 2000, 1700, 1500, 1300, 1200, 1100};
+static const uint16_t SIMON_POP_EVERY[SIMON_LEVELS] = {900, 800, 700, 600, 550, 500, 450, 400};
 static inline uint32_t simon_popped(uint32_t level, uint32_t since_ms, uint32_t len)   /* bubbles popped by now, oldest first */
 {
     uint32_t i = level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u, n;

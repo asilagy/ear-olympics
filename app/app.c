@@ -627,9 +627,13 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
     {   /* Simon */
         {0, 0, 0},
         {0, 0, 0},
-        {"FASTER NOW", "SIMONE MAY LOSE HER PLACE", "WATCH HER WORDS"},
-        {"A CRYSTAL BALL APPEARS", "BLUE SCREEN, THE WORDS ONLY", "SHE MAY STILL LOSE HER PLACE"},
-        {"SHE DOUBLES YOUR FORTUNE", "RIDDLES SAY HOW TO PLAY", "DO TOO WELL AND YOU PLAY BACKWARDS"},
+        {"EVERYTHING GOES SLEEPY", "THE SCREEN RIPPLES, THE NOTES DRIFT", "NO HARDER, JUST DREAMIER"},
+        {"A CRYSTAL BALL APPEARS", "BLUE SCREEN, THE WORDS ONLY", "SLEEPY MAY RETURN"},
+        {"SHE LOSES HER PLACE", "WAIT FOR HER, THEN CARRY ON", "THE BALL AND THE SLEEP STILL COME"},
+        {"SOME NOTES GO SILENT", "USE YOUR EYES: READ THE WORDS", "NOTHING ELSE CHANGES"},
+        {"SHE SPEAKS IN RIDDLES", "THE RULE SAYS HOW TO PLAY IT BACK", "FIRST RIDDLE: EACH NOTE TWICE"},
+        {"THE LIGHTS GO OUT", "THE OLDER NOTES SOUND IN THE DARK", "NEW RIDDLE: THE SECOND NOTE THRICE"},
+        {"THE FINALE", "EVERY TRICK, ANY ROUND", "DO TOO WELL AND YOU PLAY BACKWARDS"},
     },
     {   /* Copycat: the new idea, a cat pun, then a word of cheer or a warning */
         {0, 0, 0},
@@ -1391,7 +1395,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
                     if (ans_len >= 2u && sim_fx_rand() % 100u < simon_crystal_pct(lv))
                         fx = SIMON_FX_CRYSTAL;
                     else if (ans_len >= 3u && sim_fx_rand() % 100u < simon_lapse_pct(lv))
-                        fx = SIMON_FX_LAPSE;       /* (the stall and the restart are parked for later levels) */
+                        fx = lv >= 8u ? (sim_fx_rand() % 3u == 0u ? SIMON_FX_LAPSE : sim_fx_rand() % 2u ? SIMON_FX_RESTART : SIMON_FX_STALL) : SIMON_FX_LAPSE;   /* (the stall and the restart join in the finale) */
                     else if (ans_len >= 3u && ans_len + 2u >= simon_goal(lv) && sim_fx_rand() % 100u < simon_dark_pct(lv))
                         fx = SIMON_FX_DARK;
                     else if (sim_pick_rule(lv, ans_len) && sim_fx_rand() % 100u < simon_twice_pct(lv))
@@ -1550,7 +1554,7 @@ static void simon_win(void)
         simon_over();
         return;
     }
-    if (!set.mode && eo_level() >= 4u && ++sim_good >= 2u && ans_len <= 2u) {   /* only while sequences are short: backwards is hard */
+    if (!set.mode && eo_level() >= SIMON_LEVELS && ++sim_good >= 2u && ans_len <= 2u) {   /* only while sequences are short: backwards is hard */
         sim_good = 0;                        /* too good: you have angered the spirits (the next round is played backwards) */
         sim_angry = 1;
     }
@@ -1941,7 +1945,7 @@ static void eo_enter_levelup(void)       /* ten rounds right: the next level, ke
     sim_up_t0 = plat_ms();
     if (set.game == GAME_COPYCAT)
         play_levelup_song();
-    if (set.game == GAME_SIMON && !set.mode && eo_level() >= 2u && eo_level() <= 4u)
+    if (set.game == GAME_SIMON && !set.mode && eo_level() >= 2u && eo_level() <= SIMON_LEVELS)
         sim_enter_up();                  /* (her level-up is a little show, like her introduction) */
     int_text((int32_t)eo_level(), n);
     app_say("LEVEL", n);
@@ -3694,11 +3698,11 @@ static const sim_card_t sim_cards[SIM_CARDS] = {
 static const uint8_t SIM_SCALE[8] = {0, 1, 4, 5, 7, 8, 11, 12};   /* the double harmonic scale, from A */
 static const sim_card_t *sim_set = sim_cards;           /* the cards being shown: her introduction, or a level-up's */
 static uint8_t sim_up_mode;              /* the cards are a level-up's: the end starts the new level */
-static const sim_card_t sim_up_cards[3][3] = {
+static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][3] = {
     {
-        {{"Splendid, darling! Level two!", "I knew you'd pass. ...I knew. I do.", ""}, 0, 1},
-        {{"Now faster, faster! Pure disaster.", "I had a dark premonition... a...", "a tabby... uh. Hm."}, 79, -1},
-        {{"No matter! If I lose my way,", "remind me, dear. Then we'll play.", ""}, 0, 1},
+        {{"Level two! You glow, you do.", "I knew you'd pass. ...I knew. I do.", ""}, 0, 1},
+        {{"Your eyes grow heavy, dear. Sleep is near.", "I had a dark premonition... a...", "a tabby... uh. Hm."}, 87, -1},
+        {{"No matter! Drowsy or bright,", "we'll play till the stars say good night.", ""}, 0, 1},
     },
     {
         {{"Level three! Oh, you're a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
@@ -3706,9 +3710,29 @@ static const sim_card_t sim_up_cards[3][3] = {
         {{"Blue and bubbly, words alone.", "Hold your breath. Make them your own.", ""}, 0, 1},
     },
     {
-        {{"A star pupil, darling! Level four!", "Or luck. Who cares? Come, ask for more.", ""}, 0, 1},
-        {{"Do too well, and the spirits yell!", "I had a dark premonition... a...", "a low, dark root... uh. Hm."}, 88, -1},
-        {{"A riddle will say how to play.", "Listen close. I'll light the way.", ""}, 0, 1},
+        {{"Level four! Come, ask for more.", "A star pupil, I adore!", ""}, 0, 1},
+        {{"I may lose my place. Don't lose your pace.", "I had a dark premonition... a...", "a ghost... in a bowl... uh. Hm. That's me."}, 100, -1},
+        {{"If I forget, don't fret.", "Just wait, and I'll remember yet.", ""}, 0, 1},
+    },
+    {
+        {{"Level five! You're so alive!", "The spirits hum. They say you thrive.", ""}, 0, 1},
+        {{"Some notes are shy. Use your eye.", "I had a dark premonition... a...", "a raccoon... in a trench coat... uh. Hm."}, 100, -1},
+        {{"Read the words, my sweet.", "Drip, water, splash, repeat.", ""}, 0, 1},
+    },
+    {
+        {{"Level six! Oh, what a mix!", "You've got the spirits doing tricks.", ""}, 0, 1},
+        {{"My riddles say how to play today.", "I had a dark premonition... a...", "a dog... in scrubs... uh. Hm."}, 89, -1},
+        {{"Listen close, my dear.", "The riddle makes it clear.", ""}, 0, 1},
+    },
+    {
+        {{"Level seven! Pure heaven!", "Even the crystal says you're clever.", ""}, 0, 1},
+        {{"I'll dim the lights. Your ears take flight.", "I had a dark premonition... a...", "a speaker... that talks... uh. Hm."}, 104, -1},
+        {{"Close your eyes. Don't be shy.", "Your ears will see them passing by.", ""}, 0, 1},
+    },
+    {
+        {{"Level eight! The final gate!", "Oh darling, you were worth the wait.", ""}, 0, 1},
+        {{"All my tricks, in any weather.", "I had a dark premonition... a...", "a low, dark root... uh. Hm. Coming."}, 84, -1},
+        {{"Do too well, and the spirits yell!", "But you'll be fine. ...Probably. Farewell.", ""}, 0, 1},
     },
 };
 static uint8_t sim_card, sim_hi, sim_music, sim_ev_done;   /* the card now, and the one the show ends after */
@@ -4078,17 +4102,42 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
             sim_push_snd = 0;
             eo_drone_set(-1, 0.0f);
         }
-        {   /* a lapse has its own sounds: a sagging "uh-oh" of blubs when the big words come, a bright one when she remembers */
+        {   /* a lapse has its own sounds: the intro's record slowing to a stop on "...uh.", a drooping blub on "Where was I?", a bright blub when she remembers */
             static uint8_t fi;
-            static const uint16_t fs_t[5] = {0, 220, 440, 1200, 1450}, ft_t[2] = {0, 1800};
-            static const uint8_t fs_n[5] = {81, 77, 72, 67, 62}, ft_n[2] = {74, 67};
+            static const uint16_t ft_t[2] = {0, 1800};
+            static const uint8_t ft_n[2] = {74, 67};
             if (ui.state == ST_LISTEN && seq_on && sim_gap_len && seq_pos >= sim_gap_at) {
-                uint32_t d = seq_pos - sim_gap_at, nmax = sim_gap_stall ? 2u : 5u;
-                uint32_t want = sim_gap_stall ? (d >= ft_t[1] ? 2u : 1u) : (d >= fs_t[4] ? 5u : d >= fs_t[3] ? 4u : d >= fs_t[2] ? 3u : d >= fs_t[1] ? 2u : 1u);
-                while (fi < want && fi < nmax) {
-                    eo_blub_note = sim_gap_stall ? ft_n[fi] : fs_n[fi];
-                    eo_blub_trig++;
-                    fi++;
+                uint32_t d = seq_pos - sim_gap_at;
+                if (sim_gap_stall) {
+                    uint32_t want = d >= ft_t[1] ? 2u : 1u;
+                    while (fi < want) {
+                        eo_blub_note = ft_n[fi];
+                        eo_blub_trig++;
+                        fi++;
+                    }
+                } else {
+                    if (fi < 1u) {                   /* the music (a low drone and a fifth) starts... */
+                        eo_rec_go++;
+                        eo_drone_set(45, 0.7f);
+                        eo_chord_note[0] = 57;
+                        eo_chord_note[1] = 64;
+                        fi = 1;
+                    }
+                    if (fi < 2u && d >= 150u) {      /* ...and slows down like a record, in a long groan */
+                        eo_rec_stop++;
+                        fi = 2;
+                    }
+                    if (fi < 3u && d >= 1000u) {     /* silent again */
+                        eo_drone_set(-1, 0.0f);
+                        eo_chord_note[0] = eo_chord_note[1] = -1;
+                        eo_rec_go++;
+                        fi = 3;
+                    }
+                    if (fi < 4u && d >= 1300u) {     /* "Where was I?" */
+                        eo_blub_note = 62;
+                        eo_blub_trig++;
+                        fi = 4;
+                    }
                 }
                 if (seq_pos >= sim_gap_at + sim_gap_len && fi < 8u) {     /* she remembers */
                     eo_blub_note = 88;
@@ -4310,12 +4359,16 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         return "Backwards, dear: last note first. Do your worst!";
     }
     if (ui.state == ST_READY) {
-        static const char *const rd[4][3] = {
+        static const char *const rd[8][3] = {
             {"Press PLAY, darling. Your future's calling.", "Come closer, seeker. The bowl is warm... and so are you.", "Press PLAY, my dear. I see it clear. ...Or is it near?"},
             {"Press PLAY, my love. The stars above approve.", "The spirits hum. They say you're someone. Press PLAY, someone.", "Faster now, darling. Hold on to your fins."},
-            {"Shh. The crystal hums. Sometimes... it lends a hand.", "Shh. The crystal hums. It knows what's coming. ...Press PLAY.", "The lights will wait, my sweet. Do not be late."},
-            {"Riddles, darling! I speak in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "The spirits are watching. Don't tell them I'm nervous."}};
-        return rd[(lv < 1u ? 1u : lv > 4u ? 4u : lv) - 1u][sim_say_n % 3u];
+            {"Shh. The crystal hums. Sometimes... it lends a hand.", "Press PLAY, my sweet. The water's neat.", "Third time's the charm, darling. ...Is it the third?"},
+            {"Mind my memory, darling. It's a leaky bowl.", "Press PLAY. If I forget, don't fret.", "Your turn to shine, my dear. I'll try to stay here."},
+            {"Watch my words, my sweet. Your eyes can eat.", "Press PLAY. Some notes may hide away.", "Drip, water, splash... Press PLAY, I'll dash."},
+            {"Riddles, darling! I speak in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "Press PLAY. A rule is coming your way."},
+            {"The lights may dim. Don't be grim.", "Trust your ears, my dear. The lights may disappear.", "Press PLAY, my sweet. Let's feel the beat."},
+            {"Everything at once, my darling. Don't panic. ...I'm panicking.", "The finale, my dear. The end is near.", "One last PLAY, my love. The spirits are above."}};
+        return rd[(lv < 1u ? 1u : lv > 8u ? 8u : lv) - 1u][sim_say_n % 3u];
     }
     if (tx == TX_WATCH) {
         static const char *const w[5] = {"Come closer, darling. Watch and hear. The fates are near.", "Mmm, listen, love. The spirits sing... a little thing.",

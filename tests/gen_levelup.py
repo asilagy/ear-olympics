@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SIM = os.path.join(ROOT, "app", "build", "host", "earolympics_host")
 OUT = os.path.join(ROOT, "app", "tests")
 ROUNDS = 8           # level 1 of Copycat graduates after 8 melodies right; Simone Says after a sequence of 5
-SIMON_ROUNDS = 3     # simon_goal(1) in eo_simon.h: Simone Says graduates level 1 at a sequence of 3
+SIMON_ROUNDS = 4     # simon_goal(1) in eo_simon.h: Simone Says graduates level 1 at a sequence of 4
 HEAR_EXTRA = 0       # no double hearing any more: PLAY replays the melody
 
 
