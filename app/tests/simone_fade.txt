@@ -36,7 +36,7 @@ expect state 2
 key 11 down
 wait 30
 key 11 up
-wait 1400
+wait 3100
 expect state 1
 expect len 2
 # round 2: the first note (E4) sounds in the dark, the second (G4) lights

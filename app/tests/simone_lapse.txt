@@ -38,7 +38,7 @@ key 11 up
 key 14 down
 wait 30
 key 14 up
-wait 1800
+wait 3500
 expect state 1
 expect len 3
 expect gap 2400

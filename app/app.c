@@ -569,7 +569,7 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
 }
 
 /* ----------------------------------------------------------------- the game --- */
-enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT, ST_SIMONE };
+enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT, ST_SIMONE, ST_WISH };
 #define MV_PRES_MS 1700u                 /* the movie: ASilagy presents (up 0.5 s, still 0.9 s, a block dissolve 0.3 s) */
 #define MV_MUSIC_MS 1800u                /* then a beat of black, and the music starts: the montage */
 #define MV_ROSTER 5600u                  /* (in the music) the montage ends and the whole cast builds up, one by one */
@@ -594,9 +594,9 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
     {   /* Simon */
         {0, 0, 0},
         {0, 0, 0},
-        {"FASTER NOW", "SIMONE WILL LOSE HER PLACE SOMETIMES", "WATCH HER WORDS"},
-        {"THE LIGHTS ARE FADING", "ONLY HER NEWEST THREE NOTES SHINE", "SOMETIMES SHE STALLS, OR GOES BLUE"},
-        {"ONLY THE LAST NOTE LIGHTS UP", "THE REST SOUND IN THE DARK", "LISTEN. THEN LISTEN HARDER"},
+        {"FASTER NOW", "SIMONE MAY LOSE HER PLACE", "WATCH HER WORDS"},
+        {"THE LIGHTS ARE FADING", "ONLY HER NEWEST THREE NOTES SHINE", "SOMETIMES SHE STALLS, OR CASTS A CRYSTAL BALL"},
+        {"ONLY THE LAST NOTE LIGHTS UP", "THE REST SOUND IN THE DARK", "DO TOO WELL AND YOU PLAY BACKWARDS"},
     },
     {   /* Copycat: the new idea, a cat pun, then a word of cheer or a warning */
         {0, 0, 0},
@@ -1207,6 +1207,16 @@ static void simon_grow(void)             /* one more note, then the whole sequen
  * or picks up where she left off. All of it is announced in her voice and none of it changes the answer. */
 #define SIM_GAP 2400u                    /* how long a lapse lasts */
 #define SIM_STALL 2600u                  /* how much longer she holds a note when she stalls on it */
+static uint8_t sim_wishes = 3;           /* the wishes left this game: hear it again, or try the round again after a miss */
+static uint8_t sim_good;                 /* rounds won in a row, without a wish or a miss */
+static uint8_t sim_angry;                /* the next round is the angry one: played backwards */
+static uint8_t sim_back;                 /* this round is to be played backwards (last note first) */
+static uint8_t sim_angry_pre;            /* this round's pre-roll is the spirits' anger */
+static uint8_t sim_seen, sim_cool, sim_pre_first;   /* the tricks shown this game (a bit each); the last round had one; the pre-roll is the first one */
+static uint8_t sim_hint;                 /* the next sequence is a wish: everything lit, no tricks */
+static uint8_t sim_wish_peek;            /* the wish being granted is a peek in your turn (not a second try) */
+static uint32_t sim_turn_t0, sim_wish_t0, sim_wish_until, sim_gap_t0, sim_typed_n;
+static uint8_t sim_cameo, sim_cameo_last;   /* this pause has Meow in it; and the last one did */
 static uint8_t sim_push_snd;             /* the push's hum is on */
 static uint32_t sim_pre;                 /* the pre-roll's length in ms (0: none) */
 static uint32_t sim_gap_at, sim_gap_len; /* the lapse: when it starts in the sequence's ms, and how long (0: none) */
@@ -1216,8 +1226,9 @@ static uint8_t sim_crystal;              /* 1: this round is in the crystal ball
 static uint32_t sim_up_t0;               /* when the level-up scene began */
 static uint8_t sim_alert;                /* her line right now is one that matters: it gets the big card */
 static uint32_t sim_fx_rng = 0x2545F491u;
+#define SIM_NOFX 6u
 #ifdef PLAT_HOST
-static uint8_t sim_fx_force;             /* tests: 1 crystal ball, 2 goes on, 3 starts over, 4 stalls (every round that can), 5 only the pre-roll */
+static uint8_t sim_fx_force = SIM_NOFX;             /* tests: 1 crystal ball, 2 goes on, 3 starts over, 4 stalls (every round that can), 5 only the pre-roll, 6 none (the default here), 0 chance and debuts */
 #define SIM_FORCE sim_fx_force
 #else
 #define SIM_FORCE 0u
@@ -1231,9 +1242,26 @@ static uint32_t sim_fx_rand(void)        /* its own little generator, so the seq
     return sim_fx_rng;
 }
 
+static uint8_t sim_expect(void)          /* the key you should play next: the sequence's next, or its last when it is backwards */
+{
+    return sim_back ? ans[ans_len - 1u - ans_pos] : ans[ans_pos];
+}
+
 static void simon_play(void)             /* the whole sequence, lit as it sounds (also what a practice miss repeats) */
 {
-    uint32_t i, step, len_ms, base, k = 0, lapse = 0, n = 0, lv = eo_level(), show = !set.mode && lv >= 2u;
+    uint32_t i, step, len_ms, base, k = 0, lapse = 0, n = 0, lv = eo_level(), hint = sim_hint, angry = 0, lit;
+    sim_hint = 0;
+    if (hint) {
+        (void)0;                             /* a wish: everything shown, no tricks */
+    } else if (sim_angry && !set.mode && !SIM_FORCE) {
+        angry = 1;                           /* the spirits are angry: this round is played backwards */
+        sim_angry = 0;
+        sim_back = 1;
+    } else {
+        sim_back = 0;
+    }
+    sim_angry_pre = (uint8_t)angry;
+    lit = hint ? 255u : simon_lit_count(lv);
     step = eo_spd(simon_step_ms(ans_len, lv));
     len_ms = eo_spd(simon_note_ms(simon_step_ms(ans_len, lv)));
     sim_pre = 0u;
@@ -1242,19 +1270,52 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
     sim_gap_restart = 0;
     sim_gap_stall = 0;
     sim_crystal = 0;
-    if (show && ans_len >= 2u && (SIM_FORCE == 1u || (!SIM_FORCE && sim_fx_rand() % 100u < simon_crystal_pct(lv)))) {
-        sim_crystal = 1;                     /* the crystal ball: no lapse in the same round, and everything slower */
-        step = step * 3u / 2u;
-        len_ms = len_ms * 3u / 2u;
-    } else if (show && ans_len >= 3u && ((SIM_FORCE >= 2u && SIM_FORCE <= 4u) || (!SIM_FORCE && sim_fx_rand() % 100u < simon_lapse_pct(lv)))) {   /* a lapse after note k (0-based), never the first or the last */
-        uint32_t kind = SIM_FORCE >= 2u && SIM_FORCE <= 4u ? SIM_FORCE - 2u : (sim_fx_rand() >> 7) % (lv >= 3u ? 3u : 2u);   /* 0: goes on, 1: starts over, 2: stalls */
-        k = 1u + sim_fx_rand() % (ans_len - 2u);
-        lapse = 1;
-        sim_gap_restart = (uint8_t)(kind == 1u && k + 1u + ans_len <= SEQ_MAX);
-        sim_gap_stall = (uint8_t)(kind == 2u);
+    sim_pre_first = 0;
+    {   /* her tricks arrive one at a time: each has a debut round (a short one, forced once a game), then it joins the chance pool */
+        uint32_t fx = 0, f = SIM_FORCE;
+        if (!hint && !angry && !set.mode && f != SIM_NOFX) {
+            if (f == 1u) {
+                fx = ans_len >= 2u ? SIMON_FX_CRYSTAL : 0u;
+            } else if (f >= 2u && f <= 4u) {
+                fx = ans_len >= 3u ? SIMON_FX_LAPSE + (f - 2u) : 0u;
+            } else if (f == 5u) {
+                fx = SIMON_FX_PRE;
+            } else {
+                fx = simon_debut(lv, ans_len);
+                if (fx && ((sim_seen >> fx) & 1u))
+                    fx = 0;
+                else if (fx == SIMON_FX_PRE)
+                    sim_pre_first = 1;
+                if (!fx && !sim_cool) {          /* no trick two rounds running */
+                    uint32_t r = sim_fx_rand() >> 7;
+                    if (ans_len >= 2u && sim_fx_rand() % 100u < simon_crystal_pct(lv))
+                        fx = SIMON_FX_CRYSTAL;
+                    else if (ans_len >= 3u && sim_fx_rand() % 100u < simon_lapse_pct(lv))
+                        fx = lv >= 4u ? (r % 3u == 0u ? SIMON_FX_LAPSE : r % 3u == 1u ? SIMON_FX_RESTART : SIMON_FX_STALL) :
+                             lv == 3u ? ((r & 1u) ? SIMON_FX_STALL : SIMON_FX_LAPSE) : SIMON_FX_LAPSE;
+                    else if (sim_fx_rand() % 100u < simon_pre_pct(lv))
+                        fx = SIMON_FX_PRE;
+                }
+                sim_cool = fx ? 1u : 0u;
+                if (fx)
+                    sim_seen |= (uint8_t)(1u << fx);
+            }
+        }
+        if (fx == SIMON_FX_CRYSTAL) {
+            sim_crystal = 1;                 /* the crystal ball: everything slower */
+            step = step * 3u / 2u;
+            len_ms = len_ms * 3u / 2u;
+        } else if (fx >= SIMON_FX_LAPSE && fx <= SIMON_FX_STALL) {   /* a lapse after note k (0-based), never the first or the last */
+            k = 1u + sim_fx_rand() % (ans_len - 2u);
+            lapse = 1;
+            sim_gap_restart = (uint8_t)(fx == SIMON_FX_RESTART && k + 1u + ans_len <= SEQ_MAX);
+            sim_gap_stall = (uint8_t)(fx == SIMON_FX_STALL);
+        }
+        if (fx == SIMON_FX_PRE || fx == SIMON_FX_CRYSTAL || (f >= 2u && f <= 4u && fx))
+            sim_pre = simon_pre_ms(lv);      /* (the crystal ball always has it: it is the announcement) */
     }
-    if (show && (sim_crystal || SIM_FORCE || sim_fx_rand() % 100u < simon_pre_pct(lv)))
-        sim_pre = simon_pre_ms(lv);          /* the pre-roll is a treat, not a habit (the crystal ball always has it: it is the announcement) */
+    if (angry)
+        sim_pre = 3400u;                     /* the spirits' anger: two beats of words */
     base = 400u + sim_pre;
     for (i = 0; i < ans_len; i++) {          /* the notes before the lapse, or all of them when there is none (or a stall) */
         uint32_t at, ln = len_ms;
@@ -1266,7 +1327,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         seq_at[n] = (uint16_t)at;
         seq_len[n] = (uint16_t)ln;
         seq_key[n] = ans[i];
-        seq_hl[n] = (uint8_t)(i + simon_lit_count(lv) >= ans_len);   /* the lights fade as the levels rise */
+        seq_hl[n] = (uint8_t)(i + lit >= ans_len);   /* the lights fade as the levels rise */
         seq_end = at + ln;
         n++;
     }
@@ -1281,7 +1342,7 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
             seq_at[n] = (uint16_t)at;
             seq_len[n] = (uint16_t)len_ms;
             seq_key[n] = ans[i];
-            seq_hl[n] = (uint8_t)(i + simon_lit_count(lv) >= ans_len);
+            seq_hl[n] = (uint8_t)(i + lit >= ans_len);
             seq_end = at + len_ms;
             n++;
         }
@@ -1335,6 +1396,7 @@ static void simon_over(void)             /* the game ends: a new best is kept no
     ui.msg_until = 0;
     ui.state = ST_READY;
     ui.text = TX_OVER;
+    sim_wish_t0 = plat_ms();
     ui.redraw = 1;
 }
 
@@ -1344,6 +1406,10 @@ static void simon_win(void)
         eo_score = ans_len;
         simon_over();
         return;
+    }
+    if (!set.mode && eo_level() >= 4u && ++sim_good >= 2u) {
+        sim_good = 0;                        /* too good: you have angered the spirits (the next round is played backwards) */
+        sim_angry = 1;
     }
     if (ans_len >= simon_goal(eo_level()))
         eo_complete(GAME_SIMON);
@@ -1363,15 +1429,35 @@ static void simon_miss(void)             /* the key you should have played sound
         return;
     }
     eo_score = ans_len - 1u;
+    sim_good = 0;
+    sim_angry = 0;
     seq_at[0] = 0;
     seq_len[0] = 700;
-    seq_key[0] = ans[ans_pos];
+    seq_key[0] = sim_expect();
     seq_n = 1;
     seq_end = 800;
     eo_drone_set(-1, 0.0f);
     eo_seq_start(0, 1);
     ui.state = ST_MISS;
     ui.text = TX_MISS;
+}
+
+static void sim_wish(void)               /* SELECT: a wish. In your turn: hear it again. After a miss: try the round again. */
+{
+    if (set.mode || (ui.state != ST_WISH && ui.state != ST_TURN))
+        return;
+    if (!sim_wishes) {
+        if (ui.state == ST_TURN)
+            app_say("NO WISHES", "LEFT");
+        return;
+    }
+    sim_wishes--;
+    sim_wish_peek = ui.state == ST_TURN;
+    sim_good = 0;
+    sim_hint = 1;                            /* the sequence again, everything lit, nothing odd */
+    simon_play();
+    sim_wish_until = plat_ms() + 2600u;
+    ui.redraw = 1;
 }
 
 /* ---- Chord Dogtor */
@@ -1723,8 +1809,15 @@ static void eo_start_game(void)
     ans_len = 0;
     streak = 0;
     eo_levelup = 0;
-    if (set.game == GAME_SIMON)
+    if (set.game == GAME_SIMON) {
+        sim_wishes = 3;
+        sim_seen = 0;
+        sim_cool = 0;
+        sim_good = 0;
+        sim_angry = 0;
+        sim_back = 0;
         simon_grow();
+    }
     else if (set.game == GAME_DOGTOR)
         dogtor_round(1u);
     else
@@ -1748,7 +1841,7 @@ static void judge(uint32_t key)          /* a key pressed in YOUR TURN */
         ui.redraw = 1;
         return;
     }
-    if (key != ans[ans_pos]) {
+    if (key != (set.game == GAME_SIMON ? sim_expect() : ans[ans_pos])) {
         if (set.game == GAME_SIMON)
             simon_miss();
         else
@@ -2106,6 +2199,8 @@ static void input(void)
         if (k == B_PLAY) {
             if (ui.state == ST_READY)
                 eo_start_game();
+            else if (ui.state == ST_WISH)
+                simon_over();                /* no wish: the game ends */
             else if (ui.state == ST_TURN && set.game == GAME_COPYCAT) {
                 if (eo_assist() && !ui.kb_show) {
                     eo_say("Sssss... let me hit the lights for you.", 6000u);
@@ -2143,6 +2238,8 @@ static void input(void)
             mode_step(e);
         else if (k == EN_SELECT && ui.state == ST_TURN && set.game == GAME_DOGTOR)
             dogtor_step(e);
+        else if (k == EN_SELECT && set.game == GAME_SIMON && !set.mode && (ui.state == ST_TURN || ui.state == ST_WISH))
+            sim_wish();
         else if (k == EN_SELECT && ui.state == ST_TURN)
             melody_step(e);
         else if (ui.state == ST_READY) {
@@ -3738,12 +3835,29 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
  * note); on your turn they pop oldest first, a goldfish's memory, and you play it back before it is gone. */
 static const char *const SIM_WORD[4] = {"DRIP", "WATER", "SPLASH", "SPLISH"};
 static const uint16_t SIM_COL[4] = {EO_RGB(90, 170, 255), EO_RGB(80, 220, 170), EO_RGB(255, 214, 80), EO_RGB(255, 120, 180)};
+static uint32_t sim_gap_n(uint32_t now)                  /* the letters of her pause line that are out so far */
+{
+    uint32_t t = now - sim_gap_t0;
+    if (t < 250u)
+        return 0;
+    return sim_cameo && t >= 2500u ? (t - 2500u) / 40u + 1u : (t - 250u) / (sim_cameo ? 32u : 40u) + 1u;
+}
 static void sim_game_tick(uint32_t now)                  /* a frame about every 33 ms, for the goldfish's bob */
 {
     static uint32_t last_fr;
     if (now / 33u != last_fr) {
         last_fr = now / 33u;
         ui.redraw = 1;
+        if (ui.state == ST_GAP) {            /* her pause line types itself out, a bubble a letter */
+            uint32_t n = sim_gap_n(now);
+            if (n < sim_typed_n)
+                sim_typed_n = 0;             /* (the second beat of a cameo starts the typing again) */
+            if (n > sim_typed_n) {
+                eo_blub_note = 57 + 12 + SIM_SCALE[(n * 3u) % 8u] + ((n & 4u) ? 12 : 0);
+                eo_blub_trig++;
+            }
+            sim_typed_n = n;
+        }
         if (sim_in_preroll()) {
             uint32_t ph = seq_pos % 900u, tri = ph < 450u ? ph : 900u - ph;      /* the push has a sound: a low hum that climbs as she nears */
             lights();                        /* the dazzle moves with no input */
@@ -3807,14 +3921,49 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
         }
 }
 
+static const char *const sim_gap_say[4] = {"Splendid! I knew it. ...Knew what?", "The spirits purr. Or was that... fur?",
+                                           "Correct! The fates are pleased. And fed.", "Marvelous. I'm sure I said that before."};
+static char sim_buf[48];
+static const char *sim_typed_text(const char *full, uint32_t n)   /* the first n letters of a line */
+{
+    uint32_t i;
+    for (i = 0; i < n && full[i] && i < 46u; i++)
+        sim_buf[i] = full[i];
+    sim_buf[i] = 0;
+    return sim_buf;
+}
 static const char *sim_quip(uint32_t tx)                     /* what she says: rhyme, until she loses it */
 {
-    uint32_t lv = eo_level();
+    uint32_t lv = eo_level(), now = plat_ms();
     sim_alert = 0;
+    if (ui.state == ST_WISH || (ui.state == ST_READY && ui.text == TX_OVER)) {   /* you have angered the spirits */
+        uint32_t t = now - sim_wish_t0;
+        sim_alert = 2;
+        if (!((t / 2600u) & 1u))
+            return "YOU'VE ANGERED THE SPIRITS";
+        if (ui.state == ST_WISH)
+            return "SELECT: MAKE A WISH. PLAY: GIVE UP.";
+        sim_alert = 1;
+        return "Oh, the spirits cry! Press PLAY to try.";
+    }
+    if (ui.state == ST_GAP) {                /* the pause: a line typed out a letter at a time (Meow, now and then) */
+        uint32_t n = sim_gap_n(now), t = now - sim_gap_t0;
+        if (sim_cameo)
+            return sim_typed_text(t < 2500u ? "AHHHH!! MEOW DON'T EAT ME!" : "...wait, who's Meow?", n);
+        return sim_typed_text(sim_gap_say[ans_len & 3u], n);
+    }
     if (ui.state == ST_LISTEN && seq_on) {
         static const char *const fortune[4] = {"Your fortune's bright: a snack tonight.", "I see a door. And... one door more.",
                                                "The cards foretell: you'll do quite well.", "A tall dark stranger! ...A lamp. Danger."};
         uint32_t g0 = sim_gap_at, g1 = sim_gap_at + sim_gap_len;
+        if (now < sim_wish_until) {          /* a wish is being granted */
+            sim_alert = 1;
+            return sim_wish_peek ? "Listen well. The wish is a spell." : "Your wish is granted. Try again, enchanted.";
+        }
+        if (sim_angry_pre && sim_pre && seq_pos < sim_pre) {
+            sim_alert = 2;
+            return seq_pos < sim_pre / 2u ? "YOU'VE ANGERED THE SPIRITS" : "NOW PLAY IT BACKWARDS!";
+        }
         if (sim_crystal && sim_pre && seq_pos < sim_pre) {
             sim_alert = 1;
             return "Into the crystal ball you fall!";
@@ -3827,16 +3976,24 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
                 return seq_pos < g0 + 900u ? "...uh." : "Where was I?";
             return sim_gap_restart ? "From the top!" : "Ah. Right. Onward.";
         }
-        if (sim_pre && seq_pos < sim_pre)
+        if (sim_pre && seq_pos < sim_pre) {
+            if (sim_pre_first) {             /* the first time she does it, she says what it is: a distraction */
+                sim_alert = 1;
+                return "I will dazzle you. Ignore the lights! Watch the keys.";
+            }
             return "Look deep into my eyes...";
+        }
         if (lv >= 2u && ans_len >= 3u && !sim_crystal)
             return fortune[(ans_len + lv) & 3u];     /* one fortune a round, held: read the keys, not her */
     }
-    if (ui.state == ST_READY) {
-        if (ui.text == TX_OVER) {            /* the game is over: she tells you what to press, on the big card */
-            sim_alert = 1;
-            return "Oh, the spirits cry! Press PLAY to try.";
+    if (ui.state == ST_TURN && sim_back) {   /* the angry round: you play it backwards */
+        if (now - sim_turn_t0 < 2800u) {
+            sim_alert = 2;
+            return "BACKWARDS! LAST NOTE FIRST!";
         }
+        return "Backwards, dear. Last note first.";
+    }
+    if (ui.state == ST_READY) {
         return lv >= 4u ? "One light. No more. Trust your ears, I implore." :
                lv == 3u ? "The lights will fade. Your ears, be unafraid." : "Press PLAY, dear. The future's near.";
     }
@@ -3969,9 +4126,9 @@ static void sim_crystal_layer(uint32_t now, int32_t y0, int32_t word)   /* the w
 static const char *const sim_up_say[SIMON_LEVELS + 1u][3] = {
     {0, 0, 0},
     {0, 0, 0},
-    {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "Watch my eyes. Expect surprise."},
-    {"Splendid! You listened well.", "The lights will fade. Be unafraid.", "I may stall. Or lose it all."},
-    {"A star pupil! Or a lucky fool.", "One light, no more. Trust your ears, I implore.", "If it turns blue, the words are all you."},
+    {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "I might forget. Don't fret!"},
+    {"Splendid! You listened well.", "The lights will fade. Be unafraid.", "I may stall. The crystal ball may call."},
+    {"A star pupil! Or a lucky fool.", "One light, no more. Trust your ears, I implore.", "Do too well, and the spirits yell!"},
 };
 static void sim_up_band(uint32_t now)
 {
@@ -3994,18 +4151,35 @@ static void sim_up_band(uint32_t now)
         cv_text(142, yb + 4, &FONT_XS, "PLAY: ONWARD", C_HI);
 }
 
+static void sim_star(int32_t x, int32_t y, uint16_t c)   /* a wish: a little plus-shaped star */
+{
+    cv_rect(x + 3, y, 3, 9, c);
+    cv_rect(x, y + 3, 9, 3, c);
+    cv_rect(x + 2, y + 2, 5, 5, c);
+}
+
 static void sim_band(uint32_t now)
 {
     uint32_t tx = eo_text();
     const char *q;
     sim_keys(114);
     sim_sprite(now, 0, 144);
+    if (ui.state == ST_GAP && sim_cameo) {   /* Meow drops in, and leaves again */
+        uint32_t t = now - sim_gap_t0;
+        int32_t in = (int32_t)(t < 500u ? t : 500u), out = t > 4400u ? (int32_t)(t - 4400u) : 0;
+        mv_oy = 0;
+        mv_h = 144;
+        cast_paint(EO_CAST_CAT, 1u, 240 - in * 120 / 500 + out * 120 / 600, 60, 1, 1);
+    }
     q = sim_quip(tx);
-    if (sim_alert) {                         /* this one matters: a big card across the screen, its border flashing */
-        uint16_t bc = (now / 220u) & 1u ? C_HI : C_AMB;
+    if (sim_alert) {                         /* this one matters: a big card across the screen, its border flashing (red: the spirits are angry) */
+        uint16_t bc = sim_alert == 2u ? ((now / 220u) & 1u ? EO_RGB(255, 60, 60) : C_HI) : ((now / 220u) & 1u ? C_HI : C_AMB);
         cv_rect(10, 4, 220, 100, bc);
         cv_rect(14, 8, 212, 92, C_BLACK);
-        wrap_text(22, 12, 196, &FONT_L, q, C_WHITE, 28);
+        if (eo_strlen(q) > 27u)
+            wrap_text(22, 16, 196, &FONT_B, q, C_WHITE, 24);
+        else
+            wrap_text(22, 12, 196, &FONT_L, q, C_WHITE, 28);
         return;
     }
     {
@@ -4014,7 +4188,7 @@ static void sim_band(uint32_t now)
         yb = wrap_text(142, 12, 90, &FONT_B, q, C_WHITE, 20);
         wrap_dry = 0;
         cv_rect(136, 6, 102, yb - 6, C_BLACK);                /* her words sit on a black card over her bowl */
-        wrap_text(142, 12, 90, &FONT_B, q, (tx == TX_NICE || tx == TX_WATCH) ? C_HI : C_WHITE, 20);
+        wrap_text(142, 12, 90, &FONT_B, q, (tx == TX_NICE || tx == TX_WATCH || ui.state == ST_GAP) ? C_HI : C_WHITE, 20);
     }
 }
 
@@ -4110,7 +4284,12 @@ static void draw(void)
                 int_text((int32_t)simon_goal(eo_level()), hn);
                 text_cat(h, hn);
             }
-            cv_text(232 - text_w(&FONT_S, h), 8, &FONT_S, h, C_AMB);
+            cv_text(232 - text_w(&FONT_S, h), 3, &FONT_S, h, C_AMB);
+            if (!set.mode && ui.state != ST_READY && ui.state != ST_LEVELUP) {    /* the wishes left */
+                uint32_t w;
+                for (w = 0; w < 3u; w++)
+                    sim_star(205 + (int32_t)w * 10 - 2, 25, w < sim_wishes ? C_HI : C_DIM);
+            }
         } else {
             const char *vn = eo_voice_name[eo_voice < VOICES ? eo_voice : 0u];
             cv_text(x + 8, 10, &FONT_XS, EO_VERSION, C_DIM);
@@ -4296,6 +4475,7 @@ void app_frame(void)
             ui.state = ST_TURN;
             ui.text = TX_TURN;
             ans_pos = 0;
+            sim_turn_t0 = now;
             if (set.game == GAME_COPYCAT && !copycat_level(eo_level())->drone)
                 eo_drone_set(-1, 0.0f);      /* the top level: the root is not kept for you */
             app_say("YOUR TURN", "");
@@ -4308,7 +4488,14 @@ void app_frame(void)
                 dt_card_until = gap_until;
             } else {
                 ui.state = ST_GAP;
-                gap_until = now + (set.game == GAME_SIMON ? 500u : 700u);
+                gap_until = now + 700u;
+                if (set.game == GAME_SIMON) {    /* the pause between rounds: she says something, typed out with bubbles; sometimes Meow drops in */
+                    sim_cameo = (uint8_t)(!set.mode && eo_level() >= 2u && !SIM_FORCE && !sim_cameo_last && sim_fx_rand() % 6u == 0u);
+                    sim_cameo_last = sim_cameo;
+                    sim_gap_t0 = now;
+                    sim_typed_n = 0;
+                    gap_until = now + (sim_cameo ? 5000u : 2200u);
+                }
             }
         } else if (ui.state == ST_MISS && set.mode && set.game == GAME_COPYCAT) {
             ui.state = ST_TURN;              /* practice: the same melody, played from the start again */
@@ -4330,7 +4517,13 @@ void app_frame(void)
         } else if (ui.state == ST_MISS) {
             eo_drone_set(-1, 0.0f);
             if (set.game == GAME_SIMON) {
-                simon_over();
+                if (!set.mode && sim_wishes) {   /* you have angered the spirits: a wish, or give up */
+                    ui.state = ST_WISH;
+                    ui.text = TX_MISS;
+                    sim_wish_t0 = now;
+                } else {
+                    simon_over();
+                }
             } else {
                 if (save_pending) {              /* the streak has ended: a new best is kept now, in the quiet */
                     save_pending = 0;
@@ -4352,7 +4545,7 @@ void app_frame(void)
         else
             copycat_round();
     }
-    if (set.game == GAME_SIMON && ui.state <= ST_LEVELUP) {
+    if (set.game == GAME_SIMON && (ui.state <= ST_LEVELUP || ui.state == ST_WISH)) {
         sim_game_tick(now);
         eo_water = (uint8_t)(ui.state == ST_LISTEN && seq_on && sim_crystal);
     } else {
@@ -4553,6 +4746,12 @@ int app_expect(const char *what, int *got)
     }
     else if (!strcmp(what, "seqpos"))        /* ms into the sequence now */
         *got = (int)seq_pos;
+    else if (!strcmp(what, "back"))          /* this round is played backwards */
+        *got = (int)sim_back;
+    else if (!strcmp(what, "wishes"))        /* the wishes left */
+        *got = (int)sim_wishes;
+    else if (!strcmp(what, "seen"))          /* the tricks shown so far this game, a bit each */
+        *got = (int)sim_seen;
     else if (!strcmp(what, "crystal"))       /* this round is in the crystal ball */
         *got = (int)sim_crystal;
     else if (!strcmp(what, "stall"))         /* this round's lapse is a held note */

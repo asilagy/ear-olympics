@@ -44,7 +44,7 @@ expect note -1
 wait 200
 # the ding is above the top key (key 31 = 84): not a note you could play
 expect note 84
-wait 1000
+wait 2700
 expect state 1
 expect len 2
 expect ans0 11
@@ -59,7 +59,7 @@ key 11 up
 key 14 down
 wait 30
 key 14 up
-wait 1400
+wait 3100
 expect state 1
 expect len 3
 expect ans2 7
@@ -78,6 +78,10 @@ expect bright 2048
 shot miss.png
 key 26 up
 wait 900
+# you have angered the spirits: a wish is offered (state 12); PLAY gives up
+expect state 12
+tap PLAY
+wait 50
 expect state 0
 expect text 7
 expect score 2
@@ -106,5 +110,8 @@ wait 50
 expect score 0
 key 26 up
 wait 900
+expect state 12
+tap PLAY
+wait 50
 expect state 0
 expect best 2

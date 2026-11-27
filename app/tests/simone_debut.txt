@@ -1,0 +1,59 @@
+# Her tricks arrive one at a time (chance and debuts on: fx0). Level 1: rounds 1 and 2 are plain; round 3 is the flashy one, the
+# pre-roll, which she says is a distraction. It does not change the answer.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect fx0 0
+tap PLAY
+wait 100
+expect state 1
+expect pre 0
+wait 1500
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 60
+wait 2800
+expect state 1
+expect len 2
+expect pre 0
+wait 2600
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 60
+key 14 down
+wait 30
+key 14 up
+wait 60
+wait 2900
+expect state 1
+expect len 3
+expect pre 1
+expect seen 2
+shot debut_preroll.png
+wait 5200
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 60
+key 14 down
+wait 30
+key 14 up
+wait 60
+key 7 down
+wait 30
+key 7 up
+wait 60
+wait 300
+expect state 3

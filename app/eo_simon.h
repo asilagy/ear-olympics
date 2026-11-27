@@ -33,7 +33,7 @@ static inline uint32_t simon_lit_count(uint32_t level)
  * that she has a lapse in the middle of it. Level 1 has neither: easy at the start. */
 static inline uint32_t simon_pre_ms(uint32_t level)
 {
-    return level < 2u ? 0u : level == 2u ? 1800u : 2200u;
+    return level <= 2u ? 1800u : 2200u;
 }
 static inline uint32_t simon_pre_pct(uint32_t level)   /* how often a round has the pre-roll (percent): rare enough to stay a surprise */
 {
@@ -42,6 +42,17 @@ static inline uint32_t simon_pre_pct(uint32_t level)   /* how often a round has 
 static inline uint32_t simon_lapse_pct(uint32_t level)
 {
     return level <= 1u ? 0u : level == 2u ? 15u : level == 3u ? 40u : 55u;
+}
+
+/* her tricks, in the order a player meets them (like a first level of a platformer: one new thing at a time, in a short round) */
+enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL };
+/* which trick debuts at which round (the sequence length) of which level: forced once a game */
+static inline uint32_t simon_debut(uint32_t level, uint32_t len)
+{
+    return level == 1u ? (len == 3u ? SIMON_FX_PRE : 0u) :
+           level == 2u ? (len == 3u ? SIMON_FX_LAPSE : 0u) :
+           level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : len == 4u ? SIMON_FX_STALL : 0u) :
+                         (len == 4u ? SIMON_FX_RESTART : 0u);
 }
 
 /* the crystal ball: the chance, in percent, that a round is played on a blue screen with only the words (levels 3 and up) */

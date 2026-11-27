@@ -1,0 +1,46 @@
+# Three wishes: SELECT after a miss tries the round again; SELECT in your turn hears the sequence again; PLAY after a miss gives up.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+tap PLAY
+wait 100
+expect state 1
+expect wishes 3
+wait 1500
+expect state 2
+# a miss: you have angered the spirits (the wish card, state 12)
+key 26 down
+wait 50
+key 26 up
+wait 1200
+expect state 12
+expect wishes 3
+shot wish_card.png
+turn SELECT 1
+wait 100
+expect wishes 2
+expect state 1
+shot wish_granted.png
+wait 1800
+expect state 2
+# a peek in your turn costs one too
+turn SELECT 1
+wait 100
+expect wishes 1
+expect state 1
+wait 1800
+expect state 2
+# played right now
+key 11 down
+wait 30
+key 11 up
+wait 60
+wait 300
+expect state 3

@@ -1,0 +1,44 @@
+# The crystal ball (forced): in round 2 she announces it, then the screen goes blue and only the word of each note shows.
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+tap GLO
+wait 100
+tap GLO
+wait 100
+tap GLO
+wait 100
+turn K1 1
+turn K1 1
+turn K1 1
+wait 30
+expect level 4
+expect fx1 1
+tap PLAY
+wait 5000
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 3200
+expect state 1
+expect len 2
+expect crystal 1
+expect pre 1
+shot crystal_announce.png
+wait 1900
+expect pre 0
+expect crystal 1
+wait 400
+shot crystal_wait.png
+wait 1500
+shot crystal_words.png
+wait 6000
+expect state 2
