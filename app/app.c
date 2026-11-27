@@ -2708,6 +2708,13 @@ static uint32_t eo_heard(int32_t *cur)
 
 /* word-wrapped text in a column; returns the y below the last line */
 static uint8_t wrap_dry;                 /* measuring only: wrap_text draws nothing */
+static void plain_e(char *d, const char *s)                       /* '~' is e-acute: the font has none, so it is an e with the accent drawn */
+{
+    uint32_t i;
+    for (i = 0; s[i] && i < 63u; i++)
+        d[i] = s[i] == '~' ? 'e' : s[i];
+    d[i] = 0;
+}
 static int32_t wrap_text(int32_t x, int32_t y, int32_t w, const felucca_font_t *f, const char *s, uint16_t c, int32_t lh)
 {
     while (*s == ' ')
@@ -2718,7 +2725,7 @@ static int32_t wrap_text(int32_t x, int32_t y, int32_t w, const felucca_font_t *
         const char *p = s, *end = s;
         for (;;) {                       /* add words while the line still fits */
             const char *e = p;
-            char cand[64];
+            char cand[64], pl[64];
             uint32_t m = 0, k;
             while (*e && *e != ' ')
                 e++;
@@ -2729,7 +2736,8 @@ static int32_t wrap_text(int32_t x, int32_t y, int32_t w, const felucca_font_t *
             for (; p < e && m < 62u; p++)
                 cand[m++] = *p;
             cand[m] = 0;
-            if (len && text_w(f, cand) > w)
+            plain_e(pl, cand);
+            if (len && text_w(f, pl) > w)
                 break;                   /* the word goes to the next line */
             for (k = 0; k <= m; k++)
                 line[k] = cand[k];
@@ -2741,8 +2749,22 @@ static int32_t wrap_text(int32_t x, int32_t y, int32_t w, const felucca_font_t *
             if (!*p)
                 break;
         }
-        if (!wrap_dry)
-            cv_text(x, y, f, line, c);
+        if (!wrap_dry) {
+            char pl[64], pre[64];
+            uint32_t k, j;
+            plain_e(pl, line);
+            cv_text(x, y, f, pl, c);
+            for (k = 0; line[k]; k++)
+                if (line[k] == '~') {
+                    int32_t ew = text_w(f, "e"), ex, ay = y + (lh > 20 ? 4 : 1);
+                    for (j = 0; j < k; j++)
+                        pre[j] = pl[j];
+                    pre[j] = 0;
+                    ex = x + text_w(f, pre) + ew / 2;
+                    cv_rect(ex, ay, ew / 3 + 1, ew / 4 + 1, c);
+                    cv_rect(ex - ew / 4, ay + ew / 4 + 1, ew / 3 + 1, ew / 4 + 1, c);
+                }
+        }
         y += lh;
         s = end;
     }
@@ -3388,7 +3410,25 @@ static const int8_t sel_game[6] = {GAME_COPYCAT, GAME_DOGTOR, GAME_SIMON, -1, -1
 
 static void mrect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c) { cv_rect(x, y - mv_oy, w, h, c); }
 static void mtext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { cv_text(x, y - mv_oy, f, s, c); }
-static void mctext(int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { mtext((240 - text_w(f, s)) / 2, y, f, s, c); }
+static void mctext(int32_t y, const felucca_font_t *f, const char *s, uint16_t c)   /* centered; '~' is e-acute */
+{
+    char pl[64], pre[64];
+    uint32_t k, j;
+    int32_t x0;
+    plain_e(pl, s);
+    x0 = (240 - text_w(f, pl)) / 2;
+    mtext(x0, y, f, pl, c);
+    for (k = 0; s[k] && k < 63u; k++)
+        if (s[k] == '~') {
+            int32_t ew = text_w(f, "e"), ex;
+            for (j = 0; j < k; j++)
+                pre[j] = pl[j];
+            pre[j] = 0;
+            ex = x0 + text_w(f, pre) + ew / 2;
+            mrect(ex, y + 1, ew / 3 + 1, ew / 4 + 1, c);
+            mrect(ex - ew / 4, y + 1 + ew / 4 + 1, ew / 3 + 1, ew / 4 + 1, c);
+        }
+}
 
 static uint32_t eo_strlen(const char *s)               /* (the firmware has no libc) */
 {
@@ -4022,7 +4062,7 @@ static void sel_go(void)
 static const char *const sel_desc[6][2] = {
     {"Meow sings a melody. You play it back.", "Be careful, he's judgmental!"},
     {"Help Dr. Diggie Diagnose the Chord", "Major, minor, or something worse?"},
-    {"Simone says. You play it back.", "She's a goldfish. She forgot already."},
+    {"Simon~ says. You play it back.", "She's a goldfish. She forgot already."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
@@ -4221,13 +4261,13 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
 static const char *const sim_praise[8] = {      /* after a round with a trick: she is delighted with you */
     "You saw right through my trick! My, aren't you quick!", "Brilliant, darling! Even the spirits gasped. ...I knew. Obviously.",
     "The spirits swoon! You're in tune!", "Through every wobble, you did not hobble. Marvelous!",
-    "Stunning, my sweet! Not a single missed beat!", "Simone tried to trick you, dear. You laughed. Simone is impressed. And a bit scared.",
+    "Stunning, my sweet! Not a single missed beat!", "Simon~ tried to trick you, dear. You laughed. Simon~ is impressed. And a bit scared.",
     "Oh, you magnificent creature. The crystal bows to you.", "A flawless feat! You are a treat. Come, take a seat!"};
 static const char *const sim_gap_say[8] = {
-    "Simone sees a star, darling. Oh... it's you! There you are!", "The cards adore you, dear. Simone's fee is near.",
-    "The crystal clears... I see... me! Hello!",             "Oh sweet one, you have the gift. Simone is swept! Let's lift!",
+    "Simon~ sees a star, darling. Oh... it's you! There you are!", "The cards adore you, dear. Simon~'s fee is near.",
+    "The crystal clears... I see... me! Hello!",             "Oh sweet one, you have the gift. Simon~ is swept! Let's lift!",
     "My palm says the next note is... a note.",              "Behold, my love, a longer chain! Do not complain.",
-    "Simone is getting a message from the spirits. It says... blub.", "Stay close, darling. Simone has a feeling. ...Or a snack. Same thing."};
+    "Simon~ is getting a message from the spirits. It says... blub.", "Stay close, darling. Simon~ has a feeling. ...Or a snack. Same thing."};
 static char sim_buf[96];
 static const char *sim_full;            /* the whole of a line being typed: the card is sized for it, so it never grows or changes font as it types */
 static const char *sim_typed_text(const char *full, uint32_t n)   /* the first n letters of a line */
@@ -4244,7 +4284,7 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     sim_alert = 0;
     sim_full = 0;
     if (ui.state == ST_WISH || (ui.state == ST_READY && ui.text == TX_OVER)) {   /* you have angered the spirits */
-        static const char *const talk[6] = {"No fear, darling. Simone foresaw this. ...Just now.",
+        static const char *const talk[6] = {"No fear, darling. Simon~ foresaw this. ...Just now.",
                                             "The spirits scowl, my sweet. Still, you're a treat.",
                                             "Calm waters, sweet one. Now... who are you again?",
                                             "Defeat, my dear, is the future drawing near.",
@@ -4368,9 +4408,9 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             {"Press PLAY, darling. Your future's calling.", "Come closer, seeker. The bowl is warm... and so are you.", "Press PLAY, my dear. I see it clear. ...Or is it near?"},
             {"Press PLAY, my love. The stars above approve.", "The spirits hum. They say you're someone. Press PLAY, someone.", "Faster now, darling. Hold on to your fins."},
             {"Shh. The crystal hums. Sometimes... it lends a hand.", "Press PLAY, my sweet. The water's neat.", "Third time's the charm, darling. ...Is it the third?"},
-            {"Mind Simone's memory, darling. It's a leaky bowl.", "Press PLAY. If Simone forgets, don't fret.", "Your turn to shine, my dear. Simone will try to stay here."},
+            {"Mind Simon~'s memory, darling. It's a leaky bowl.", "Press PLAY. If Simon~ forgets, don't fret.", "Your turn to shine, my dear. Simon~ will try to stay here."},
             {"Watch my words, my sweet. Your eyes can eat.", "Press PLAY. Some notes may hide away.", "Drip, water, splash... Press PLAY, I'll dash."},
-            {"Riddles, darling! Simone speaks in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "Press PLAY. A rule is coming your way."},
+            {"Riddles, darling! Simon~ speaks in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "Press PLAY. A rule is coming your way."},
             {"The lights may dim. Don't be grim.", "Trust your ears, my dear. The lights may disappear.", "Press PLAY, my sweet. Let's feel the beat."},
             {"Everything at once, my darling. Don't panic. ...I'm panicking.", "The finale, my dear. The end is near.", "One last PLAY, my love. The spirits are above."}};
         return rd[(lv < 1u ? 1u : lv > 8u ? 8u : lv) - 1u][sim_say_n % 3u];
@@ -4382,8 +4422,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         return w[sim_say_n % 5u];
     }
     if (tx == TX_NICE) {
-        static const char *const n[4] = {"Splendid, darling! Simone knew it. ...Knew what?", "Ooh, you glow! The spirits know.",
-                                         "Magnificent! A perfect run. ...Of what, my sweet? Fun.", "Simone felt that in her fins. Delicious. Again!"};
+        static const char *const n[4] = {"Splendid, darling! Simon~ knew it. ...Knew what?", "Ooh, you glow! The spirits know.",
+                                         "Magnificent! A perfect run. ...Of what, my sweet? Fun.", "Simon~ felt that in her fins. Delicious. Again!"};
         return sim_distract ? sim_praise[(sim_say_n + 3u) & 7u] : n[sim_say_n & 3u];
     }
     if (tx == TX_MISS) {
@@ -4530,8 +4570,8 @@ static void sim_crystal_layer(uint32_t now, int32_t y0, int32_t word)   /* the w
 static const char *const sim_up_say[SIMON_LEVELS + 1u][3] = {
     {0, 0, 0},
     {0, 0, 0},
-    {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "Simone might forget. Don't fret!"},
-    {"Splendid, darling! You listened well. A lovely spell.", "Sometimes Simone stalls. The crystal ball may call.", "Late in a level, Simone dims the lights."},
+    {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "Simon~ might forget. Don't fret!"},
+    {"Splendid, darling! You listened well. A lovely spell.", "Sometimes Simon~ stalls. The crystal ball may call.", "Late in a level, Simon~ dims the lights."},
     {"A star pupil, I swear! Or luck. Who cares?", "Your ears must lead, my love. Indeed.", "Do too well, and the spirits yell!"},
 };
 static void sim_up_band(uint32_t now)
