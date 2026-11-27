@@ -303,12 +303,13 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         beep_ph = 0.0f;
     }
     if (note != last_note) {             /* a new note: the voices that change over time start again */
-        age = 0.0f;
-        e1 = e2 = e3 = 1.0f;
-        batk = 0.0f;
-        ph2 = ph3 = 0.0f;
-        ph2 = ph3 = 0.0f;
-        s1l = s1b = s2l = s2b = 0.0f;
+        if (note >= 0) {                 /* (a release restarts nothing: the tail just fades, or the partials would jump back up: a tap) */
+            age = 0.0f;
+            e1 = e2 = e3 = 1.0f;
+            batk = 0.0f;
+            ph2 = ph3 = 0.0f;
+            s1l = s1b = s2l = s2b = 0.0f;
+        }
         last_note = note;
     }
     if (vc == V_CATSAD && note >= 0) {   /* the fail sound: a long sad "meeeow", the pitch sagging and wobbling */
