@@ -3961,14 +3961,25 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     uint32_t lv = eo_level(), now = plat_ms();
     sim_alert = 0;
     if (ui.state == ST_WISH || (ui.state == ST_READY && ui.text == TX_OVER)) {   /* you have angered the spirits */
-        uint32_t t = now - sim_wish_t0;
-        sim_alert = 2;
-        if (!((t / 3600u) & 1u))
+        static const char *const talk[4] = {"They're cross with YOU, dear. Not me. I'm lovely.",
+                                            "I'd offer a refund. I have no refund.",
+                                            "The fates are tired. So am I. Blub.",
+                                            "Even a seer can miss. ...Not me, but a seer."};
+        uint32_t t = now - sim_wish_t0, beat;
+        if (t < 3600u) {                     /* the shout, once */
+            sim_alert = 2;
             return "YOU'VE ANGERED THE SPIRITS";
-        if (ui.state == ST_WISH)
-            return "SELECT: MAKE A WISH. PLAY: GIVE UP.";
-        sim_alert = 1;
-        return "Oh, the spirits cry! Press PLAY to try.";
+        }
+        beat = (t - 3600u) / 4200u;          /* then she talks: mostly plain words, the instruction every other beat */
+        if (beat & 1u) {
+            if (ui.state == ST_WISH) {
+                sim_alert = 1;
+                return "SELECT: MAKE A WISH. PLAY: GIVE UP.";
+            }
+            sim_alert = 1;
+            return "Oh, the spirits cry! Press PLAY to try.";
+        }
+        return talk[(beat / 2u) & 3u];
     }
     if (ui.state == ST_GAP) {                /* the pause: a line typed out a letter at a time (Meow, now and then) */
         uint32_t n = sim_gap_n(now), t = now - sim_gap_t0;
