@@ -3553,69 +3553,57 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
  * note); on your turn they pop oldest first, a goldfish's memory, and you play it back before it is gone. */
 static const char *const SIM_WORD[4] = {"DRIP", "WATER", "SPLASH", "SPLISH"};
 static const uint16_t SIM_COL[4] = {EO_RGB(90, 170, 255), EO_RGB(80, 220, 170), EO_RGB(255, 214, 80), EO_RGB(255, 120, 180)};
-static uint32_t sim_turn_t0, sim_popped_last;
-static uint8_t sim_prev_state;
-
-static uint32_t sim_popped_now(uint32_t now)             /* the bubbles that have popped, on your turn */
-{
-    if (ui.state != ST_TURN)
-        return 0;
-    return simon_popped(eo_level(), now - sim_turn_t0, ans_len);
-}
-
-static void sim_game_tick(uint32_t now)                  /* your turn begins: the clock starts; each pop has its sound */
+static void sim_game_tick(uint32_t now)                  /* a frame about every 33 ms, for the goldfish's bob */
 {
     static uint32_t last_fr;
-    uint32_t pop;
-    if (ui.state == ST_TURN && sim_prev_state != ST_TURN) {
-        sim_turn_t0 = now;
-        sim_popped_last = 0;
-    }
-    sim_prev_state = ui.state;
-    pop = sim_popped_now(now);
-    if (pop > sim_popped_last) {
-        eo_blub_note = 88 + (int32_t)(pop % 3u) * 2;     /* a high bubble: it pops */
-        eo_blub_trig++;
-    }
-    sim_popped_last = pop;
-    if (now / 33u != last_fr) {                          /* the bubbles and the goldfish move: a frame about every 33 ms */
+    if (now / 33u != last_fr) {
         last_fr = now / 33u;
         ui.redraw = 1;
     }
 }
 
-static uint32_t sim_shown(void)                          /* how many bubbles are out: while it plays, the notes heard so far */
+/* the screen is the keys and nothing else: C D E G big, in their colours, with the unused keys between them dim for
+ * parity. The key that sounds (or that you hold) fills with its colour; its word sits on it. Simone is small, up in the
+ * corner with what she is saying. The numbers are in the foot. */
+#define SIM_KX 6                         /* the left edge of the first white key */
+#define SIM_KP 46                        /* the pitch of the white keys: C D E F G, 44 wide */
+static void sim_key_label(int32_t x, int32_t w, int32_t y, const char *s, uint16_t c)
 {
-    uint32_t i, n = 0;
-    if (ui.state != ST_LISTEN)
-        return ans_len;
-    for (i = 0; i < ans_len; i++)
-        if (seq_at[i] <= seq_pos)
-            n++;
-    return n;
-}
-
-static void sim_pill(int32_t x, int32_t y, int32_t w, uint16_t c, int hollow, int done)
-{
-    if (hollow) {                                        /* popped: only the outline is left */
-        cv_rect(x, y, w, 1, c);
-        cv_rect(x, y + 14, w, 1, c);
-        cv_rect(x, y, 1, 15, c);
-        cv_rect(x + w - 1, y, 1, 15, c);
-        return;
-    }
-    cv_rect(x + 1, y, w - 2, 15, c);
-    cv_rect(x, y + 1, w, 13, c);
-    if (done)
-        cv_rect(x, y + 16, w, 2, C_WHITE);               /* played right already */
+    cv_text(x + (w - text_w(&FONT_XS, s)) / 2, y, &FONT_XS, s, c);
 }
 
 static void sim_band(uint32_t now)
 {
-    char t[48], n[12];
-    uint32_t i, tx = eo_text(), bright, mid, dim, shown = sim_shown(), popped = sim_popped_now(now);
-    int32_t x = 6, y = 15, flash = -1;
+    static const uint8_t WH[5] = {7, 9, 11, 12, 14};         /* C D E F G */
+    static const int8_t BL[3] = {8, 10, 13};                 /* C# D# F#: between C D, D E, F G */
+    static const uint8_t BA[3] = {0, 1, 3};                  /* the white key each follows */
+    uint32_t i, tx = eo_text(), bright, mid, dim, any = 0;
     key_levels(&bright, &mid, &dim);
+    for (i = 0; i < 5u; i++) {                               /* the white keys */
+        int32_t x = SIM_KX + (int32_t)i * SIM_KP;
+        uint32_t k = WH[i], ix = simon_word_ix(k - SIMON_BASE);
+        int play = (k != 12u);                               /* F is not in play */
+        int lit = play && (int)((bright >> k) & 1u);
+        uint16_t c = !play ? C_LINE : lit ? SIM_COL[ix] : mv_scale(SIM_COL[ix], 2u);
+        cv_rect(x, 38, 44, 100, c);
+        if (lit) {
+            cv_rect(x, 38, 44, 3, C_WHITE);                  /* a bright rim: it is the one */
+            any = 1;
+        }
+        if (play)
+            sim_key_label(x, 44, 118, SIM_WORD[ix], lit ? C_BLACK : mv_scale(SIM_COL[ix], 5u));
+    }
+    for (i = 0; i < 3u; i++)                                 /* the black keys: never in play, so dark */
+        cv_rect(SIM_KX + ((int32_t)BA[i] + 1) * SIM_KP - 15, 38, 26, 62, ((bright >> BL[i]) & 1u) ? C_HI : C_BLACK);
+    mv_oy = 0;                                               /* the sprite painter clips to this band */
+    mv_h = 144;
+    cast_paint(0u, any ? 1u : 0u, 2, 1 + (int32_t)((now / 700u) & 1u), 1, 2);   /* Simone, small, in her corner */
+    cv_text(58, 8, &FONT_S, TX[tx], (tx == TX_WATCH || tx == TX_NICE) ? C_HI : C_WHITE);
+}
+
+static void sim_foot(void)               /* Simone Says' foot: where you are, and the keys to press */
+{
+    char t[48], n[12];
     t[0] = 0;
     text_cat(t, "LEVEL ");
     int_text((int32_t)eo_level(), n);
@@ -3633,57 +3621,16 @@ static void sim_band(uint32_t now)
     text_cat(t, "   BEST ");
     int_text(set.best[GAME_SIMON], n);
     text_cat(t, n);
-    ctext(1, &FONT_XS, t, C_AMB);
-    for (i = 0; i < 4u; i++)                             /* the word of the note sounding or held */
-        if ((bright >> (SIMON_BASE + simon_level(1)->off[i])) & 1u)
-            flash = (int32_t)i;
-    mv_oy = 0;                                           /* the sprite painter clips to this band */
-    mv_h = 144;
-    cast_paint(0u, flash >= 0 ? 1u : 0u, 20, 70 + (int32_t)((now / 700u) & 1u), 1, 1);   /* Simone, in her bowl */
-    for (i = 0; i < shown && i < ans_len; i++) {         /* the bubbles */
-        uint32_t ix = simon_word_ix(ans[i] - SIMON_BASE);
-        int32_t w = text_w(&FONT_XS, SIM_WORD[ix]) + 10;
-        int lit = ui.state == ST_LISTEN && flash >= 0 && (uint32_t)flash == ix && i + 1u == shown;
-        if (x + w > 234) {
-            x = 6;
-            y += 19;
-        }
-        if (i < popped) {
-            sim_pill(x, y, w, mv_scale(SIM_COL[ix], 3u), 1, 0);
-        } else {
-            sim_pill(x, y, w, lit ? C_WHITE : (ui.state == ST_TURN && i < ans_pos) ? mv_scale(SIM_COL[ix], 6u) : SIM_COL[ix], 0,
-                     ui.state == ST_TURN && i < ans_pos);
-            cv_text(x + 5, y + 2, &FONT_XS, SIM_WORD[ix], C_BLACK);
-        }
-        x += w + 4;
+    ctext(4, &FONT_XS, t, C_AMB);
+    if (ui.text == TX_OVER) {
+        t[0] = 0;
+        text_cat(t, "SCORE ");
+        int_text((int32_t)eo_score, n);
+        text_cat(t, n);
+        ctext(22, &FONT_S, t, C_HI);
     }
-    if (ui.state == ST_READY || ui.text == TX_OVER) {    /* between games: how to start, and the way up */
-        if (ui.text == TX_OVER) {
-            t[0] = 0;
-            text_cat(t, "SCORE ");
-            int_text((int32_t)eo_score, n);
-            text_cat(t, n);
-            cv_text(124, 78, &FONT_S, t, C_HI);
-        } else {
-            cv_text(124, 78, &FONT_S, "PRESS PLAY", C_HI);
-        }
-        cv_text(124, 98, &FONT_XS, "PLAY START", C_DIM);
-        cv_text(124, 112, &FONT_XS, "PRESETS GAME", C_DIM);
-        cv_text(124, 126, &FONT_XS, "K1 LEVEL", C_DIM);
-        if (eo_level() < SIMON_LEVELS) {
-            t[0] = 0;
-            text_cat(t, "LEVEL UP AT ");
-            int_text((int32_t)simon_goal(eo_level()), n);
-            text_cat(t, n);
-            cv_text(6, 15, &FONT_XS, t, C_DIM);
-        }
-    } else {
-        cv_text(124, 78, &FONT_S, TX[tx], (tx == TX_WATCH || tx == TX_NICE) ? C_HI : C_WHITE);
-        if (flash >= 0)
-            cv_text(124, 100, &FONT_L, SIM_WORD[flash], SIM_COL[flash]);
-        else
-            cv_text(124, 128, &FONT_XS, "HOME STOP", C_DIM);
-    }
+    ctext(ui.text == TX_OVER ? 42 : 24, &FONT_XS,
+          ui.state == ST_READY ? "PLAY START   PRESETS GAME   K1 LEVEL" : "HOME STOP", C_DIM);
 }
 
 static void draw(void)
@@ -3741,10 +3688,10 @@ static void draw(void)
             cv_text(230 - text_w(&FONT_XS, r), 10, &FONT_XS, r, C_GRAY);
         }
     } else {
-        int32_t x = cv_text(10, 6, &FONT_B, APP_NAME, C_WHITE);
+        int32_t x = cv_text(10, 6, &FONT_B, set.game == GAME_SIMON ? "SIMONE SAYS" : APP_NAME, C_WHITE);
+        const char *vn = eo_voice_name[eo_voice < VOICES ? eo_voice : 0u];   /* Simone's own bell, not the cat's setting */
         cv_text(x + 8, 10, &FONT_XS, EO_VERSION, C_DIM);
-        cv_text(230 - text_w(&FONT_XS, eo_voice_name[set.voice < VOICES ? set.voice : 0u]), 10, &FONT_XS,
-                eo_voice_name[set.voice < VOICES ? set.voice : 0u], C_GRAY);
+        cv_text(230 - text_w(&FONT_XS, vn), 10, &FONT_XS, vn, C_GRAY);
     }
     cv_blit(0, 0);
     /* the middle: the game and its level, the big word, the progress, the numbers, a hint */
@@ -3851,7 +3798,7 @@ static void draw(void)
     /* the foot: Simon's keys (Copycat has none on the screen), and the volume for a moment after it changes */
     cv_begin(240, 60, C_BLACK);
     if (set.game == GAME_SIMON)
-        keyboard_paint(bright, mid, dim);
+        sim_foot();
     else if (ui.state == ST_READY)
         cc_facts();
     vol_overlay(36, now, pct);
