@@ -23,7 +23,7 @@ static const simon_level_t SIMON_LV[SIMON_LEVELS] = {   /* Simone Says: always t
 };
 
 /* how many of the newest notes light as she replays the sequence: the older ones sound in the dark (an ear test) */
-static const uint8_t SIMON_LIT[SIMON_LEVELS] = {255, 255, 3, 1};
+static const uint8_t SIMON_LIT[SIMON_LEVELS] = {255, 255, 4, 2};
 static inline uint32_t simon_lit_count(uint32_t level)
 {
     return SIMON_LIT[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
@@ -37,46 +37,52 @@ static inline uint32_t simon_pre_ms(uint32_t level)
 }
 static inline uint32_t simon_pre_pct(uint32_t level)   /* how often a round has the pre-roll (percent): rare enough to stay a surprise */
 {
-    return level <= 1u ? 0u : level == 2u ? 20u : level == 3u ? 30u : 35u;
+    return level <= 1u ? 0u : level == 2u ? 20u : level == 3u ? 25u : 25u;
 }
 static inline uint32_t simon_lapse_pct(uint32_t level)
 {
-    return level <= 1u ? 0u : level == 2u ? 15u : level == 3u ? 40u : 55u;
+    return level <= 1u ? 0u : level == 2u ? 15u : level == 3u ? 30u : 40u;
 }
 
 /* her tricks, in the order a player meets them (like a first level of a platformer: one new thing at a time, in a short round) */
-enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP };
+enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP, SIMON_FX_TWICE };
 /* which trick debuts at which round (the sequence length) of which level: forced once a game */
 static inline uint32_t simon_debut(uint32_t level, uint32_t len)
 {
     return level == 1u ? (len == 3u ? SIMON_FX_PRE : 0u) :
            level == 2u ? (len == 3u ? SIMON_FX_LAPSE : len == 4u ? SIMON_FX_SLEEP : 0u) :
-           level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : len == 4u ? SIMON_FX_STALL : 0u) :
+           level == 3u ? (len == 2u ? SIMON_FX_CRYSTAL : len == 3u ? SIMON_FX_TWICE : len == 4u ? SIMON_FX_STALL : 0u) :
                          (len == 4u ? SIMON_FX_RESTART : 0u);
 }
 
 /* sleepy: the screen goes gray-blue and ripples, her notes drift in a long reverb (from level 2) */
 static inline uint32_t simon_sleep_pct(uint32_t level)
 {
-    return level <= 1u ? 0u : level == 2u ? 12u : 18u;
+    return level <= 1u ? 0u : level == 2u ? 12u : 14u;
+}
+
+/* the double fortune: the chance that you must play each note twice (levels 3 and up, short sequences) */
+static inline uint32_t simon_twice_pct(uint32_t level)
+{
+    return level <= 2u ? 0u : level == 3u ? 12u : 15u;
 }
 
 /* the crystal ball: the chance, in percent, that a round is played on a blue screen with only the words (levels 3 and up) */
 static inline uint32_t simon_crystal_pct(uint32_t level)
 {
-    return level <= 2u ? 0u : level == 3u ? 20u : 35u;
+    return level <= 2u ? 0u : level == 3u ? 15u : 25u;
 }
 
 /* a level graduates when you get a sequence this long: the wall is about 7 notes, past 9 you have to chunk */
-static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {4, 5, 6, 7};
+static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {4, 5, 6, 6};
 static inline uint32_t simon_goal(uint32_t level)
 {
     return SIMON_GOAL[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
 }
 
 /* the fish's memory, on your turn: how long until the first bubble pops, then how long between pops (ms), by level */
-static const uint16_t SIMON_POP_GRACE[SIMON_LEVELS] = {2600, 1800, 1200, 800};
-static const uint16_t SIMON_POP_EVERY[SIMON_LEVELS] = {900, 650, 450, 320};
+static const uint16_t SIMON_POP_GRACE[SIMON_LEVELS] = {2600, 2000, 1500, 1200};
+static const uint16_t SIMON_POP_EVERY[SIMON_LEVELS] = {900, 700, 550, 450};
 static inline uint32_t simon_popped(uint32_t level, uint32_t since_ms, uint32_t len)   /* bubbles popped by now, oldest first */
 {
     uint32_t i = level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u, n;
@@ -111,7 +117,7 @@ static inline uint8_t simon_next(uint32_t level, uint32_t *rng, uint32_t prev)
 /* the tempo: a note every step_ms, quickening as the sequence grows and again at each level, then no faster than 300 ms */
 static inline uint32_t simon_step_ms(uint32_t len, uint32_t level)
 {
-    uint32_t cut = (len > 4u ? 30u * (len - 4u) : 0u) + 40u * (level > 1u ? level - 1u : 0u);
+    uint32_t cut = (len > 4u ? 30u * (len - 4u) : 0u) + 25u * (level > 1u ? level - 1u : 0u);
     return cut > 350u ? 300u : 650u - cut;
 }
 

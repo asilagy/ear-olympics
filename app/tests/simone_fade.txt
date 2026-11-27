@@ -1,4 +1,4 @@
-# Simone Says' fading lights: at level 4 only her newest note lights as she replays the sequence; the older notes sound in
+# Simone Says' fading lights: at level 4 only her newest two notes light as she replays the sequence; the older notes sound in
 # the dark (an ear test). Debug mode (GLO x3) opens the levels. The simulator's random state is fixed: keys 11, 14, 7.
 wait 600
 tap HOME
@@ -42,7 +42,7 @@ expect len 2
 # round 2: the first note (E4) sounds in the dark, the second (G4) lights
 wait 2700
 expect note 76
-expect bright 0
+expect bright 2048
 wait 500
 expect note 79
 expect bright 16384

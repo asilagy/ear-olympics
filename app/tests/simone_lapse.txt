@@ -55,11 +55,11 @@ expect note -1
 expect state 1
 shot lapse_card.png
 # she starts again from the top: E4 G4 C4
-wait 2800
+wait 2900
 expect note 76
-wait 550
+wait 600
 expect note 79
-wait 530
+wait 600
 expect note 72
 wait 500
 expect state 2

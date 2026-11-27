@@ -40,7 +40,7 @@ wait 5100
 expect state 1
 expect len 3
 expect stall 1
-expect gap 2918
+expect gap 2945
 expect seqn 3
 wait 2145
 expect note 76

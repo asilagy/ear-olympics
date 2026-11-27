@@ -1,0 +1,38 @@
+# The double fortune (forced: fx9): each note of the round must be played twice, in order. Round 2 is C then G (keys 11, 14).
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+expect game 0
+expect fx9 9
+tap PLAY
+wait 1500
+expect state 2
+key 11 down
+wait 30
+key 11 up
+wait 4400
+expect state 1
+expect len 2
+wait 6000
+expect state 2
+shot twice_turn.png
+key 11 down
+wait 30
+key 11 up
+key 11 down
+wait 30
+key 11 up
+key 14 down
+wait 30
+key 14 up
+expect state 2
+key 14 down
+wait 30
+expect state 3
+key 14 up
