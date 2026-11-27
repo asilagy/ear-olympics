@@ -1429,7 +1429,7 @@ static void simon_win(void)
         simon_over();
         return;
     }
-    if (!set.mode && eo_level() >= 4u && ++sim_good >= 2u) {
+    if (!set.mode && eo_level() >= 4u && ++sim_good >= 2u && ans_len <= 2u) {   /* only while sequences are short: backwards is hard */
         sim_good = 0;                        /* too good: you have angered the spirits (the next round is played backwards) */
         sim_angry = 1;
     }
