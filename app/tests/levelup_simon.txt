@@ -75,6 +75,10 @@ expect store_writes 1
 expect dirty 0
 expect len 0
 shot levelup.png
+wait 3300
+shot levelup2.png
+wait 3300
+shot levelup3.png
 tap PLAY
 wait 100
 expect state 1

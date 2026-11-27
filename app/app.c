@@ -535,8 +535,8 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
     {   /* Simon */
         {0, 0, 0},
         {0, 0, 0},
-        {"LONGER AND FASTER", "THE SAME FOUR WORDS", "SEVEN IS THE WALL. GET PAST IT"},
-        {"THE LIGHTS ARE FADING", "ONLY HER NEWEST THREE NOTES SHINE", "THE REST YOU HAVE TO HEAR"},
+        {"FASTER NOW", "SIMONE WILL LOSE HER PLACE SOMETIMES", "WATCH HER WORDS"},
+        {"THE LIGHTS ARE FADING", "ONLY HER NEWEST THREE NOTES SHINE", "SOMETIMES SHE STALLS, OR GOES BLUE"},
         {"ONLY THE LAST NOTE LIGHTS UP", "THE REST SOUND IN THE DARK", "LISTEN. THEN LISTEN HARDER"},
     },
     {   /* Copycat: the new idea, a cat pun, then a word of cheer or a warning */
@@ -1154,6 +1154,7 @@ static uint32_t sim_gap_at, sim_gap_len; /* the lapse: when it starts in the seq
 static uint8_t sim_gap_restart;          /* 1: she starts again from the top, 0: she goes on from where she was */
 static uint8_t sim_gap_stall;            /* 1: no gap: she holds one note a long time, thinking */
 static uint8_t sim_crystal;              /* 1: this round is in the crystal ball: a blue screen, bubbles and the words only */
+static uint32_t sim_up_t0;               /* when the level-up scene began */
 static uint8_t sim_alert;                /* her line right now is one that matters: it gets the big card */
 static uint32_t sim_fx_rng = 0x2545F491u;
 #ifdef PLAT_HOST
@@ -1645,6 +1646,7 @@ static void eo_enter_levelup(void)       /* ten rounds right: the next level, ke
     ui.state = ST_LEVELUP;
     ui.text = TX_GOOD;
     ui.up_until = set.game == GAME_COPYCAT ? plat_ms() + EO_CELEBRATE_MS : 0u;   /* the cat celebrates first */
+    sim_up_t0 = plat_ms();
     if (set.game == GAME_COPYCAT)
         play_levelup_song();
     int_text((int32_t)eo_level(), n);
@@ -3794,7 +3796,12 @@ static uint32_t sim_any_lit(void)
 
 static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her, big, over the keys: once per band */
 {
-    int32_t num = 20, ox, oy, sway = 0, pose = (int32_t)sim_any_lit();
+    int32_t num = 20, ox, oy, sway = 0, hop = 0, pose = (int32_t)sim_any_lit();
+    if (ui.state == ST_LEVELUP) {            /* she is delighted with you: bouncing, eyes wide */
+        uint32_t ph = (now / 110u) % 8u;
+        hop = (int32_t)(ph < 4u ? ph : 8u - ph) * 4;
+        pose = 1;
+    }
     if (ui.state == ST_LISTEN && seq_on) {
         if (sim_pre && seq_pos < sim_pre) {  /* the push: she swells toward you and falls back, over and over, eyes wide */
             uint32_t ph = seq_pos % 900u;
@@ -3811,7 +3818,7 @@ static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her,
     oy = 76 - (9 * num) / 2;
     mv_oy = band_top;                        /* the sprite painter clips to the band, in the middle band's coordinates */
     mv_h = band_h;
-    cast_paint(0u, (uint32_t)pose, ox + sway, oy + (int32_t)((now / 700u) & 1u), num, 8);
+    cast_paint(0u, (uint32_t)pose, ox + sway, oy - hop + (int32_t)((now / 700u) & 1u), num, 8);
 }
 
 static uint32_t sim_crystal_on(void)     /* the crystal ball is showing: her pre-roll is over and her sequence is playing */
@@ -3839,6 +3846,35 @@ static void sim_crystal_layer(uint32_t now, int32_t y0)   /* the whole screen, o
         uint32_t w = simon_word_ix((uint32_t)seq_key[act] - SIMON_BASE);
         cv_text((240 - text_w(&FONT_L, SIM_WORD[w])) / 2, 92 - y0, &FONT_L, SIM_WORD[w], SIM_COL[w]);
     }
+}
+
+/* the level-up scene: she bounces over the keys and says what is new in her own verse, one beat at a time */
+static const char *const sim_up_say[SIMON_LEVELS + 1u][3] = {
+    {0, 0, 0},
+    {0, 0, 0},
+    {"Well done, my dear! The future's clear.", "Now faster, faster! Pure disaster.", "Watch my eyes. Expect surprise."},
+    {"Splendid! You listened well.", "The lights will fade. Be unafraid.", "I may stall. Or lose it all."},
+    {"A star pupil! Or a lucky fool.", "One light, no more. Trust your ears, I implore.", "If it turns blue, the words are all you."},
+};
+static void sim_up_band(uint32_t now)
+{
+    uint32_t lv = eo_level(), beat = (now - sim_up_t0) / 3200u, ly;
+    const char *q;
+    int32_t yb;
+    if (beat > 2u)
+        beat = 2u;
+    ly = lv > SIMON_LEVELS ? SIMON_LEVELS : lv;
+    q = sim_up_say[ly][beat] ? sim_up_say[ly][beat] : "Splendid!";
+    sim_keys(114);
+    sim_sprite(now, 0, 144);
+    wrap_dry = 1;
+    yb = wrap_text(142, 12, 90, &FONT_B, q, C_WHITE, 20);
+    wrap_dry = 0;
+    cv_rect(134, 4, 106, yb - 2, C_HI);
+    cv_rect(137, 7, 100, yb - 8, C_BLACK);
+    wrap_text(142, 12, 90, &FONT_B, q, C_WHITE, 20);
+    if (beat >= 2u && ((now / 500u) & 1u))
+        cv_text(142, yb + 4, &FONT_XS, "PLAY: ONWARD", C_HI);
 }
 
 static void sim_band(uint32_t now)
@@ -3938,7 +3974,7 @@ static void draw(void)
             sim_sprite(now, -36, 36);            /* the numbers live up here: LEVEL 1, then LEVEL 1  3/5 in a round */
             char h[32], hn[12];
             h[0] = 0;
-            if (ui.state == ST_READY) {
+            if (ui.state == ST_READY || ui.state == ST_LEVELUP) {
                 text_cat(h, "LEVEL ");
                 int_text((int32_t)eo_level(), hn);
                 text_cat(h, hn);
@@ -3966,6 +4002,9 @@ static void draw(void)
     ui.redraw_cat = 0;
     if (set.game == GAME_COPYCAT) {
         cc_band(now);
+        cv_blit(0, 36);
+    } else if (ui.state == ST_LEVELUP && set.game == GAME_SIMON) {
+        sim_up_band(now);
         cv_blit(0, 36);
     } else if (ui.state == ST_LEVELUP) {     /* GOOD JOB: the new level, and what is different about it */
         const char *const *ln = eo_up_text[set.game][eo_level()];
