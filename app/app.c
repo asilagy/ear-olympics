@@ -849,12 +849,35 @@ static void key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim)
     *bright = b;                             /* a bright bit wins over the others */
 }
 
+/* the power-on movie's lights: once the music starts, a stadium wave rolls along the keys, left to right and round again,
+ * a bright crest with a half-lit swell ahead of it and a dim wake behind */
+static uint32_t mv_wave_t0;              /* when the music began (0: not yet) */
+static void movie_wave(uint32_t *bright, uint32_t *mid, uint32_t *dim)
+{
+    uint32_t t, head, k, span = NKEYS + 10u;
+    if (!mv_wave_t0)
+        return;
+    t = plat_ms() - mv_wave_t0;
+    head = (t / 55u) % span;              /* one key every 55 ms: the lap takes about two seconds */
+    for (k = 0; k < NKEYS; k++) {
+        int32_t d = (int32_t)head - (int32_t)k;      /* 0: the crest; positive: behind it */
+        if (d == 0)
+            *bright |= 1u << k;
+        else if (d == 1 || d == -1)
+            *mid |= 1u << k;
+        else if (d == 2 || d == 3 || d == -2)
+            *dim |= 1u << k;
+    }
+}
+
 static void lights(void)
 {
     uint32_t bright, mid, dim, btn = ui.btn;
     key_levels(&bright, &mid, &dim);
     if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE)
         bright = mid = dim = 0u;     /* no game yet: the keys stay dark */
+    if (ui.state == ST_MOVIE)
+        movie_wave(&bright, &mid, &dim);
     if (set_dirty)
         btn |= 1u << B_SAVE;
     if (ui.state == ST_SELECT || ui.state == ST_SIMONE)
@@ -1762,6 +1785,7 @@ void app_init(void)                      /* boot: the settings, and a quiet star
     mv_t0 = plat_ms();
     mv_m0 = mv_t0 + MV_MUSIC_MS;
     mv_stage = 0;
+    mv_wave_t0 = 0;
     eo_cat_seen = 0;
     eo_sim_seen = 0;
     ui.text = TX_READY;
@@ -3151,6 +3175,7 @@ static void movie_tick(uint32_t now)                     /* the music starts wit
 {
     if (mv_stage == 0u && now >= mv_m0) {
         mv_stage = 1;
+        mv_wave_t0 = now ? now : 1u;
         eo_smp_trig++;
     }
 }
@@ -3166,6 +3191,7 @@ static void mv_end(void)                                 /* skipped, or done: th
 {
     uint32_t i;
     eo_smp_halt++;
+    mv_wave_t0 = 0;
     seq_on = 0;
     seq_lit = 0;
     voice_note = -1;
@@ -3867,6 +3893,8 @@ void app_frame(void)
         if (now / 33u != last_mv) {
             last_mv = now / 33u;
             ui.redraw = 1;
+            if (ui.state == ST_MOVIE)
+                lights();                    /* the wave moves with no input */
         }
     }
     key_levels(&bright, &mid, &dim);
@@ -4132,6 +4160,11 @@ int app_expect(const char *what, int *got)
         *got = (int)bright;
     else if (!strcmp(what, "mid"))
         *got = (int)mid;
+    else if (!strcmp(what, "wave")) {        /* the movie's wave: the crest's key mask now */
+        uint32_t wb = 0, wm = 0, wd = 0;
+        movie_wave(&wb, &wm, &wd);
+        *got = (int)wb;
+    }
     else if (!strcmp(what, "dim"))
         *got = (int)dim;
     else

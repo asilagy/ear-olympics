@@ -15,8 +15,14 @@ shot movie_black.png
 # the presents and the black beat are silent: no sound before the music
 expect peak_db_max -100
 expect smp 0
+expect wave 0
 wait 200
 expect smp 1
+# the music starts and a stadium wave rolls along the keys: a lit crest at the left end, then moving right
+wait 60
+expect wave 8
+wait 220
+expect wave 128
 peakreset
 wait 600
 # the music is audible, and does not clip
