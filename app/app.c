@@ -3502,7 +3502,7 @@ static void sel_go(void)
 static const char *const sel_desc[6][2] = {
     {"Meow sings a melody. You play it back.", "Be careful, he's judgmental!"},
     {"Help Dr. Diggie Diagnose the Chord", "Major, minor, or something worse?"},
-    {"Simone says. You play it back.", "He's a goldfish. He forgot already."},
+    {"Simone says. You play it back.", "She's a goldfish. She forgot already."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
