@@ -535,9 +535,9 @@ static const char *const eo_up_text[GAMES][EO_MAX_LEVELS + 1u][3] = {
     {   /* Simon */
         {0, 0, 0},
         {0, 0, 0},
-        {"THE SAME FOUR WORDS, FASTER", "HER BUBBLES POP SOONER NOW", "SEVEN IS THE WALL. GET PAST IT"},
-        {"HER MEMORY IS GETTING WORSE", "THE BUBBLES POP IN A BLINK", "CHUNK IT: THREES, NOT NINE THINGS"},
-        {"THIS IS THE FAST ONE", "NO ONE REMEMBERS TWELVE", "SHE HAS ALREADY FORGOTTEN THIS"},
+        {"LONGER AND FASTER", "THE SAME FOUR WORDS", "SEVEN IS THE WALL. GET PAST IT"},
+        {"THE LIGHTS ARE FADING", "ONLY HER NEWEST THREE NOTES SHINE", "THE REST YOU HAVE TO HEAR"},
+        {"ONLY THE LAST NOTE LIGHTS UP", "THE REST SOUND IN THE DARK", "LISTEN. THEN LISTEN HARDER"},
     },
     {   /* Copycat: the new idea, a cat pun, then a word of cheer or a warning */
         {0, 0, 0},
@@ -1131,10 +1131,12 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
         seq_len[i] = (uint16_t)len_ms;
         seq_key[i] = ans[i];
     }
+    for (i = 0; i < ans_len; i++)            /* the lights fade as the levels rise: only the newest notes light */
+        seq_hl[i] = (uint8_t)(i + simon_lit_count(eo_level()) >= ans_len);
     seq_n = ans_len;
     seq_end = 400u + step * (ans_len - 1u) + len_ms;
     eo_drone_set(-1, 0.0f);
-    eo_seq_start(0, 1);
+    eo_seq_start(0, 2);
     ui.state = ST_LISTEN;
     ui.text = TX_WATCH;
     ans_pos = 0;

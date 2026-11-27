@@ -193,6 +193,7 @@ int main(void)
         CHECK(simon_step_ms(6, level) < simon_step_ms(6, level - 1), "simon level %u is quicker", level);
     CHECK(simon_note_ms(300) >= 160 && simon_note_ms(650) < 650, "simon note length");
     CHECK(simon_pool_mask(1, 7) == ((1u << 7) | (1u << 9) | (1u << 11) | (1u << 14)), "simon pool mask");
+    CHECK(simon_lit_count(1) >= 20 && simon_lit_count(2) >= 20 && simon_lit_count(3) == 3 && simon_lit_count(4) == 1, "simon lights fade at levels 3 and 4");
     CHECK(simon_goal(1) == 5 && simon_goal(2) == 7 && simon_goal(3) == 9 && simon_goal(4) == 12, "simon goals 5 7 9 12");
     for (level = 1; level <= SIMON_LEVELS; level++)
         CHECK(simon_pool_mask(level, 7) == simon_pool_mask(1, 7), "simon %u keeps the same four keys", level);

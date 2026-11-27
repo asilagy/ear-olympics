@@ -22,6 +22,13 @@ static const simon_level_t SIMON_LV[SIMON_LEVELS] = {   /* Simone Says: always t
     {4, {0, 2, 4, 7}},
 };
 
+/* how many of the newest notes light as she replays the sequence: the older ones sound in the dark (an ear test) */
+static const uint8_t SIMON_LIT[SIMON_LEVELS] = {255, 255, 3, 1};
+static inline uint32_t simon_lit_count(uint32_t level)
+{
+    return SIMON_LIT[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
+}
+
 /* a level graduates when you get a sequence this long: the wall is about 7 notes, past 9 you have to chunk */
 static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {5, 7, 9, 12};
 static inline uint32_t simon_goal(uint32_t level)
