@@ -3559,17 +3559,17 @@ static uint8_t sim_up_mode;              /* the cards are a level-up's: the end 
 static const sim_card_t sim_up_cards[3][3] = {
     {
         {{"Splendid, darling! Level two!", "I knew you'd pass. ...I knew. I do.", ""}, 0, 1},
-        {{"Now faster, faster! Pure disaster.", "I had a dark premonition... a...", "a... uh. Hm."}, 73, -1},
+        {{"Now faster, faster! Pure disaster.", "I had a dark premonition... a...", "a tabby... uh. Hm."}, 79, -1},
         {{"No matter! If I lose my way,", "remind me, dear. Then we'll play.", ""}, 0, 1},
     },
     {
         {{"Level three! Oh, you're a gem.", "The spirits clap. I clap for them.", ""}, 0, 1},
-        {{"The lights will fade. Be unafraid.", "I had a dark premonition... a...", "a... crystal... uh. Hm."}, 84, -1},
+        {{"The lights will fade. Be unafraid.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 91, -1},
         {{"I may stall. The crystal ball may call.", "Hold your breath, my dear. Don't fall.", ""}, 0, 1},
     },
     {
         {{"A star pupil, darling! Level four!", "Or luck. Who cares? Come, ask for more.", ""}, 0, 1},
-        {{"Do too well, and the spirits yell!", "I had a dark premonition... a...", "a... backwards... uh. Hm."}, 86, -1},
+        {{"Do too well, and the spirits yell!", "I had a dark premonition... a...", "a low, dark root... uh. Hm."}, 88, -1},
         {{"One light, no more. Trust your ears.", "Let's go, my love. Through all the years.", ""}, 0, 1},
     },
 };
@@ -4669,7 +4669,7 @@ void app_frame(void)
     if (set.game == GAME_SIMON && (ui.state <= ST_LEVELUP || ui.state == ST_WISH)) {
         sim_game_tick(now);
         eo_water = (uint8_t)(ui.state == ST_LISTEN && seq_on && sim_crystal);
-        eo_rev = (uint8_t)(set.game == GAME_SIMON && ui.state == ST_TURN && sim_back && !seq_on);
+        eo_rev = (uint8_t)(set.game == GAME_SIMON && (ui.state == ST_TURN || ui.state == ST_WIN || ui.state == ST_MISS) && sim_back && !seq_on);
     } else {
         eo_water = 0, eo_rev = 0;
     }
