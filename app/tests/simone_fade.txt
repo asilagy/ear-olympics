@@ -21,6 +21,7 @@ turn K1 1
 turn K1 1
 wait 30
 expect level 4
+expect fx5 5
 tap PLAY
 wait 100
 expect state 1

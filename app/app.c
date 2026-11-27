@@ -89,6 +89,7 @@ static volatile uint8_t eo_soft_env;     /* 1: the melody voice fades in and out
 static float eo_rv[3][RV_N], eo_rv_lp[3];   /* a small reverb (three damped combs): only the ostinato is sent into it */
 static uint32_t eo_rv_i[3];
 static const uint16_t eo_rv_len[3] = {1087, 1423, 1877};
+static volatile uint8_t eo_water;        /* the crystal ball: the sound goes under water (low-pass, delay, reverb) */
 static volatile uint32_t eo_smp_trig, eo_smp_halt;   /* the intro music: the main loop counts a start / a stop up */
 static volatile uint8_t eo_smp_run;
 static float eo_ulaw[256];               /* mu-law bytes to floats, once */
@@ -154,6 +155,62 @@ static inline float eo_lookup(const float *t, float phase)     /* a table, inter
 static inline float eo_note_inc(int32_t note)    /* a note's phase step per frame */
 {
     return 440.0f * fm_exp2f((float)(note - 69) / 12.0f) / 44100.0f;
+}
+
+/* under water (the crystal ball): everything goes through a low-pass, a 180 ms echo and a small reverb, faded in and out */
+#define WF_D 7938u
+#define WF_C1 1423u
+#define WF_C2 1811u
+#define WF_C3 2113u
+static int16_t wf_d[WF_D], wf_c1[WF_C1], wf_c2[WF_C2], wf_c3[WF_C3];
+static uint32_t wf_i, wf_j1, wf_j2, wf_j3;
+static float wf_lp, wf_wet;
+static uint8_t wf_was;
+static int16_t wf_clamp(float x)
+{
+    return (int16_t)(x > 32000.0f ? 32000.0f : x < -32000.0f ? -32000.0f : x);
+}
+static float eo_underwater(float s)
+{
+    float x, d, r, y1, y2, y3;
+    if (eo_water && !wf_was) {           /* going in: forget the last time's echoes */
+        uint32_t k;
+        for (k = 0; k < WF_D; k++)
+            wf_d[k] = 0;
+        for (k = 0; k < WF_C1; k++)
+            wf_c1[k] = 0;
+        for (k = 0; k < WF_C2; k++)
+            wf_c2[k] = 0;
+        for (k = 0; k < WF_C3; k++)
+            wf_c3[k] = 0;
+        wf_lp = 0.0f;
+    }
+    wf_was = eo_water;
+    wf_wet += ((eo_water ? 1.0f : 0.0f) - wf_wet) * (eo_water ? 0.00012f : 0.00004f);   /* in over about 0.2 s, out over 0.6 s */
+    if (!eo_water && wf_wet < 0.002f) {
+        wf_wet = 0.0f;
+        return s;
+    }
+    wf_lp += (s - wf_lp) * 0.11f;        /* about 800 Hz */
+    x = wf_lp;
+    d = (float)wf_d[wf_i];
+    wf_d[wf_i] = wf_clamp(x + d * 0.5f);
+    if (++wf_i >= WF_D)
+        wf_i = 0;
+    y1 = (float)wf_c1[wf_j1];
+    y2 = (float)wf_c2[wf_j2];
+    y3 = (float)wf_c3[wf_j3];
+    wf_c1[wf_j1] = wf_clamp(x + y1 * 0.72f);
+    wf_c2[wf_j2] = wf_clamp(x + y2 * 0.70f);
+    wf_c3[wf_j3] = wf_clamp(x + y3 * 0.68f);
+    if (++wf_j1 >= WF_C1)
+        wf_j1 = 0;
+    if (++wf_j2 >= WF_C2)
+        wf_j2 = 0;
+    if (++wf_j3 >= WF_C3)
+        wf_j3 = 0;
+    r = (y1 + y2 + y3) * (1.0f / 3.0f);
+    return s * (1.0f - wf_wet) + wf_wet * (x + 0.5f * d + 0.55f * r);
 }
 
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
@@ -422,6 +479,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             }
         }
         s = (v + eo_lookup(eo_wt_soft, eo_drone_phase) * eo_drone_level * bend) * gain_now;
+        s = eo_underwater(s);
         lr[2 * i] = (int32_t)s;
         lr[2 * i + 1] = (int32_t)s;
     }
@@ -504,6 +562,7 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
     voice_fx = 0xFFu;
     voice_note = -1;
     eo_drone_note = -1;
+    eo_water = 0;
     voice_level = 0.0f;
     eo_drone_level = 0.0f;
     { uint32_t j; for (j = 0; j < CHORD_VOICES; j++) { eo_chord_note[j] = -1; eo_clev[j] = 0.0f; } }
@@ -904,8 +963,8 @@ static void lights(void)
         btn |= 1u << B_SAVE;
     if (ui.state == ST_SELECT || ui.state == ST_SIMONE)
         btn |= 1u << B_PLAY;             /* steady: press it (not following the sequencer's notes) */
-    else if (seq_on)
-        btn |= 1u << B_PLAY;
+    else if (seq_on || (set.game == GAME_SIMON && ui.state == ST_READY))
+        btn |= 1u << B_PLAY;             /* (Simone's game over: PLAY glows, she says it too) */
     plat_lights(btn, bright, (1u << NB) - 1u, dim, GLOW);   /* every button glows a little: readable in the dark */
     plat_lights_mid(0, mid);
 }
@@ -1158,7 +1217,7 @@ static uint32_t sim_up_t0;               /* when the level-up scene began */
 static uint8_t sim_alert;                /* her line right now is one that matters: it gets the big card */
 static uint32_t sim_fx_rng = 0x2545F491u;
 #ifdef PLAT_HOST
-static uint8_t sim_fx_force;             /* tests: 1 crystal ball, 2 goes on, 3 starts over, 4 stalls (every round that can) */
+static uint8_t sim_fx_force;             /* tests: 1 crystal ball, 2 goes on, 3 starts over, 4 stalls (every round that can), 5 only the pre-roll */
 #define SIM_FORCE sim_fx_force
 #else
 #define SIM_FORCE 0u
@@ -1177,22 +1236,26 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
     uint32_t i, step, len_ms, base, k = 0, lapse = 0, n = 0, lv = eo_level(), show = !set.mode && lv >= 2u;
     step = eo_spd(simon_step_ms(ans_len, lv));
     len_ms = eo_spd(simon_note_ms(simon_step_ms(ans_len, lv)));
-    sim_pre = show ? simon_pre_ms(lv) : 0u;
+    sim_pre = 0u;
     sim_gap_len = 0;
     sim_gap_at = 0;
     sim_gap_restart = 0;
     sim_gap_stall = 0;
     sim_crystal = 0;
-    base = 400u + sim_pre;
     if (show && ans_len >= 2u && (SIM_FORCE == 1u || (!SIM_FORCE && sim_fx_rand() % 100u < simon_crystal_pct(lv)))) {
-        sim_crystal = 1;                     /* the crystal ball: no lapse in the same round */
-    } else if (show && ans_len >= 3u && (SIM_FORCE >= 2u || (!SIM_FORCE && sim_fx_rand() % 100u < simon_lapse_pct(lv)))) {   /* a lapse after note k (0-based), never the first or the last */
-        uint32_t kind = SIM_FORCE >= 2u ? SIM_FORCE - 2u : (sim_fx_rand() >> 7) % (lv >= 3u ? 3u : 2u);   /* 0: goes on, 1: starts over, 2: stalls */
+        sim_crystal = 1;                     /* the crystal ball: no lapse in the same round, and everything slower */
+        step = step * 3u / 2u;
+        len_ms = len_ms * 3u / 2u;
+    } else if (show && ans_len >= 3u && ((SIM_FORCE >= 2u && SIM_FORCE <= 4u) || (!SIM_FORCE && sim_fx_rand() % 100u < simon_lapse_pct(lv)))) {   /* a lapse after note k (0-based), never the first or the last */
+        uint32_t kind = SIM_FORCE >= 2u && SIM_FORCE <= 4u ? SIM_FORCE - 2u : (sim_fx_rand() >> 7) % (lv >= 3u ? 3u : 2u);   /* 0: goes on, 1: starts over, 2: stalls */
         k = 1u + sim_fx_rand() % (ans_len - 2u);
         lapse = 1;
         sim_gap_restart = (uint8_t)(kind == 1u && k + 1u + ans_len <= SEQ_MAX);
         sim_gap_stall = (uint8_t)(kind == 2u);
     }
+    if (show && (sim_crystal || SIM_FORCE || sim_fx_rand() % 100u < simon_pre_pct(lv)))
+        sim_pre = simon_pre_ms(lv);          /* the pre-roll is a treat, not a habit (the crystal ball always has it: it is the announcement) */
+    base = 400u + sim_pre;
     for (i = 0; i < ans_len; i++) {          /* the notes before the lapse, or all of them when there is none (or a stall) */
         uint32_t at, ln = len_ms;
         if (lapse && !sim_gap_stall && i > k)
@@ -3770,8 +3833,10 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             return fortune[(ans_len + lv) & 3u];     /* one fortune a round, held: read the keys, not her */
     }
     if (ui.state == ST_READY) {
-        if (ui.text == TX_OVER)
-            return "The spirits sigh. The spirits... why?";
+        if (ui.text == TX_OVER) {            /* the game is over: she tells you what to press, on the big card */
+            sim_alert = 1;
+            return "Oh, the spirits cry! Press PLAY to try.";
+        }
         return lv >= 4u ? "One light. No more. Trust your ears, I implore." :
                lv == 3u ? "The lights will fade. Your ears, be unafraid." : "Press PLAY, dear. The future's near.";
     }
@@ -3827,10 +3892,67 @@ static uint32_t sim_crystal_on(void)     /* the crystal ball is showing: her pre
 }
 
 #define SIM_BLUE EO_RGB(18, 52, 160)
-static void sim_crystal_layer(uint32_t now, int32_t y0)   /* the whole screen, one band of it: bubbles rising and the word that sounds */
+static uint8_t sim_mask[32][112];        /* the word's coverage, drawn once at 1x, then painted twice the size, rippling */
+static uint32_t sim_mask_w;
+static int32_t sim_crystal_word(void)    /* the word that sounds now (0..3), or -1 */
 {
     uint32_t i, p = seq_pos;
     int32_t act = -1;
+    for (i = 0; i < seq_n; i++)
+        if (p >= seq_at[i] && p < (uint32_t)seq_at[i] + seq_len[i])
+            act = (int32_t)i;
+    return act < 0 ? -1 : (int32_t)simon_word_ix((uint32_t)seq_key[act] - SIMON_BASE);
+}
+static void sim_crystal_mask(uint32_t w)   /* the canvas is black: draw the word white, keep what it covers */
+{
+    uint32_t x, y, tw = (uint32_t)text_w(&FONT_L, SIM_WORD[w]);
+    tw = tw > 112u ? 112u : tw;
+    cv_text(0, 0, &FONT_L, SIM_WORD[w], C_WHITE);
+    for (y = 0; y < 32u; y++)
+        for (x = 0; x < tw; x++)
+            sim_mask[y][x] = (uint8_t)((swap16(cv_px[y * cv_w + x]) >> 5) & 63u);
+    sim_mask_w = tw;
+}
+static void sim_blend(int32_t x, int32_t y, uint16_t c, uint32_t a)   /* a 0..63 over what is there */
+{
+    uint32_t bg, r, g, b;
+    if (x < 0 || x >= (int32_t)cv_w || y < 0 || y >= (int32_t)cv_h || !a)
+        return;
+    bg = swap16(cv_px[(uint32_t)y * cv_w + (uint32_t)x]);
+    r = ((uint32_t)(c >> 11) * a + (bg >> 11) * (63u - a)) / 63u;
+    g = ((uint32_t)((c >> 5) & 63u) * a + ((bg >> 5) & 63u) * (63u - a)) / 63u;
+    b = ((uint32_t)(c & 31u) * a + (bg & 31u) * (63u - a)) / 63u;
+    cv_px[(uint32_t)y * cv_w + (uint32_t)x] = swap16((r << 11) | (g << 5) | b);
+}
+static void sim_crystal_paint(uint32_t now, uint32_t w)   /* the word, doubled, drifting and rippling as if seen through water */
+{
+    int32_t dy, sx, x0 = (240 - 2 * (int32_t)sim_mask_w) / 2, y0 = 36 + (int32_t)(4.0f * fm_sinf((float)now * 0.003f));
+    for (dy = 0; dy < 64; dy++) {
+        float ph = 0.2f * (float)dy + (float)now * 0.004f, wv = fm_sinf(ph);
+        int32_t off = (int32_t)(3.0f * wv);
+        for (sx = 0; sx < (int32_t)sim_mask_w; sx++) {
+            uint32_t a = sim_mask[dy / 2][sx];
+            if (!a)
+                continue;
+            sim_blend(x0 + sx * 2 + off + 5, y0 + dy + 5, EO_RGB(6, 20, 90), a * 3u / 4u);    /* the wobbling shadow below it */
+        }
+    }
+    for (dy = 0; dy < 64; dy++) {
+        float wv = fm_sinf(0.2f * (float)dy + (float)now * 0.004f);
+        int32_t off = (int32_t)(3.0f * wv);
+        uint16_t col = wv > 0.92f ? C_WHITE : SIM_COL[w];          /* a glint runs down the word */
+        for (sx = 0; sx < (int32_t)sim_mask_w; sx++) {
+            uint32_t a = sim_mask[dy / 2][sx];
+            if (!a)
+                continue;
+            sim_blend(x0 + sx * 2 + off, y0 + dy, col, a);
+            sim_blend(x0 + sx * 2 + off + 1, y0 + dy, col, a);
+        }
+    }
+}
+static void sim_crystal_layer(uint32_t now, int32_t y0, int32_t word)   /* the whole screen, one band of it: bubbles rising and the word */
+{
+    uint32_t i;
     for (i = 0; i < 10u; i++) {
         int32_t sz = 6 + (int32_t)(i % 3u) * 4;
         int32_t x = 12 + (int32_t)((i * 29u + (i * i * 13u) % 19u) % 210u);
@@ -3839,13 +3961,8 @@ static void sim_crystal_layer(uint32_t now, int32_t y0)   /* the whole screen, o
         cv_rect(x + 1, y + 1, sz - 2, sz - 2, EO_RGB(46, 96, 214));
         cv_rect(x + 2, y + 2, 2, 2, EO_RGB(200, 225, 255));
     }
-    for (i = 0; i < seq_n; i++)
-        if (p >= seq_at[i] && p < (uint32_t)seq_at[i] + seq_len[i])
-            act = (int32_t)i;
-    if (act >= 0) {
-        uint32_t w = simon_word_ix((uint32_t)seq_key[act] - SIMON_BASE);
-        cv_text((240 - text_w(&FONT_L, SIM_WORD[w])) / 2, 92 - y0, &FONT_L, SIM_WORD[w], SIM_COL[w]);
-    }
+    if (y0 == 36 && word >= 0)
+        sim_crystal_paint(now, (uint32_t)word);
 }
 
 /* the level-up scene: she bounces over the keys and says what is new in her own verse, one beat at a time */
@@ -3931,14 +4048,18 @@ static void draw(void)
     }
     key_levels(&bright, &mid, &dim);
     if (sim_crystal_on()) {                  /* the crystal ball: all three bands blue, nothing but bubbles and the word */
+        int32_t cw = sim_crystal_word();
         cv_begin(240, 36, SIM_BLUE);
-        sim_crystal_layer(now, 0);
+        sim_crystal_layer(now, 0, -1);
         cv_blit(0, 0);
+        cv_begin(240, 144, C_BLACK);         /* the word is drawn once on black, to be painted again bigger */
+        if (cw >= 0)
+            sim_crystal_mask((uint32_t)cw);
         cv_begin(240, 144, SIM_BLUE);
-        sim_crystal_layer(now, 36);
+        sim_crystal_layer(now, 36, cw);
         cv_blit(0, 36);
         cv_begin(240, 60, SIM_BLUE);
-        sim_crystal_layer(now, 180);
+        sim_crystal_layer(now, 180, -1);
         vol_overlay(36, now, pct);
         cv_blit(0, 180);
         return;
@@ -4231,8 +4352,12 @@ void app_frame(void)
         else
             copycat_round();
     }
-    if (set.game == GAME_SIMON && ui.state <= ST_LEVELUP)
+    if (set.game == GAME_SIMON && ui.state <= ST_LEVELUP) {
         sim_game_tick(now);
+        eo_water = (uint8_t)(ui.state == ST_LISTEN && seq_on && sim_crystal);
+    } else {
+        eo_water = 0;
+    }
     if (set.game == GAME_DOGTOR && ui.state != ST_INTRO && ui.state != ST_CONTROLS && ui.state != ST_MOVIE && ui.state != ST_SELECT) {
         static uint32_t last_breath;
         uint32_t br = now / 600u;

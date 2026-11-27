@@ -35,6 +35,10 @@ static inline uint32_t simon_pre_ms(uint32_t level)
 {
     return level < 2u ? 0u : level == 2u ? 1800u : 2200u;
 }
+static inline uint32_t simon_pre_pct(uint32_t level)   /* how often a round has the pre-roll (percent): rare enough to stay a surprise */
+{
+    return level <= 1u ? 0u : level == 2u ? 20u : level == 3u ? 30u : 35u;
+}
 static inline uint32_t simon_lapse_pct(uint32_t level)
 {
     return level <= 1u ? 0u : level == 2u ? 15u : level == 3u ? 40u : 55u;
