@@ -31,4 +31,10 @@ for t in app/tests/*.txt; do
         FAIL=1
     fi
 done
+# the flash budget: a summary, never a failure (tools/budget.py has the table and the plans)
+if command -v python3 > /dev/null; then
+    python3 tools/budget.py > app/build/budget.txt 2>&1
+    echo "  info budget: $(grep 'DATA TOTAL' app/build/budget.txt | sed 's/  */ /g')"
+    grep -E "OVER|near its ceiling|over 85%" app/build/budget.txt | sed 's/^/       WARN /'
+fi
 exit $FAIL

@@ -29,6 +29,17 @@ static inline uint32_t simon_lit_count(uint32_t level)
     return SIMON_LIT[level < 1u ? 0u : level > SIMON_LEVELS ? SIMON_LEVELS - 1u : level - 1u];
 }
 
+/* Simone's performance: how long her pre-roll is (the swell and the dazzle, before the sequence), and the chance, in percent,
+ * that she has a lapse in the middle of it. Level 1 has neither: easy at the start. */
+static inline uint32_t simon_pre_ms(uint32_t level)
+{
+    return level >= 2u ? 1600u : 0u;
+}
+static inline uint32_t simon_lapse_pct(uint32_t level)
+{
+    return level <= 1u ? 0u : level == 2u ? 30u : level == 3u ? 45u : 60u;
+}
+
 /* a level graduates when you get a sequence this long: the wall is about 7 notes, past 9 you have to chunk */
 static const uint8_t SIMON_GOAL[SIMON_LEVELS] = {5, 7, 9, 12};
 static inline uint32_t simon_goal(uint32_t level)

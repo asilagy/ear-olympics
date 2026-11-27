@@ -870,6 +870,9 @@ static void movie_wave(uint32_t *bright, uint32_t *mid, uint32_t *dim)
     }
 }
 
+static uint32_t sim_in_preroll(void);
+static void sim_dazzle_leds(uint32_t *bright, uint32_t *mid, uint32_t *dim);
+
 static void lights(void)
 {
     uint32_t bright, mid, dim, btn = ui.btn;
@@ -878,6 +881,8 @@ static void lights(void)
         bright = mid = dim = 0u;     /* no game yet: the keys stay dark */
     if (ui.state == ST_MOVIE)
         movie_wave(&bright, &mid, &dim);
+    if (set.game == GAME_SIMON && sim_in_preroll())
+        sim_dazzle_leds(&bright, &mid, &dim);
     if (set_dirty)
         btn |= 1u << B_SAVE;
     if (ui.state == ST_SELECT || ui.state == ST_SIMONE)
@@ -1121,26 +1126,98 @@ static void simon_grow(void)             /* one more note, then the whole sequen
     simon_play();
 }
 
+/* Simone's performance (levels 2 and up, never in practice): before her sequence a PRE-ROLL, in which she swells toward you
+ * and the lights dazzle; and sometimes a LAPSE in the middle, in which she stalls, shrinks and either starts over from the top
+ * or picks up where she left off. All of it is announced in her voice and none of it changes the answer. */
+#define SIM_GAP 1700u                    /* how long a lapse lasts */
+static uint32_t sim_pre;                 /* the pre-roll's length in ms (0: none) */
+static uint32_t sim_gap_at, sim_gap_len; /* the lapse: when it starts in the sequence's ms, and how long (0: none) */
+static uint8_t sim_gap_restart;          /* 1: she starts again from the top, 0: she goes on from where she was */
+static uint32_t sim_fx_rng = 0x2545F491u;
+
+static uint32_t sim_fx_rand(void)        /* its own little generator, so the sequence itself stays the same */
+{
+    sim_fx_rng ^= sim_fx_rng << 13;
+    sim_fx_rng ^= sim_fx_rng >> 17;
+    sim_fx_rng ^= sim_fx_rng << 5;
+    return sim_fx_rng;
+}
+
 static void simon_play(void)             /* the whole sequence, lit as it sounds (also what a practice miss repeats) */
 {
-    uint32_t i, step, len_ms;
+    uint32_t i, step, len_ms, base, k = 0, lapse = 0, n = 0;
     step = eo_spd(simon_step_ms(ans_len, eo_level()));
     len_ms = eo_spd(simon_note_ms(simon_step_ms(ans_len, eo_level())));
-    for (i = 0; i < ans_len; i++) {
-        seq_at[i] = (uint16_t)(400u + step * i);
-        seq_len[i] = (uint16_t)len_ms;
-        seq_key[i] = ans[i];
+    sim_pre = (!set.mode && eo_level() >= 2u) ? simon_pre_ms(eo_level()) : 0u;
+    sim_gap_len = 0;
+    sim_gap_at = 0;
+    base = 400u + sim_pre;
+    if (!set.mode && eo_level() >= 2u && ans_len >= 3u &&
+        sim_fx_rand() % 100u < simon_lapse_pct(eo_level())) {   /* a lapse after note k (0-based), never the first or the last */
+        k = 1u + sim_fx_rand() % (ans_len - 2u);
+        lapse = 1;
+        sim_gap_restart = (uint8_t)(((sim_fx_rand() >> 7) & 1u) && k + 1u + ans_len <= SEQ_MAX);
     }
-    for (i = 0; i < ans_len; i++)            /* the lights fade as the levels rise: only the newest notes light */
-        seq_hl[i] = (uint8_t)(i + simon_lit_count(eo_level()) >= ans_len);
-    seq_n = ans_len;
-    seq_end = 400u + step * (ans_len - 1u) + len_ms;
+    for (i = 0; i < ans_len; i++) {          /* the notes before the lapse, or all of them when there is none */
+        if (lapse && i > k)
+            break;
+        seq_at[n] = (uint16_t)(base + step * i);
+        seq_len[n] = (uint16_t)len_ms;
+        seq_key[n] = ans[i];
+        seq_hl[n] = (uint8_t)(i + simon_lit_count(eo_level()) >= ans_len);   /* the lights fade as the levels rise */
+        n++;
+    }
+    seq_end = base + step * (n - 1u) + len_ms;
+    if (lapse) {
+        sim_gap_at = base + step * k + len_ms;
+        sim_gap_len = SIM_GAP;
+        for (i = sim_gap_restart ? 0u : k + 1u; i < ans_len; i++) {     /* then the rest, or the whole thing again */
+            uint32_t at = base + step * (k + 1u) + SIM_GAP + step * (sim_gap_restart ? i : i - k - 1u);
+            seq_at[n] = (uint16_t)at;
+            seq_len[n] = (uint16_t)len_ms;
+            seq_key[n] = ans[i];
+            seq_hl[n] = (uint8_t)(i + simon_lit_count(eo_level()) >= ans_len);
+            seq_end = at + len_ms;
+            n++;
+        }
+    }
+    seq_n = n;
     eo_drone_set(-1, 0.0f);
     eo_seq_start(0, 2);
     ui.state = ST_LISTEN;
     ui.text = TX_WATCH;
     ans_pos = 0;
     eo_step_pos = -1;
+}
+
+static uint32_t sim_in_preroll(void)     /* her pre-roll is on: the swell and the dazzle, before the sequence */
+{
+    return ui.state == ST_LISTEN && seq_on && sim_pre && seq_pos < sim_pre;
+}
+
+static void sim_dazzle_leds(uint32_t *bright, uint32_t *mid, uint32_t *dim)   /* two crests run along the keys, past each other */
+{
+    uint32_t t = seq_pos, span = NKEYS + 6u, a = (t / 40u) % span, b = span - 1u - a, k;
+    *bright = *mid = *dim = 0u;
+    for (k = 0; k < NKEYS; k++) {
+        int32_t da = (int32_t)a - 3 - (int32_t)k, db = (int32_t)b - 3 - (int32_t)k;
+        if (da == 0 || db == 0)
+            *bright |= 1u << k;
+        else if (da == 1 || da == -1 || db == 1 || db == -1)
+            *mid |= 1u << k;
+        else if (da == 2 || db == 2 || da == -2 || db == -2)
+            *dim |= 1u << k;
+    }
+}
+
+static int32_t sim_env(uint32_t t, uint32_t from, uint32_t to)   /* 0..8: eased in over 300 ms, held, eased out over the last 300 */
+{
+    uint32_t a, b;
+    if (t < from || t >= to)
+        return 0;
+    a = t - from;
+    b = to - t;
+    return (int32_t)((a < b ? a : b) >= 300u ? 8u : (a < b ? a : b) * 8u / 300u);
 }
 
 static void simon_over(void)             /* the game ends: a new best is kept now, in the quiet */
@@ -3561,6 +3638,8 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
     if (now / 33u != last_fr) {
         last_fr = now / 33u;
         ui.redraw = 1;
+        if (sim_in_preroll())
+            lights();                        /* the dazzle moves with no input */
     }
 }
 
@@ -3575,10 +3654,18 @@ static void sim_key_label(int32_t x, int32_t w, int32_t y, const char *s, uint16
     cv_text(x + (w - text_w(&FONT_XS, s)) / 2, y, &FONT_XS, s, c);
 }
 
+static uint16_t sim_hue(uint32_t p)       /* a rainbow, p 0..255 */
+{
+    uint32_t r, g, bl, ph = (p & 255u) * 6u, seg = ph >> 8, f = ph & 255u;
+    r = seg == 0u ? 255u : seg == 1u ? 255u - f : seg == 2u ? 0u : seg == 3u ? 0u : seg == 4u ? f : 255u;
+    g = seg == 0u ? f : seg == 1u ? 255u : seg == 2u ? 255u : seg == 3u ? 255u - f : 0u;
+    bl = seg == 2u ? f : seg == 3u ? 255u : seg == 4u ? 255u : 0u;
+    return EO_RGB(r, g, bl);
+}
+
 static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in this band (negative: above it) */
 {
     static const uint8_t WH[5] = {7, 9, 11, 12, 14};         /* C D E F G */
-    static const int8_t BL[3] = {8, 10, 13};                 /* C# D# F#: between C D, D E, F G */
     static const uint8_t BA[3] = {0, 1, 3};                  /* the white key each follows */
     uint32_t i, bright, mid, dim;
     key_levels(&bright, &mid, &dim);
@@ -3588,6 +3675,11 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
         int play = (k != 12u);                               /* F is not in play */
         int lit = play && (int)((bright >> k) & 1u);
         uint16_t c = !play ? C_LINE : lit ? SIM_COL[ix] : mv_scale(SIM_COL[ix], 2u);
+        if (sim_in_preroll()) {              /* the dazzle: a rainbow rolls over every key, one at a time brighter */
+            uint32_t t = seq_pos, on = ((t / 110u) + i) % 5u == 2u;
+            c = mv_scale(sim_hue((t / 5u + i * 50u) & 255u), on ? 8u : 3u);
+            lit = (int)on;
+        }
         cv_rect(x, y0, 44, 90, c);
         if (lit)
             cv_rect(x, y0, 44, 3, C_WHITE);                  /* a bright rim: it is the one */
@@ -3605,6 +3697,14 @@ static void sim_keys(int32_t y0)         /* y0: where the keys' top edge is, in 
 static const char *sim_quip(uint32_t tx)                     /* what she says: rhyme, until she loses it */
 {
     uint32_t lv = eo_level();
+    if (ui.state == ST_LISTEN && seq_on) {
+        if (sim_pre && seq_pos < sim_pre)
+            return seq_pos < sim_pre / 2u ? "Look into my eyes. Deeper... deeper..." : "Keep your focus on the keys...";
+        if (sim_gap_len && seq_pos >= sim_gap_at && seq_pos < sim_gap_at + sim_gap_len)
+            return seq_pos < sim_gap_at + 600u ? "...uh." : "Where was I?";
+        if (sim_gap_len && seq_pos >= sim_gap_at + sim_gap_len && seq_pos < sim_gap_at + sim_gap_len + 1400u)
+            return sim_gap_restart ? "From the top!" : "Ah. Right. Onward.";
+    }
     if (ui.state == ST_READY) {
         if (ui.text == TX_OVER)
             return "The spirits sigh. The spirits... why?";
@@ -3620,8 +3720,6 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     return "Now you play. Don't stray.";
 }
 
-#define SIM_SX (-40)                     /* Simone's art starts a way into her sprite box: this puts her bowl at the left edge */
-#define SIM_SY (-14)
 static uint32_t sim_any_lit(void)
 {
     uint32_t i, bright, mid, dim;
@@ -3632,11 +3730,24 @@ static uint32_t sim_any_lit(void)
     return 0;
 }
 
-static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her, two and a half times life size, over the keys: once per band */
+static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her, big, over the keys: once per band */
 {
-    mv_oy = band_top;                                        /* the sprite painter clips to the band, in the middle band's coordinates */
+    int32_t num = 20, ox, oy, pose = (int32_t)sim_any_lit();
+    if (ui.state == ST_LISTEN && seq_on) {
+        if (sim_pre && seq_pos < sim_pre) {  /* the push: she swells toward you and falls back, over and over, eyes wide */
+            uint32_t ph = seq_pos % 900u;
+            int32_t tri = ph < 450u ? (int32_t)ph : (int32_t)(900u - ph);       /* 0..450..0 */
+            num = 20 + sim_env(seq_pos, 0u, sim_pre) * tri * 14 / 450 / 8;
+            pose = 1;
+        } else if (sim_gap_len && seq_pos >= sim_gap_at && seq_pos < sim_gap_at + sim_gap_len) {
+            num = 20 - sim_env(seq_pos, sim_gap_at, sim_gap_at + sim_gap_len) * 7 / 8;     /* the lapse: she shrinks back */
+        }
+    }
+    ox = 80 - 6 * num;                       /* the bowl stays centred on the same spot as she swells */
+    oy = 76 - (9 * num) / 2;
+    mv_oy = band_top;                        /* the sprite painter clips to the band, in the middle band's coordinates */
     mv_h = band_h;
-    cast_paint(0u, sim_any_lit() ? 1u : 0u, SIM_SX, SIM_SY + (int32_t)((now / 700u) & 1u), 5, 2);
+    cast_paint(0u, (uint32_t)pose, ox, oy + (int32_t)((now / 700u) & 1u), num, 8);
 }
 
 static void sim_band(uint32_t now)
@@ -3644,6 +3755,8 @@ static void sim_band(uint32_t now)
     uint32_t tx = eo_text();
     sim_keys(114);
     sim_sprite(now, 0, 144);
+    if (sim_in_preroll())                    /* she swells over her own words: they sit on a black card */
+        cv_rect(150, 8, 90, 76, C_BLACK);
     wrap_text(154, 14, 82, &FONT_S, sim_quip(tx), (tx == TX_NICE || tx == TX_WATCH) ? C_HI : C_WHITE, 18);
 }
 
@@ -4143,6 +4256,16 @@ int app_expect(const char *what, int *got)
         *got = (int)bright;
     else if (!strcmp(what, "mid"))
         *got = (int)mid;
+    else if (!strcmp(what, "gap"))           /* the lapse's length (0: none this round), and which kind */
+        *got = (int)sim_gap_len;
+    else if (!strcmp(what, "gaprestart"))
+        *got = (int)sim_gap_restart;
+    else if (!strcmp(what, "gapat"))
+        *got = (int)sim_gap_at;
+    else if (!strcmp(what, "seqn"))
+        *got = (int)seq_n;
+    else if (!strcmp(what, "pre"))           /* Simone's pre-roll is on */
+        *got = (int)sim_in_preroll();
     else if (!strcmp(what, "wave")) {        /* the movie's wave: the crest's key mask now */
         uint32_t wb = 0, wm = 0, wd = 0;
         movie_wave(&wb, &wm, &wd);

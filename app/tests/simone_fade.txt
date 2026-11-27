@@ -24,8 +24,10 @@ expect level 4
 tap PLAY
 wait 100
 expect state 1
-# round 1: one note, so the newest is the only one, and it lights
-wait 400
+# round 1: a pre-roll (the swell and the dazzle, 1.6 s), then one note: the newest is the only one, and it lights
+wait 800
+expect pre 1
+wait 1200
 expect note 64
 expect bright 2048
 wait 600
@@ -37,7 +39,7 @@ wait 1400
 expect state 1
 expect len 2
 # round 2: the first note (E4) sounds in the dark, the second (G4) lights
-wait 200
+wait 1900
 expect note 64
 expect bright 0
 wait 500
