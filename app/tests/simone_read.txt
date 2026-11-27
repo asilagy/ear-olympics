@@ -1,0 +1,21 @@
+# the reading times: with them on, a long pause line is typed out in full and stays up before the next round starts
+expect read1 1
+wait 600
+tap HOME
+wait 50
+tap PLAY
+wait 50
+tap HOME
+wait 50
+turn PRESET -1
+wait 30
+tap PLAY
+wait 600
+wait 290
+expect state 2
+key 11 down
+wait 30
+key 11 up
+expect state 3
+wait 4000
+expect state 5

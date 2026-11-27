@@ -31,7 +31,7 @@ static inline uint32_t simon_lit_count(uint32_t level)
  * that she has a lapse in the middle of it. Level 1 has neither: easy at the start. */
 static inline uint32_t simon_pre_ms(uint32_t level)
 {
-    return level <= 2u ? 1800u : 2400u;
+    return level <= 2u ? 2800u : 3200u;
 }
 /* her tricks, in the order a player meets them: ONE new trick per level (WarioWare: show it once on a short round, let them play
  * it, then it joins a small random pool; a later level twists it). The chance, in percent, a round has each, by level 1..8.

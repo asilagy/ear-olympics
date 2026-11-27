@@ -1261,6 +1261,7 @@ static uint32_t sim_pre;                 /* the pre-roll's length in ms (0: none
 static uint32_t sim_gap_at, sim_gap_len; /* the lapse: when it starts in the sequence's ms, and how long (0: none) */
 static uint8_t sim_gap_restart;          /* 1: she starts again from the top, 0: she goes on from where she was */
 static uint8_t sim_gap_stall;            /* 1: no gap: she holds one note a long time, thinking */
+static const char *sim_full;            /* (declared again where it is used: the whole of the line being typed) */
 static uint8_t sim_say_n;                /* counts her rounds: it picks which of her lines she says, so they come round slowly */
 static uint8_t sim_dark;                 /* 1: this round the older notes sound in the dark */
 static uint8_t sim_distract;             /* the round just played had a trick: she is extra complimentary after it */
@@ -1274,8 +1275,11 @@ static uint32_t sim_fx_rng = 0x2545F491u;
 #ifdef PLAT_HOST
 static uint8_t sim_fx_force = SIM_NOFX;             /* tests: 1 crystal ball, 2 goes on, 3 starts over, 4 stalls (every round that can), 5 only the pre-roll, 6 none (the default here), 7 none but Meow drops in at every pause, 0 chance and debuts */
 #define SIM_FORCE sim_fx_force
+static uint8_t sim_read_on;                         /* tests: the reading times (the long announcements and pauses) are off, unless a test says read1 */
+#define SIM_READ sim_read_on
 #else
 #define SIM_FORCE 0u
+#define SIM_READ 1u
 #endif
 
 static uint32_t sim_fx_rand(void)        /* its own little generator, so the sequence itself stays the same */
@@ -1443,18 +1447,18 @@ static void simon_play(void)             /* the whole sequence, lit as it sounds
             sim_gap_stall = (uint8_t)(fx == SIMON_FX_STALL);
         }
         if (fx == SIMON_FX_PRE || fx == SIMON_FX_CRYSTAL || (f >= 2u && f <= 4u && fx))
-            sim_pre = simon_pre_ms(lv);      /* (the crystal ball always has it: it is the announcement) */
+            sim_pre = SIM_READ ? simon_pre_ms(lv) : (lv <= 2u ? 1800u : 2400u);      /* (the crystal ball always has it: it is the announcement) */
         if (sim_dark || sim_mute)
-            sim_pre = 4200u;                 /* two beats of words */
+            sim_pre = SIM_READ ? 6200u : 4200u;   /* two beats of words: about three seconds each, enough to read */
         if (sim_twice && !hint)
-            sim_pre = 4200u;                 /* two beats of words */
+            sim_pre = SIM_READ ? 6200u : 4200u;                 /* two beats of words */
         if (sim_sleepy)
-            sim_pre = 3600u;                 /* two beats of words */
+            sim_pre = SIM_READ ? 5400u : 3600u;   /* two beats of words */
         if (sim_pre_first)
-            sim_pre = 3200u;                 /* the first time, time to read what it is */
+            sim_pre = SIM_READ ? 4400u : 3200u;   /* the first time, time to read what it is */
     }
     if (angry) {
-        sim_pre = 4800u;
+        sim_pre = SIM_READ ? 6200u : 4800u;
         step = step * 7u / 5u;               /* backwards is hard: a slower pace, and every key stays lit */
         len_ms = len_ms * 7u / 5u;
         lit = 255u;
@@ -3724,7 +3728,7 @@ typedef struct { const char *l[3]; int16_t ev_at; int8_t ev; } sim_card_t;   /* 
 static const sim_card_t sim_cards[SIM_CARDS] = {
     {{"Come closer, seeker, hear my call,", "for I see all. I am Simon~.", "I know it all."}, 0, 1},
     {{"Gaze into my crystal bowl,", "into my eyes,", "where your fate and future lies."}, 0, 0},
-    {{"I looked three seconds on, and saw", "the fate of every... uh. Hm.", ""}, 56, -1},          /* the music drops out on "uh" */
+    {{"I looked three seconds on, and saw", "the fate of every... uh. Hm.", ""}, 57, -1},          /* the music drops out on "uh" */
     {{"It was right here.", "It was a... thing.", "It had a... shape."}, 0, 0},
     {{"Aw shucks... I was doing so well...", "What was I saying?", ""}, 0, 0},
     {{"No matter! Spirits speak in four:", "Drip. Water. Splash. Splish.", ""}, 0, 1},
@@ -3741,44 +3745,44 @@ static uint8_t sim_up_mode;              /* the cards are a level-up's: the end 
 static const sim_card_t sim_up_cards[SIMON_LEVELS - 1u][5] = {
     {
         {{"Level two! Simon~ sees you glow.", "Simon~ knew you'd pass. ...She knew.", ""}, 0, 1},
-        {{"Your eyes grow heavy, dear. Sleep is near.", "I had a dark premonition... a...", "a tabby... uh. Hm."}, 87, -1},
-        {{"No matter! Drowsy or bright,", "we'll play till the stars say good night.", ""}, 0, 1},
+        {{"Your eyes grow heavy. Sleep is near.", "I had a dark premonition... a...", "a tabby... uh. Hm."}, 82, -1},
+        {{"No matter! Drowsy or bright,", "we'll play till stars say good night.", ""}, 0, 1},
     },
     {
         {{"Level three! Simon~ spots a gem.", "The spirits clap. Simon~ claps too.", ""}, 0, 1},
-        {{"The crystal ball may call. Don't fall.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 95, -1},
+        {{"The crystal ball may call. Don't fall.", "I had a dark premonition... a...", "a van... a stranger... uh. Hm."}, 96, -1},
         {{"Blue and bubbly, words alone.", "Hold your breath. Make them your own.", ""}, 0, 1},
     },
     {
         {{"Level four! Come, ask for more.", "A star pupil, I adore!", ""}, 0, 1},
-        {{"I may lose my place. Don't lose your pace.", "I had a dark premonition... a...", "a ghost... in a bowl... uh. Hm. That's me."}, 100, -1},
+        {{"I may lose my place. Keep your pace.", "I had a dark premonition... a...", "a ghost in a bowl... uh. Hm. Me."}, 92, -1},
         {{"If I forget, don't fret.", "Just wait, and I'll remember yet.", ""}, 0, 1},
     },
     {
         {{"Level five! Simon~ feels you thrive!", "The spirits hum. Simon~ hums along.", ""}, 0, 1},
-        {{"Some notes are shy. Use your eye.", "I had a dark premonition... a...", "a raccoon... in a trench coat... uh. Hm."}, 100, -1},
+        {{"Some notes are shy. Use your eye.", "I had a dark premonition... a...", "a raccoon in a trench coat... uh. Hm."}, 98, -1},
         {{"Read the words, my sweet.", "Drip, water, splash, repeat.", ""}, 0, 1},
         {{"Another firmware calls your name,", "a drum machine, a different game?", ""}, 0, 0},
         {{"But darling, none will help your ear", "like Simon~ the Clairvoyant,", "so stay right here."}, 0, 1},
     },
     {
-        {{"Level six! Oh, what a mix!", "Simon~ taught the spirits all these tricks.", ""}, 0, 1},
-        {{"My riddles say how to play today.", "I had a dark premonition... a...", "a dog... in scrubs... uh. Hm."}, 89, -1},
+        {{"Level six! Oh, what a mix!", "Simon~ taught the spirits the tricks.", ""}, 0, 1},
+        {{"My riddles say how to play today.", "I had a dark premonition... a...", "a dog... in scrubs... uh. Hm."}, 90, -1},
         {{"Listen close, my dear.", "The riddle makes it clear.", ""}, 0, 1},
-        {{"Simon~ lives in a bowl inside the FM-1...", "A box of whimsy, a box of fun.", ""}, 0, 0},
+        {{"Simon~ lives in a bowl in the FM-1...", "A box of whimsy, a box of fun.", ""}, 0, 0},
         {{"The best firmware? Simon~ once knew.", "Too many to remember,", "Simon~ doesn't have a clue."}, 0, 1},
     },
     {
         {{"Level seven! Simon~ is in heaven!", "Even her crystal says you're clever.", ""}, 0, 1},
-        {{"I'll dim the lights. Your ears take flight.", "I had a dark premonition... a...", "a speaker... that talks... uh. Hm."}, 104, -1},
+        {{"I'll dim the lights. Ears take flight.", "I had a dark premonition... a...", "a speaker... that talks... uh. Hm."}, 100, -1},
         {{"Close your eyes. Don't be shy.", "Your ears will see them passing by.", ""}, 0, 1},
     },
     {
-        {{"Level eight! The final gate!", "Oh darling, Simon~ knew you'd be worth it.", ""}, 0, 1},
-        {{"All my tricks, in any weather.", "I had a dark premonition... a...", "a low, dark root... uh. Hm. Coming."}, 84, -1},
-        {{"Another firmware calls your name,", "a synth, a sampler... it's all the same...", ""}, 0, 0},
+        {{"Level eight! The final gate!", "Darling, Simon~ knew you'd be worth it.", ""}, 0, 1},
+        {{"All my tricks, in any weather.", "I had a dark premonition... a...", "a low, dark root... uh. Hm. Coming."}, 85, -1},
+        {{"Another firmware calls your name,", "a synth, a sampler... all the same...", ""}, 0, 0},
         {{"No, wait. It isn't. Come back, my dear,", "only I, Simon~, will train your ear.", ""}, 0, 0},
-        {{"Do too well, and the spirits yell!", "But you'll be fine. ...Probably. Farewell.", ""}, 0, 1},
+        {{"Do too well, and the spirits yell!", "You'll be fine. ...Probably. Farewell.", ""}, 0, 1},
     },
 };
 static uint8_t sim_card, sim_hi, sim_music, sim_ev_done;   /* the card now, and the one the show ends after */
@@ -3965,16 +3969,19 @@ static void sim_line(int32_t y, const char *s, uint32_t n, uint16_t col)   /* on
     char full[48], part[48];
     uint32_t i, len = (uint32_t)eo_strlen(s);
     int32_t x0;
+    const felucca_font_t *f = &FONT_S;
     for (i = 0; i < len && i < 47u; i++)
         full[i] = s[i] == '~' ? 'e' : s[i];
     full[i] = 0;
+    if (text_w(&FONT_S, full) > 222)                     /* too wide for the screen: the smaller font, never cut off */
+        f = &FONT_XS;
     x0 = 10;                                             /* every line from the same left edge, like a typewriter */
     if (n > len)
         n = len;
     for (i = 0; i < n && i < 47u; i++)
         part[i] = full[i];
     part[i] = 0;
-    mtext(x0, y, &FONT_S, part, col);
+    mtext(x0, y, f, part, col);
     for (i = 0; i < n; i++)
         if (s[i] == '~') {
             char pre[48];
@@ -3983,7 +3990,7 @@ static void sim_line(int32_t y, const char *s, uint32_t n, uint16_t col)   /* on
             for (j = 0; j < i; j++)
                 pre[j] = full[j];
             pre[j] = 0;
-            ex = x0 + text_w(&FONT_S, pre) + text_w(&FONT_S, "e") / 2;
+            ex = x0 + text_w(f, pre) + text_w(f, "e") / 2;
             mrect(ex, y + 1, 3, 2, col);
             mrect(ex - 2, y + 3, 3, 2, col);
         }
@@ -4132,6 +4139,11 @@ static void sim_game_tick(uint32_t now)                  /* a frame about every 
         ui.redraw = 1;
         if (ui.state == ST_GAP) {            /* her pause line types itself out, a bubble a letter */
             uint32_t n = sim_gap_n(now);
+            if (SIM_READ && sim_full && !sim_cameo) {    /* the pause lasts until the line is typed out and has been on screen long enough to read */
+                uint32_t need = sim_gap_t0 + 250u + 55u * (uint32_t)eo_strlen(sim_full) + 2200u;
+                if (gap_until < need)
+                    gap_until = need;
+            }
             if (n < sim_typed_n)
                 sim_typed_n = 0;             /* (the second beat of a cameo starts the typing again) */
             if (n > sim_typed_n) {
@@ -4610,15 +4622,6 @@ static void sim_band(uint32_t now)
     const char *q;
     sim_keys(114);
     sim_sprite(now, 0, 144);
-    if (ui.state == ST_GAP && sim_cameo) {   /* Meow drops in, and leaves again */
-        uint32_t t = now - sim_gap_t0;
-        int32_t in = (int32_t)(t < 600u ? t : 600u), out = t > 5900u ? (int32_t)(t - 5900u) : 0;
-        mv_oy = 0;
-        mv_h = 144;
-        spr_flip = 1;                        /* he faces the bowl */
-        cast_paint(EO_CAST_CAT, 1u, 240 - in * 170 / 600 + out * 170 / 700, 4, 16, 8);
-        spr_flip = 0;   /* as big as the bowl: he looms */
-    }
     q = sim_quip(tx);
     if (sim_alert) {                         /* this one matters: a big card across the screen, its border flashing (red: the spirits are angry) */
         uint16_t bc = sim_alert == 2u ? ((now / 220u) & 1u ? EO_RGB(255, 60, 60) : C_HI) : ((now / 220u) & 1u ? C_HI : C_AMB);
@@ -4631,20 +4634,31 @@ static void sim_band(uint32_t now)
         return;
     }
     {
-        int32_t yb;
+        int32_t yb, bx = (ui.state == ST_GAP && sim_cameo) ? 4 : 136;   /* (with Meow in, her card moves to the top left, so his head is not under it) */
+        int32_t bw = bx == 4 ? 126 : 102;
         const felucca_font_t *fn = &FONT_B;
         int32_t lh = 20;
         wrap_dry = 1;
-        yb = wrap_text(142, 12, 90, &FONT_B, sim_full ? sim_full : q, C_WHITE, 20);
-        if (yb > 126) {                                       /* a long line: the small font, so none of it is cut off */
+        yb = wrap_text(bx + 6, 12, bw - 12, &FONT_B, sim_full ? sim_full : q, C_WHITE, 20);
+        if (yb > (bx == 4 ? 60 : 126)) {                      /* a long line: the small font, so none of it is cut off */
             fn = &FONT_S;
             lh = 15;
-            yb = wrap_text(142, 12, 90, fn, sim_full ? sim_full : q, C_WHITE, lh);
+            yb = wrap_text(bx + 6, 12, bw - 12, fn, sim_full ? sim_full : q, C_WHITE, lh);
         }
         wrap_dry = 0;
-        cv_rect(136, 6, 102, yb - 6, C_BLACK);                /* her words sit on a black card over her bowl */
-        wrap_text(142, 12, 90, fn, q, (tx == TX_NICE || tx == TX_WATCH || ui.state == ST_GAP) ? C_HI : C_WHITE, lh);
+        cv_rect(bx, 6, bw, yb - 6, C_BLACK);                  /* her words sit on a black card over her bowl */
+        wrap_text(bx + 6, 12, bw - 12, fn, q, (tx == TX_NICE || tx == TX_WATCH || ui.state == ST_GAP) ? C_HI : C_WHITE, lh);
     }
+    if (ui.state == ST_GAP && sim_cameo) {   /* Meow drops in, and leaves again: drawn last, over everything */
+        uint32_t t = now - sim_gap_t0;
+        int32_t in = (int32_t)(t < 600u ? t : 600u), out = t > 5900u ? (int32_t)(t - 5900u) : 0;
+        mv_oy = 0;
+        mv_h = 144;
+        spr_flip = 1;                        /* he faces the bowl */
+        cast_paint(EO_CAST_CAT, 1u, 240 - in * 170 / 600 + out * 170 / 700, 4, 16, 8);
+        spr_flip = 0;   /* as big as the bowl: he looms */
+    }
+
 }
 
 static uint8_t sim_dream;                /* this frame is the sleepy screen: gray-blue, rippling like a sine wave running down it */
@@ -5262,6 +5276,10 @@ int app_expect(const char *what, int *got)
         *got = (int)sim_gap_at;
     else if (!strcmp(what, "seqn"))
         *got = (int)seq_n;
+    else if (!strncmp(what, "read", 4)) {    /* a test hook: readN turns the reading times on (1) or off (0) */
+        sim_read_on = (uint8_t)atoi(what + 4);
+        *got = sim_read_on;
+    }
     else if (!strncmp(what, "fx", 2)) {      /* a test hook: fxN forces her effect N from now on (0: leave it to chance) */
         sim_fx_force = (uint8_t)atoi(what + 2);
         *got = sim_fx_force;
