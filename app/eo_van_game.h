@@ -1592,7 +1592,7 @@ static void van_pong_draw(uint32_t now)   /* the TV in close-up: the glass with 
     mrect(fx - bz, fy - bz, PG_W + 2 * bz, PG_H + 2 * bz, EO_RGB(14, 22, 30));
     if (eo_res_ok()) {
         van_tint_init();
-        van_tv_glass(now, 66, 0u, 230, 85, 36, 0);     /* the same glass as the static gag, but he is further back (smaller), and no static: it is just the game on the screen */
+        van_tv_glass(now, 66, 0u, 230, 85, 20, 0);     /* the same glass as the static gag, but he is further back (smaller), and no static: it is just the game on the screen */
     }
     mrect(18, 8, 204, fy - bz - 8, frame);                                  /* the bezel, over anything that spilled */
     mrect(18, fy + PG_H + bz, 204, 136 - (fy + PG_H + bz), frame);
@@ -1769,8 +1769,8 @@ static void van_scene(uint32_t now)
                         for (q = 0; q < j; q++)
                             pre[q] = buf[q];
                         pre[q] = 0;
-                        mrect(8 + text_w(&FONT_M, pre) + text_w(&FONT_M, "e") / 2 + 1, 146 + (int32_t)k * 23, 4, 2, col);
-                        mrect(8 + text_w(&FONT_M, pre) + text_w(&FONT_M, "e") / 2 - 2, 148 + (int32_t)k * 23, 4, 2, col);
+                        mrect(8 + text_w(&FONT_M, pre) + text_w(&FONT_M, "e") / 2 + 1, 150 + (int32_t)k * 23, 3, 2, col);
+                        mrect(8 + text_w(&FONT_M, pre) + text_w(&FONT_M, "e") / 2 - 1, 152 + (int32_t)k * 23, 3, 2, col);
                     }
             }
         }
