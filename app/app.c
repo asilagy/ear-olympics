@@ -5355,9 +5355,9 @@ void app_frame(void)
                 last_bt = 0xFFFFFFFFu;
             }
             bi = (bt - bt0) & 15u;
-            {   /* the pad: from the second time round the two bars, a string-pad major triad, an octave up from before, on each bass note (G, Eb, F), the level an arc over the two bars */
+            {   /* the pad: from the second time round the two bars, a string-pad major triad on each bass note (G, Eb, F), voiced so each note moves only a step or two, the level an arc over the two bars */
                 uint32_t u = now * SEL_BPM8 - bt0 * 60000u;
-                static const int32_t pc[3][3] = {{67, 71, 74}, {63, 67, 70}, {65, 69, 72}};
+                static const int32_t pc[3][3] = {{67, 71, 74}, {67, 70, 75}, {65, 69, 72}};
                 const int32_t *c = pc[bi < 8u ? 0 : bi < 12u ? 1 : 2];
                 eo_pad_n[0] = c[0];
                 eo_pad_n[1] = c[1];
