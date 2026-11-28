@@ -113,6 +113,8 @@ static volatile int32_t eo_blub_note;
 static volatile float eo_blub_glide;     /* Van: the chirp's pitch glide (-0.5 down .. +0.8 up) */
 static volatile uint8_t eo_noise_on;     /* the TV: white-ish noise, faded in and out (eo_noise_vol is its level) */
 static volatile float eo_noise_vol;
+static volatile uint8_t eo_radio_on;    /* Van's radio, in the next room: a slow bossa loop, quiet, ducked before every question */
+static volatile float eo_radio_vol;
 static volatile uint8_t eo_blub_soft;    /* Van's talk: rounder, longer bubbles with a Hann envelope, and a letter that comes while one is sounding waits (no cut, no click) */
 static volatile uint8_t eo_rev;          /* 1: the bell plays reversed: it swells in and stops, like a tape run backwards */
 static volatile float eo_bend_v = 1.0f;  /* the record's speed now (for the tests) */
@@ -272,7 +274,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
     static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_pm, nz_lp, nz_lev;
-    static uint32_t nz_s = 0x2545F491u;
+    static uint32_t nz_s = 0x2545F491u, rd_t, rd_step;
+    static float rd_lev, rd_lp, rd_ph[5], rd_inc[5], rd_e[5];
     static float blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
     static uint32_t gong_seen;
     static uint8_t stopping, rising;
@@ -524,7 +527,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                         eo_rv_i[j] = 0;
                     wet += y;
                 }
-                float bl = 0.0f, bs = 0.0f, nz = 0.0f;
+                float bl = 0.0f, bs = 0.0f, nz = 0.0f, rd = 0.0f;
                 if (bass_age < 0.30f) {          /* a plucked bass: a saw whose brightness closes as it decays, over a sub sine; 4 ms in, then a fall */
                     float env = (bass_age < 0.004f ? bass_age * 250.0f : 1.0f) * (1.0f - bass_age * (1.0f / 0.30f)) * (1.0f - bass_age * (1.0f / 0.30f));
                     float sw = eo_lookup(eo_wt_saw, bass_ph);
@@ -580,7 +583,37 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     nz_lev += ((eo_noise_on ? eo_noise_vol : 0.0f) - nz_lev) * 0.0004f;
                     nz = (0.55f * w + 0.9f * nz_lp) * nz_lev;
                 }
-                v = vo * bend + cs * bend + bv + bl + bs + nz + wet * 0.45f;
+                if (eo_radio_on || rd_lev > 0.0001f) {   /* the radio: Dm7, G7, Cmaj7, A7, on a bossa pattern; plucks, softened, like a wall is in the way */
+                    static const uint8_t CH[4][4] = {{50, 53, 57, 60}, {55, 59, 62, 65}, {52, 55, 59, 64}, {49, 52, 55, 57}};
+                    static const uint8_t BS[4][2] = {{38, 45}, {43, 50}, {36, 43}, {33, 40}};
+                    uint32_t k;
+                    float sum = 0.0f;
+                    rd_lev += ((eo_radio_on ? eo_radio_vol : 0.0f) - rd_lev) * 0.00004f;
+                    if (++rd_t >= 10176u) {
+                        uint32_t st = rd_step++ & 31u, bar = (st >> 3) & 3u;
+                        rd_t = 0;
+                        st &= 7u;
+                        if (st == 0u || st == 3u || st == 6u)
+                            for (k = 0; k < 4u; k++) {
+                                rd_inc[k] = eo_note_inc((int32_t)CH[bar][k]);
+                                rd_e[k] = 1.0f;
+                            }
+                        if (st == 0u || st == 4u) {
+                            rd_inc[4] = eo_note_inc((int32_t)BS[bar][st == 4u ? 1u : 0u]);
+                            rd_e[4] = 1.0f;
+                        }
+                    }
+                    for (k = 0; k < 5u; k++) {
+                        rd_ph[k] += rd_inc[k];
+                        if (rd_ph[k] >= 1.0f)
+                            rd_ph[k] -= 1.0f;
+                        sum += (fm_sinf(6.2831853f * rd_ph[k]) + 0.3f * fm_sinf(12.566371f * rd_ph[k])) * rd_e[k] * (k == 4u ? 0.9f : 0.3f);
+                        rd_e[k] *= k == 4u ? 0.99985f : 0.99991f;
+                    }
+                    rd_lp += 0.16f * (sum - rd_lp);
+                    rd = rd_lp * rd_lev * 0.026f;
+                }
+                v = vo * bend + cs * bend + bv + bl + bs + nz + rd + wet * 0.45f;
             }
         }
         if (smp_run) {                   /* 8 kHz to 44.1 kHz: a straight line between two neighbours */
@@ -5535,6 +5568,18 @@ int app_expect(const char *what, int *got)
         van_choose(0);
         *got = (int)van_cn * 100 + (int)van_cur;
     }
+    else if (!strcmp(what, "vanradio"))     /* the radio's level, in percent */
+        *got = (int)(eo_radio_on ? eo_radio_vol * 100.0f + 0.5f : 0.0f);
+    else if (!strcmp(what, "vanblink")) {   /* a test hook: the staring contest now */
+        van_blink_start();
+        *got = 0;
+    }
+    else if (!strcmp(what, "vanten")) {     /* a test hook: ten-ish now; the count comes back */
+        van_ten_start();
+        *got = 0;
+    }
+    else if (!strcmp(what, "vantens"))
+        *got = van_tens;
     else if (!strcmp(what, "vanfish")) {  /* a test hook: the long look at the fish now */
         van_fish_start();
         *got = 0;

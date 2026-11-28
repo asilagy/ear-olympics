@@ -41,7 +41,7 @@ static const van_level_t *van_level(uint32_t l) { return &van_level_tab[(l >= 1u
 
 /* ---- the lines */
 enum { P_IDLE, P_LOUNGE, P_TALK, P_LAUGH, P_COOKED, P_TAPE, P_SNACK, P_PHONE, P_ASLEEP, P_FISH };   /* the poses: the cast's two, then Van's seven */
-enum { K_SAY, K_ASK, K_MEOW, K_HUM, K_FISH };
+enum { K_SAY, K_ASK, K_MEOW, K_HUM, K_FISH, K_BLINK, K_TEN, K_PHONE };
 typedef struct {
     const char *c[4];                    /* the cards, in order (the last is the question for an ask) */
     uint8_t kind, pose;
@@ -158,6 +158,12 @@ static const van_beat_t van_beat[] = {
      {"Really? ...Okay. I'm putting it in the fridge. For later.", "Yeah. It's a draft. A long draft. I'll cut it. ...Probably not.", "Encore? ...Okay. I only know this one. ...Mashed potatoes."}},
     /* 83: after the cat (thread 2): the petting */
     VAN_SAY(P_TALK, "Meow lets me pet him. That reminds me. I petted a human once.", "I asked first. He said, 'Dude, I'm a person.'", "I felt really bad. Then he gave me a pretzel, so it worked out."),
+    /* 84: the staring contest (he loses, on purpose or not) */
+    {{"*Van stares at you. He is not blinking.", "Staring contest. Go. Don't blink.", 0, 0}, K_BLINK, P_TALK, {0, 0, 0}, {0, 0, 0}},
+    /* 85: ten-ish, where nothing is at stake */
+    {{"Okay, weird one. Can you do something ten times?", "Like, press anything. Ten-ish. I'll count.", "*Press anything. Ten-ish.", 0}, K_TEN, P_LOUNGE, {0, 0, 0}, {0, 0, 0}},
+    /* 86: Mom calls */
+    {{"*A tiny phone buzzes. Van picks it up.", "Hey, Mom. ...No, I'm at work. ...Measuring. ...Yes, things.", "...Yes, I ate. A snack is a meal if you're brave. ...Love you too. Bye. Bye. Bye.", "*Van hangs up. ...Mom says hi. And to wear a hat."}, K_PHONE, P_PHONE, {0, 0, 0}, {0, 0, 0}},
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
@@ -183,6 +189,10 @@ static const char *const van_song[] = {
     "*Van opens his eyes. He seems surprised it's over.",
 };
 #define VAN_NSONG ((uint32_t)(sizeof van_song / sizeof van_song[0]))
+static const char *const van_radio_down = "*Van turns the radio down.";
+static const char *const van_blink_after[3] = {"*Van blinked.", "...You win.", "I wasn't even trying. ...Okay, I was a little."};
+static const char *const van_ten_after[4] = {"Zero. Bold. Ten-ish? No. But bold.", "That's... not ten. Ten-ish, if you squint.", "Ten-ish! That's ten-ish. I can't explain it. I just know.", "That's a lot of ten. Like, several tens."};
+static const char *const van_ten_end = "No points. Nothing happens. ...That's the best part.";
 static const char *const van_lead[8] = {"*Van pulls out the tape measure.", "Hold on. Gotta measure something.", "Okay, tape measure time.", "Two notes. How far apart?",
                                          "Yep. Still my job. Measuring stuff.", "Don't mind me. I'm just here to measure stuff.", "That's what I'm here for. Gaps.", "Okay. Back to work. Sort of."};
 static const char *const van_right[12] = {"Sick.", "Nice ears, dude.", "That's the one.", "That one landed.", "Okay, you've done this before.", "Yep.", "Ears: confirmed.",
@@ -193,7 +203,7 @@ static const char *const van_up[2] = {"New level, bro. Bigger gaps.", "You got b
 
 /* ---- conversation: beats come in threads (a few that follow from one another), with a link between threads, so it talks
  * like a person who wanders but does not just list facts. Each number is an index into van_beat[]; 255 ends a thread. */
-#define VAN_THREADS 25u
+#define VAN_THREADS 28u
 #define VAN_FIRST_INNER 82u                  /* beat 82 is only reached from the song, not from a thread */
 static const uint8_t van_thread[VAN_THREADS][6] = {
     {0, 7, 1, 8, 3, 9},                  /* humans, and their habits */
@@ -220,6 +230,9 @@ static const uint8_t van_thread[VAN_THREADS][6] = {
     {77, 78, 255, 0, 0, 0},              /* you: being human */
     {79, 80, 255, 0, 0, 0},              /* you: the measuring, and snacks */
     {81, 255, 0, 0, 0, 0},               /* the song */
+    {84, 255, 0, 0, 0, 0},               /* the staring contest */
+    {85, 255, 0, 0, 0, 0},               /* ten-ish */
+    {86, 255, 0, 0, 0, 0},               /* Mom */
     {69, 70, 71, 72, 255, 0},            /* the pigeon */
 };
 static const char *const van_link_new[8] = {"Anyway.", "Okay, different thing.", "Oh. Unrelated.", "Hm. Random.", "So. Update.",

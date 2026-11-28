@@ -1,0 +1,56 @@
+# The radio (quiet, ducked before a question), the staring contest (unskippable, Van loses), ten-ish (a count, no win), italics.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 600
+expect vanradio 100
+expect vanask 0
+wait 100
+expect vanradio 0
+# the staring contest
+expect vanblink 0
+expect vanmode 5
+wait 3000
+shot van_blink0.png
+tap PLAY
+wait 50
+expect vanmode 5
+wait 3800
+shot van_blink1.png
+wait 600
+expect vanmode 0
+expect vancards 3
+shot van_blink2.png
+# ten-ish
+expect vanten 0
+expect vanmode 6
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+shot van_ten0.png
+expect vantens 10
+wait 3400
+expect vanmode 0
+expect vancards 2
+shot van_ten1.png

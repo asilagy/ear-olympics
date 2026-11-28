@@ -5,19 +5,21 @@
  * they are on the lit answer keys. Nothing is ever lost: a wrong answer is a shrug and the right key lights. */
 #include "eo_interval.h"
 
-enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH };                        /* what the keys do now */
-enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH };                         /* what comes when the cards run out */
+enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH, VM_BLINK, VM_TEN };                        /* what the keys do now */
+enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };                         /* what comes when the cards run out */
 #define VAN_CARDS 24u
 #define VAN_LINES 10u
 #define VAN_CPS 18u                                                  /* the typing speed: letters a second */
 #define VAN_HUM_MS 10000u
 #define VAN_FISH_MS 8000u                                            /* the long look at the fish: a quiet moment, not skippable */
+#define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
+#define VAN_TEN_IDLE_MS 3000u                                        /* ten-ish is over when you pause this long */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
 static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live */
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
 static const char *van_cd[VAN_CARDS];
-static uint32_t van_fish_t0, van_fish_bub;
+static uint32_t van_fish_t0, van_fish_bub, van_blink_t0, van_blink_tk, van_ten_t0, van_ten_last, van_tens;
 static uint32_t van_t0, van_typed_last, van_hum_t0, van_ask_t0, van_ev_at;
 static uint8_t van_ev;                                               /* 1: play the interval again at van_ev_at */
 static uint8_t van_since, van_snacked, van_first_q, van_cur, van_first_beat;         /* beats since a question; the beat now; ... */
@@ -227,7 +229,7 @@ static void van_question(void)
         van_snacked = 0;
         van_nbuf[2][0] = 0;
         text_cat(van_nbuf[2], van_dir ? "Which gap is smaller?" : "Which gap is bigger?");
-        van_say(P_TAPE, VN_ASK, van_first_q ? van_lead[0] : van_lead[1u + van_pick(0u, 7u)], van_first_q ? van_lead[1] : van_nbuf[2], van_first_q ? van_nbuf[2] : 0, 0);
+        van_say(P_TAPE, VN_ASK, van_first_q ? van_radio_down : van_lead[1u + van_pick(0u, 7u)], van_first_q ? van_lead[0] : van_nbuf[2], van_first_q ? van_lead[1] : 0, van_first_q ? van_nbuf[2] : 0);
         van_first_q = 0;
         (void)root;
         return;
@@ -278,7 +280,7 @@ static void van_question(void)
     van_q_pick = 0xFFu;
     van_snacked = 0;
     (void)root;
-    van_say(P_TAPE, VN_ASK, van_first_q ? van_lead[0] : van_lead[1u + van_pick(0u, 7u)], van_first_q ? van_lead[3] : 0, 0, 0);
+    van_say(P_TAPE, VN_ASK, van_first_q ? van_radio_down : van_lead[1u + van_pick(0u, 7u)], van_first_q ? van_lead[0] : 0, van_first_q ? van_lead[3] : 0, 0);
     van_first_q = 0;
 }
 
@@ -318,6 +320,31 @@ static void van_fish_stop(void)
 {
     eo_noise_on = 0;
     van_say(P_IDLE, VN_BEAT, van_fish_ack[van_rnd(4u)], 0, 0, 0);
+}
+static void van_blink_start(void)
+{
+    van_mode = VM_BLINK;
+    van_chips = 0;
+    van_blink_t0 = plat_ms();
+    van_blink_tk = 0;
+    ui.redraw = 1;
+}
+static void van_blink_stop(void)
+{
+    van_say(P_TALK, VN_BEAT, van_blink_after[0], van_blink_after[1], van_blink_after[2], 0);
+}
+static void van_ten_start(void)
+{
+    van_mode = VM_TEN;
+    van_chips = 0;
+    van_tens = 0;
+    van_ten_t0 = van_ten_last = plat_ms();
+    ui.redraw = 1;
+}
+static void van_ten_stop(void)
+{
+    uint32_t n = van_tens;
+    van_say(P_LOUNGE, VN_BEAT, van_ten_after[n == 0u ? 0u : n < 7u ? 1u : n < 14u ? 2u : 3u], van_ten_end, 0, 0);
 }
 static void van_hum_stop(void)
 {
@@ -381,7 +408,13 @@ static void van_next_beat(void)
         seq_end = 600;
         eo_seq_start(0, 0);
     }
-    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : b->kind == K_FISH ? VN_FISH : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
+    if (b->kind == K_PHONE) {            /* a ring: one high alien chirp */
+        eo_blub_soft = 1;
+        eo_blub_glide = 0.2f;
+        eo_blub_note = 88;
+        eo_blub_trig++;
+    }
+    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : b->kind == K_FISH ? VN_FISH : b->kind == K_BLINK ? VN_BLINK : b->kind == K_TEN ? VN_TEN : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
     for (i = 4; i < nc; i++)
         van_cd[van_cn++] = cards[i];
 }
@@ -412,6 +445,10 @@ static void van_done_cards(void)
         van_hum_start();
     else if (a == VN_FISH)
         van_fish_start();
+    else if (a == VN_BLINK)
+        van_blink_start();
+    else if (a == VN_TEN)
+        van_ten_start();
     else
         van_next_beat();
 }
@@ -568,6 +605,7 @@ static void van_end(void)
 {
     eo_blub_soft = 0;
     eo_noise_on = 0;
+    eo_radio_on = 0;
     van_stop_sound();
     van_ev = 0;
     if (set_dirty)
@@ -609,6 +647,18 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
                 van_choose(i);
                 return;
             }
+    } else if (van_mode == VM_BLINK) {
+        (void)new_keys;                  /* a staring contest: you cannot skip it (HOME leaves) */
+    } else if (van_mode == VM_TEN) {
+        if ((new_keys || new_btn) && van_tens < 99u) {   /* every press is one: a soft chirp, nothing more */
+            van_tens++;
+            van_ten_last = plat_ms();
+            eo_blub_soft = 1;
+            eo_blub_glide = 0.3f;
+            eo_blub_note = 60 + (int32_t)(van_tens % 5u) * 2;
+            eo_blub_trig++;
+            ui.redraw = 1;
+        }
     } else if (van_mode == VM_FISH) {
         (void)new_keys;                  /* a long look: no skipping (HOME leaves) */
     } else if (van_mode == VM_HUM) {
@@ -639,6 +689,24 @@ static void van_level_step(int32_t d)    /* K1: another level, up to three above
 
 static void van_tick(uint32_t now)
 {
+    {   /* the radio plays in the next room: quiet, and turned down before every question and for the long gags */
+        uint32_t quiet = van_mode == VM_ASK || van_mode == VM_HUM || van_mode == VM_FISH || van_mode == VM_BLINK || van_chips ||
+                         (van_mode == VM_CARDS && van_after == VN_ASK);
+        eo_radio_vol = quiet ? 0.0f : 1.0f;
+        eo_radio_on = 1;
+    }
+    if (van_mode == VM_BLINK) {
+        if (now - van_blink_t0 >= VAN_BLINK_MS) {
+            van_blink_stop();
+        } else if (now - van_blink_t0 >= van_blink_tk * 1000u + 800u && van_blink_tk < 5u) {   /* a quiet tick each second */
+            van_blink_tk++;
+            eo_blub_soft = 0;
+            eo_blub_note = 48;
+            eo_blub_trig++;
+        }
+    }
+    if (van_mode == VM_TEN && ((van_tens && now - van_ten_last > VAN_TEN_IDLE_MS) || (!van_tens && now - van_ten_t0 > 3u * VAN_TEN_IDLE_MS)))
+        van_ten_stop();
     if (van_mode == VM_CARDS) {
         uint32_t n = van_typed(now);
         if (n != van_typed_last) {
@@ -680,6 +748,21 @@ static void van_tick(uint32_t now)
 }
 
 /* ---- the screen */
+static void van_slant(int32_t y, int32_t h)   /* italics, by a shear: the top of the line leans right (the font has no italic) */
+{
+    int32_t j, x;
+    for (j = 0; j < h; j++) {
+        int32_t py = y + j - mv_oy, sh = (h - 1 - j) * 3 / h;
+        uint16_t *row;
+        if (py < 0 || py >= mv_h)
+            continue;
+        row = &cv_px[(uint32_t)(py + cv_oy) * cv_w];
+        for (x = 239; x >= sh; x--)
+            row[x] = row[x - sh];
+        for (x = 0; x < sh; x++)
+            row[x] = 0;
+    }
+}
 static void van_gibber(int32_t y, uint32_t n, uint32_t now)   /* Van's own symbols: little glyphs, shifting */
 {
     uint32_t i, r, k;
@@ -850,7 +933,7 @@ static void van_bands(uint32_t now)      /* the room and the box under it (no he
 {
     static const uint8_t HY[3] = {0, 80, 160}, NY[2] = {0, 144}, NH[2] = {144, 96};
     uint32_t i;
-    if (van_mode == VM_HUM || van_mode == VM_FISH) {
+    if (van_mode == VM_HUM || van_mode == VM_FISH || van_mode == VM_BLINK) {
         for (i = 0; i < 3u; i++) {
             mv_oy = HY[i];
             mv_h = 80;
@@ -882,6 +965,14 @@ static void van_scene(uint32_t now)
         van_fish_scene(now);
         return;
     }
+    if (van_mode == VM_BLINK) {          /* full screen on his face, the whole time, until he gives */
+        uint32_t t = now - van_blink_t0;
+        mrect(0, 0, 240, 240, EO_RGB(20, 36, 44));
+        van_paint(P_TALK, -24, -22, 3, 1, now, 0);
+        if (t + 220u >= VAN_BLINK_MS)    /* the blink: the whole screen goes dark for a moment */
+            mrect(0, 0, 240, 240, C_BLACK);
+        return;
+    }
     {
         int32_t big = van_chips || van_mode == VM_CHOICE;
         uint32_t talk = van_mode == VM_CARDS && van_typed(now) < van_len();
@@ -905,6 +996,11 @@ static void van_scene(uint32_t now)
                 spr_pal = EO_CAST_PAL[0];
                 spr_paint(cast_px, EO_CAST[0][((now / 700u) & 1u) ? 1u : 0u], EO_CAST_W, EO_CAST_H, 186, 92 + bob * 2, 1, 2);
             }
+        }
+        if (van_mode == VM_TEN) {        /* a dot for every press: no number, no goal */
+            uint32_t d;
+            for (d = 0; d < van_tens && d < 30u; d++)
+                mdisc(14 + (int32_t)d * 7, 132, 3, C_AMB);
         }
         if (van_chips || van_mode == VM_CHOICE)
             van_chip_row(now);
@@ -934,6 +1030,8 @@ static void van_scene(uint32_t now)
                     buf[m++] = s[st + j] == '~' ? 'e' : s[st + j];
                 buf[m] = 0;
                 mtext(8, 150 + (int32_t)k * 17, &FONT_S, buf, col);
+                if (kind == 1u)
+                    van_slant(150 + (int32_t)k * 17, 17);
                 for (j = 0; j < len; j++)        /* the e-acute: an e with its accent drawn by hand */
                     if (s[st + j] == '~') {
                         char pre[64];
