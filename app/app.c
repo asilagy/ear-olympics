@@ -105,9 +105,12 @@ static volatile uint32_t eo_gong_trig;  /* Simone's success: a low gong (MIDI no
 static volatile int32_t eo_gong_note;
 static volatile uint32_t eo_bass_trig;  /* the select's bass: a plucked synth note (MIDI note, and how hard), one per trigger */
 static volatile int32_t eo_bass_note;
+static volatile int32_t eo_pad_n[3] = {-1, -1, -1};   /* the select's pad: a major triad (MIDI notes), and how loud (swells and fades) */
+static volatile float eo_pad_vol;
 static uint8_t eo_sel_in;               /* in the select: its bass pattern has started this visit */
 static volatile float eo_bass_vel = 1.0f;
 #define BASS_GAIN 0.28f
+#define PAD_GAIN 0.075f
 #define GONG_GAIN 0.20f
 static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
 static volatile int32_t eo_blub_note;
@@ -289,6 +292,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     static uint32_t cr_seen;
     static float blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
     static uint32_t gong_seen;
+    static float pad_ph[3], pad_inc[3], pad_lev, pad_lp;
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
     static uint8_t smp_run, smp_stop;
@@ -551,6 +555,22 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     }
                     bs = (bass_lp * 0.9f + fm_sinf(6.2831853f * bass_ph) * 0.55f) * env * bass_v * BASS_GAIN;
                     bass_age += 1.0f / 44100.0f;
+                }
+                if (eo_pad_vol > 0.0005f || pad_lev > 0.0005f) {   /* the select's pad: three soft sines, a major triad that glides to the next chord; its level arcs up and down */
+                    uint32_t q;
+                    float pv = 0.0f;
+                    pad_lev += (eo_pad_vol - pad_lev) * 0.0004f;
+                    for (q = 0; q < 3u; q++) {
+                        int32_t pn = eo_pad_n[q];
+                        if (pn >= 0)
+                            pad_inc[q] += (eo_note_inc(pn) - pad_inc[q]) * 0.0006f;
+                        pad_ph[q] += pad_inc[q];
+                        if (pad_ph[q] >= 1.0f)
+                            pad_ph[q] -= 1.0f;
+                        pv += fm_sinf(6.2831853f * pad_ph[q]);
+                    }
+                    pad_lp += 0.18f * (pv - pad_lp);                 /* a little darker */
+                    bs += pad_lp * pad_lev * PAD_GAIN;
                 }
                 if (gong_age < 2.6f) {           /* a low gong: inharmonic partials, each dying at its own rate (the high ones first), a soft strike */
                     /* harmonic, so it sounds pleasant: a C major chord struck softly, low C with its G, the octave, the E above it, and a bright C on top that fades first */
@@ -5306,7 +5326,7 @@ void app_frame(void)
     if (ui.state == ST_VAN)
         van_tick(now);
     if (ui.state != ST_SELECT)
-        eo_sel_in = 0;                       /* the select's bass pattern starts over on each visit */
+        { eo_sel_in = 0; eo_pad_vol = 0.0f; }     /* the select's bass pattern starts over on each visit, and the pad is off */
     if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE || ui.state == ST_VAN) {   /* the movie, the select and Simone's show: a frame about every 33 ms */
         static uint32_t last_mv;
         if (ui.state == ST_MOVIE) {
@@ -5320,6 +5340,15 @@ void app_frame(void)
                 last_bt = 0xFFFFFFFFu;
             }
             bi = (bt - bt0) & 15u;
+            {   /* the pad: from the second time round the two bars, a major triad on each bass note (G, Eb, F), the level an arc over the two bars */
+                uint32_t u = now * SEL_BPM8 - bt0 * 60000u;
+                static const int32_t pc[3][3] = {{55, 59, 62}, {51, 55, 58}, {53, 57, 60}};
+                const int32_t *c = pc[bi < 8u ? 0 : bi < 12u ? 1 : 2];
+                eo_pad_n[0] = c[0];
+                eo_pad_n[1] = c[1];
+                eo_pad_n[2] = c[2];
+                eo_pad_vol = u >= 960000u ? fm_sinf(3.14159265f * (float)(u % 960000u) * (1.0f / 960000.0f)) : 0.0f;
+            }
             if (bt != last_bt) {
                 last_bt = bt;
                 eo_bass_note = bi < 8u ? 31 : bi < 12u ? 27 : 29;     /* G1 eight times, D#1 four, F1 four */
@@ -5568,6 +5597,10 @@ int app_expect(const char *what, int *got)
         *got = eo_smp_run;
     else if (!strcmp(what, "res"))       /* the resource region (art and music) is there: 1 or 0 */
         *got = eo_res_ok();
+    else if (!strcmp(what, "padon"))        /* the select's pad is swelling (over 5%) */
+        *got = eo_pad_vol > 0.05f;
+    else if (!strcmp(what, "padnote"))      /* the pad chord's lowest note */
+        *got = eo_pad_n[0];
     else if (!strcmp(what, "bass"))
         *got = eo_bass_note;
     else if (!strcmp(what, "simcard"))
