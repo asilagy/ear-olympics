@@ -4635,6 +4635,8 @@ static void sim_band(uint32_t now)
     sim_sprite(now, 0, 144);
     if (sim_mute && ui.state == ST_LISTEN && seq_on && seq_pos >= sim_pre)
         return;                              /* use your eyes: she is gone, and only the words show */
+    if (ui.state == ST_WIN)
+        return;                              /* the win lasts a moment: the big NICE! says it, and her line comes in typed, so no line flashes by first */
     q = sim_quip(tx);
     if (sim_alert) {                         /* this one matters: a big card across the screen, its border flashing (red: the spirits are angry) */
         uint16_t bc = sim_alert == 2u ? ((now / 220u) & 1u ? EO_RGB(255, 60, 60) : C_HI) : ((now / 220u) & 1u ? C_HI : C_AMB);
