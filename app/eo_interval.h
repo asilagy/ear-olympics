@@ -200,7 +200,7 @@ static const char *const van_fridge_after[3] = {"There. ...You hear it?", "It's 
 static const char *const van_cricket_bye = "...The cricket stopped. I think he moved out. ...I'll miss him.";
 static const char *const van_mom_after[10][2] = {{"Eight. ...Always eight.", "I think he's writing something."}, {"...Same station. It's always this one.", "I don't mind."}, {"...I was listening. Totally.", "What were we doing?"}, {"That's the building clearing its throat.", "It does that."}, {"Water, falling on purpose. Classic.", 0}, {"Nothing's on. ...Good nothing, though.", 0}, {"...That's the other Ivan.", "We don't answer. It's a whole thing."}, {"Want one? ...Right. You can't. I forget.", 0}, {"...That was nice. I didn't do anything. Best one yet.", 0}, {"Eleven-ish. ...Good screen.", 0}};
 static const uint16_t van_mom_ms[10] = {7600, 6500, 6500, 3200, 6500, 6000, 3500, 4500, 5500, 3000};
-static const char *const van_hum_after[2] = {"...", "...Yeah."};
+static const char *const van_hum_after[2] = {"...", "...yeeaaaa, dude."};
 static const char *const van_snack = "Wait, was that your snack break? ...Oh. Cool. Cool cool cool.";
 static const char *const van_song[] = {
     "*Van clears his throat. Twice. A third time, to be safe.",

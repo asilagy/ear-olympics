@@ -190,6 +190,7 @@ static void van_blip(uint32_t n)         /* an alien chirp for a letter: an FM w
 static void van_stop_sound(void)
 {
     eo_noise_on = 0;
+    eo_tv_hum = 0;
     seq_on = 0;
     seq_lit = 0;
     voice_note = -1;
@@ -320,8 +321,9 @@ static void van_hum_start(void)
     set.van_seen |= 2u;
     set_dirty = 1;
     eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.12f);
-    eo_noise_vol = 0.06f;
-    eo_noise_dark = 1;                   /* muffled, not a hiss in the ears */
+    eo_noise_vol = 0.07f;
+    eo_noise_dark = 0;                   /* brighter static, with a tube TV's hum under it */
+    eo_tv_hum = 1;
     eo_noise_on = 1;
     ui.redraw = 1;
 }
@@ -665,6 +667,7 @@ static void van_hum_stop(void)
 {
     eo_noise_on = 0;
     eo_noise_dark = 0;
+    eo_tv_hum = 0;
     eo_drone_set(-1, 0.0f);
 }
 
@@ -1064,6 +1067,7 @@ static void van_end(void)
 {
     eo_blub_soft = 0;
     eo_noise_on = 0;
+    eo_tv_hum = 0;
     eo_radio_on = 0;
     eo_voice_trim = 1.0f;
     van_cr_q = 0;
@@ -1325,6 +1329,7 @@ static void van_chip_row(uint32_t now)
         mtext(x + (w - tw) / 2, 120, tw > w - 6 || text_w(&FONT_S, van_lbl[i]) > w - 6 ? &FONT_XS : &FONT_S, van_lbl[i], fg);
     }
 }
+static void van_lens(int32_t fx, int32_t fy, int32_t R, int32_t sc, int32_t blk, int32_t m, int32_t dim, int32_t dark, int32_t clip);
 static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Van's face showing through it, like a reflection */
 {
     uint32_t i;
@@ -1340,7 +1345,7 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
     }
     mrect(0, 0, 240, 240, EO_RGB(18, 24, 36));
     if (eo_res_ok())                     /* a close-up: three times his size, his face filling the glass */
-        spr_paint(van_tint_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, -125, -75, 5, 1);
+        van_lens(120, 110, 150, 50, 4, 1, 6, 0, 0);     /* pressed to the glass: the middle of his face blown up */
     for (by = 0; by < 48; by++) {        /* the noise: blocks, a different pattern every frame, many see-through (so you see both) */
         int32_t y = by * 5;
         if (y + 5 <= mv_oy || y >= mv_oy + mv_h)
@@ -1348,13 +1353,13 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
         for (bx = 0; bx < 48; bx++) {
             uint32_t h = (((uint32_t)bx * 73856093u) ^ ((uint32_t)by * 19349663u) ^ ((uint32_t)f * 83492791u)) * 2654435761u;
             uint32_t g = (h >> 24) & 255u;
-            if ((h >> 8) % 100u < 80u)
+            if ((h >> 8) % 100u < 50u)
                 continue;
-            g = 40u + g * 80u / 255u;
+            g = 80u + g * 175u / 255u;
             mrect(bx * 5, y, 5, 5, EO_RGB(g, g, g));
         }
     }
-    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(70, 80, 100));    /* a slow roll bar */
+    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(150, 160, 185));    /* a slow roll bar */
 }
 
 static int32_t van_ghost_px(const void *s, int32_t x, int32_t y)    /* Van's face as a see-through reflection: every other pixel, washed pale */
@@ -1388,34 +1393,45 @@ static void van_tint_init(void)
         van_tint[i] = (uint16_t)((r << 11) | ((g > 63u ? 63u : g) << 5) | (b > 31u ? 31u : b));
     }
 }
-static void van_fish_reflect(uint32_t now)   /* Van's face on the curved glass: he is right at the bowl, so the middle of his face is blown up (a fisheye), seen through a dither so the fish shows */
+/* Van's face as a reflection in a curved glass: he is close, so the middle of his face is blown up (a fisheye) and it eases to normal at the lens edge.
+ * (fx, fy) the face centre, R the lens radius, sc his size in tenths, blk the block size in pixels, m: draw one block in m (1 solid, 2 checker, 3 sparse, so you see through),
+ * dim: brightness in eighths, dark: 1 = his dark lines let no light through (skipped), clip: 1 = only inside the fish bowl's round, mx/my the bowl's centre-offset */
+static void van_lens(int32_t fx, int32_t fy, int32_t R, int32_t sc, int32_t blk, int32_t m, int32_t dim, int32_t dark, int32_t clip)
 {
-    const int32_t R2 = 99 * 99, SC = 27;     /* the lens radius squared; his size, tenths of a pixel per pixel */
-    int32_t fx = 68 + (int32_t)((now / 90u) % 20u > 10u ? 1 : 0) * 2, fy = 94, x, y;
+    int32_t R2 = R * R, ox0 = fx - 34 * sc / 10, oy0 = fy - 264 * sc / 100, x, y;
     if (!eo_res_ok())
         return;
     spr_pal = EO_CAST_PAL[2];
-    for (y = fy - 100; y < fy + 100; y += 3) {
-        if (y + 3 <= mv_oy || y >= mv_oy + mv_h || y < 0 || y >= 240)
+    for (y = 0; y < 240; y += blk) {
+        if (y + blk <= mv_oy || y >= mv_oy + mv_h)
             continue;
-        for (x = fx - 100; x < fx + 100; x += 3) {
-            int32_t dx = x - fx, dy = y - fy, r2 = dx * dx + dy * dy, k = 1000, sx, sy, c, ex = x - 120, ey = y - 122;
-            if (x < 0 || x >= 240 || ((x / 3 + y / 3) & 1))
+        for (x = 0; x < 240; x += blk) {
+            int32_t dx = x - fx, dy = y - fy, r2 = dx * dx + dy * dy, k = 1000, sx, sy, c;
+            if (((x / blk + y / blk) % m) != 0)
                 continue;
-            if (ex * ex * 88 * 88 + ey * ey * 104 * 104 >= 104 * 104 * 88 * 88)    /* only inside the bowl's round */
-                continue;
+            if (clip) {
+                int32_t ex = x - 120, ey = y - 122;
+                if (ex * ex * 88 * 88 + ey * ey * 104 * 104 >= 104 * 104 * 88 * 88)    /* only inside the bowl's round */
+                    continue;
+            }
             if (r2 < R2)
-                k = 450 + 550 * r2 / R2;     /* strongest magnification at the centre, easing to none at the lens edge */
-            sx = (fx + dx * k / 1000 - (fx - 92)) * 10 / SC;      /* sprite column in the mirrored face */
-            sy = (fy + dy * k / 1000 - (fy - 71)) * 10 / SC;
-            if (sx < 0 || sx >= 68 || sy < 0 || sy >= 66)
+                k = 450 + 550 * r2 / R2;     /* strongest magnification at the centre */
+            sx = (fx + dx * k / 1000 - ox0) * 10 / sc;      /* the column in the mirrored face (he faces the other way on glass) */
+            sy = (fy + dy * k / 1000 - oy0) * 10 / sc;
+            if (fx + dx * k / 1000 < ox0 || fy + dy * k / 1000 < oy0 || sx >= 68 || sy >= 66)
                 continue;
             c = cast_px(EO_VAN[0], 95 - (sx + 14), sy);
-            if (c < 0 || ((c >> 5) & 63) < 16)     /* dark lines let no light through */
+            if (c < 0 || (dark && ((c >> 5) & 63) < 16))
                 continue;
-            mrect(x, y, 3, 3, (uint16_t)c);
+            if (dim < 8)
+                c = (int32_t)((((uint32_t)c >> 11) & 31u) * (uint32_t)dim / 8u << 11 | ((((uint32_t)c >> 5) & 63u) * (uint32_t)dim / 8u) << 5 | (((uint32_t)c & 31u) * (uint32_t)dim / 8u));
+            mrect(x, y, blk, blk, (uint16_t)c);
         }
     }
+}
+static void van_fish_reflect(uint32_t now)   /* Van at the bowl: big, off to the left, seen through a dither so the fish shows */
+{
+    van_lens(68 + (int32_t)((now / 90u) % 20u > 10u ? 1 : 0) * 2, 94, 99, 27, 3, 2, 8, 1, 1);
 }
 static void van_fish_scene(uint32_t now)   /* the room behind (soft, out of focus), then Simon~'s bowl right up close, bubbles inside it, Van's face on the glass */
 {
@@ -1485,7 +1501,7 @@ static void van_pong_draw(uint32_t now)   /* the TV in close-up: the glass with 
     mrect(fx - bz, fy - bz, PG_W + 2 * bz, PG_H + 2 * bz, EO_RGB(14, 22, 30));
     if (eo_res_ok()) {
         van_tint_init();
-        spr_paint(van_glass_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, 62, 6, 3, 2);
+        van_lens(120, 66, 80, 17, 3, 3, 5, 1, 0);     /* further back from the glass: smaller, darker, mostly see-through */
     }
     for (i = 0; i < 70; i++) {           /* a little static: single specks, a new set every frame */
         uint32_t h = ((uint32_t)i * 2654435761u ^ f * 40503u) * 2246822519u;

@@ -113,6 +113,7 @@ static volatile int32_t eo_blub_note;
 static volatile float eo_blub_glide;     /* Van: the chirp's pitch glide (-0.5 down .. +0.8 up) */
 static volatile uint8_t eo_noise_on;     /* the TV: white-ish noise, faded in and out (eo_noise_vol is its level) */
 static volatile float eo_noise_vol;
+static volatile uint8_t eo_tv_hum;       /* 1 = the old TV's hum: 60 Hz, 120 Hz and the 15.7 kHz line whine */
 static volatile uint8_t eo_noise_dark;   /* 1 = the TV static is muffled (a second low-pass), for the long static gag */
 static volatile uint8_t eo_radio_on;    /* Van's radio, in the next room: a slow bossa loop, quiet, ducked before every question */
 static volatile float eo_radio_vol;
@@ -280,7 +281,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
-    static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_pm, nz_lp, nz_lp2, nz_lev;
+    static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_pm, nz_lp, nz_lp2, nz_lev, hm_lev, hm_p1, hm_p2, hm_p3;
     static uint32_t nz_s = 0x2545F491u, rd_t, rd_step, rd_s = 0x9E3779B9u, rd_loops, rd_hold = 2u, rd_prog;
     static int32_t rd_tr;
     static float rd_lev, rd_lp, rd_ph[5], rd_inc[5], rd_e[5], cr_age = 9.0f, cr_ph;
@@ -591,7 +592,17 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     nz_lp += 0.3f * (w - nz_lp);
                     nz_lev += ((eo_noise_on ? eo_noise_vol : 0.0f) - nz_lev) * 0.0004f;
                     nz_lp2 += 0.12f * (nz_lp - nz_lp2);
-                    nz = eo_noise_dark ? 1.5f * nz_lp2 * nz_lev : (0.55f * w + 0.9f * nz_lp) * nz_lev;
+                    nz = eo_noise_dark ? 1.5f * nz_lp2 * nz_lev : (0.8f * w + 0.6f * nz_lp) * nz_lev;
+                }
+                if (eo_tv_hum || hm_lev > 0.0001f) {   /* a tube TV: mains hum and its second harmonic, and the thin line whine, faded so nothing clicks */
+                    hm_lev += ((eo_tv_hum ? 1.0f : 0.0f) - hm_lev) * 0.0003f;
+                    hm_p1 += 60.0f / 44100.0f;
+                    hm_p2 += 120.0f / 44100.0f;
+                    hm_p3 += 15734.0f / 44100.0f;
+                    if (hm_p1 >= 1.0f) hm_p1 -= 1.0f;
+                    if (hm_p2 >= 1.0f) hm_p2 -= 1.0f;
+                    if (hm_p3 >= 1.0f) hm_p3 -= 1.0f;
+                    nz += hm_lev * (0.030f * fm_sinf(6.2831853f * hm_p1) + 0.022f * fm_sinf(6.2831853f * hm_p2) + 0.004f * fm_sinf(6.2831853f * hm_p3));
                 }
                 if (eo_radio_on || rd_lev > 0.0001f) {   /* the radio: Dm7, G7, Cmaj7, A7, on a bossa pattern; plucks, softened, like a wall is in the way */
                     /* four stock jazz turnarounds (in C), and now and then it moves on: another progression, and another key, the way a standard would */
