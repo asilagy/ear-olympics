@@ -7,7 +7,7 @@
 
 enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH };                        /* what the keys do now */
 enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH };                         /* what comes when the cards run out */
-#define VAN_CARDS 6u
+#define VAN_CARDS 24u
 #define VAN_LINES 10u
 #define VAN_CPS 18u                                                  /* the typing speed: letters a second */
 #define VAN_HUM_MS 10000u
@@ -486,6 +486,24 @@ static void van_answer(uint32_t ix)
 static void van_choose(uint32_t ix)      /* an ask beat: your pick, Van's reply */
 {
     const van_beat_t *b = &van_beat[van_cur];
+    if (van_cur == 81u) {               /* the song: any answer, then the whole song, then "what do you think?" */
+        static char rb[112];
+        const char *r = b->re[ix];
+        const char *cards[VAN_CARDS];
+        uint32_t k = 0, n = 0, i;
+        for (; r[k] && r[k] != '@' && k < 110u; k++)
+            rb[k] = r[k];
+        rb[k] = 0;
+        cards[n++] = rb;
+        for (i = 0; i < VAN_NSONG && n < VAN_CARDS - 1u; i++)
+            cards[n++] = van_song[i];
+        cards[n++] = van_beat[82].c[0];
+        van_cur = 82;                    /* the ask that follows */
+        van_say(P_TALK, VN_CHOICE, cards[0], cards[1], cards[2], cards[3]);
+        for (i = 4; i < n; i++)
+            van_cd[van_cn++] = cards[i];
+        return;
+    }
     {
         static char rb[2][112];
         const char *r = b->re[ix], *bar = r;

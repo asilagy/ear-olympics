@@ -1,0 +1,19 @@
+# The song: any answer leads into the whole song, then Van asks what you think. Say yes, and check the cards and the ask.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vansong 1682
+wait 300
+shot van_song0.png
+tap PLAY
+wait 50
+tap PLAY
+wait 50
+tap PLAY
+wait 50
+shot van_song1.png

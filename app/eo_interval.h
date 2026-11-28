@@ -151,6 +151,13 @@ static const van_beat_t van_beat[] = {
      {"Good. That's my job. I'm here to measure stuff. It's the whole deal.", "Fair. I'll keep it short. ...No promises. Mom says I rehearse.", "Same. It's the best part of my day. Don't tell the couch."}},
     {{"Do you like snacks?", 0, 0, 0}, K_ASK, P_SNACK, {"Yes.", "Always.", "Define snack."},
      {"Yes. We're going to be good friends.", "Always. See? Aligned.", "Define snack. ...Mom does that too. We could be a family."}},
+    /* the song: 81 asks, and every answer leads into the song (van_song), then 82 asks what you think */
+    {{"*Van sits up. He seems nervous.", "Do you want to hear a song I'm working on?", 0, 0}, K_ASK, P_TALK, {"Sure.", "Please.", "No."},
+     {"Sweet. Okay. Okay okay okay.@", "Please. He said please. Okay.@", "Too late. It's already happening.@"}},
+    {{"So. What do you think?", 0, 0, 0}, K_ASK, P_TALK, {"Love it.", "It's long.", "Encore."},
+     {"Really? ...Okay. I'm putting it in the fridge. For later.", "Yeah. It's a draft. A long draft. I'll cut it. ...Probably not.", "Encore? ...Okay. I only know this one. ...Mashed potatoes."}},
+    /* 83: after the cat (thread 2): the petting */
+    VAN_SAY(P_TALK, "Meow lets me pet him. That reminds me. I petted a human once.", "I asked first. He said, 'Dude, I'm a person.'", "I felt really bad. Then he gave me a pretzel, so it worked out."),
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
@@ -159,6 +166,23 @@ static const char *const van_intro[4] = {"#", "...Hold on. Decoder was off.", "S
 static const char *const van_again = "Oh. Hey. You're back. Cool.";
 static const char *const van_hum_after[2] = {"...", "...Yeah."};
 static const char *const van_snack = "Wait, was that your snack break? ...Oh. Cool. Cool cool cool.";
+static const char *const van_song[] = {
+    "*Van clears his throat. Twice. A third time, to be safe.",
+    "Mashed potatoes. Mashed potatoes. Ma-ashed pot-tay-toes.",
+    "Ma-ashed spoo-tay-toes. Doot doo doo.",
+    "Mashed potatoes. Mashed potatoes. Ma-ashed pot-tay-toes. Ma-ashed spoo-tay-toes. Doot doo doo.",
+    "*Van closes his eyes.",
+    "Oh, they're soft. And they're warm. And they've never done me wrong.",
+    "Mashed potatoes. Ma-ashed pot-tay-toes. Mashed potatoes, all night long.",
+    "Ma-ashed spoo-tay-toes. Ma-ashed spoo-tay-toes. Doot doo doo. Doot doo doo-doo.",
+    "This is the bridge. Butter. Butter. Bu-u-utter. Butter.",
+    "Mashed potatoes. Ma-ashed pot-tay-toes. Ma-ashed spoo-tay-toes. Doot doo doo. Doot doo doo.",
+    "Doot doo doo. Doot doo doo. Doot... doo... doooo.",
+    "*A long note. It keeps going. He seems to be enjoying it.",
+    "Mashed. Pot-a-toes.",
+    "*Van opens his eyes. He seems surprised it's over.",
+};
+#define VAN_NSONG ((uint32_t)(sizeof van_song / sizeof van_song[0]))
 static const char *const van_lead[8] = {"*Van pulls out the tape measure.", "Hold on. Gotta measure something.", "Okay, tape measure time.", "Two notes. How far apart?",
                                          "Yep. Still my job. Measuring stuff.", "Don't mind me. I'm just here to measure stuff.", "That's what I'm here for. Gaps.", "Okay. Back to work. Sort of."};
 static const char *const van_right[12] = {"Sick.", "Nice ears, dude.", "That's the one.", "That one landed.", "Okay, you've done this before.", "Yep.", "Ears: confirmed.",
@@ -169,13 +193,14 @@ static const char *const van_up[2] = {"New level, bro. Bigger gaps.", "You got b
 
 /* ---- conversation: beats come in threads (a few that follow from one another), with a link between threads, so it talks
  * like a person who wanders but does not just list facts. Each number is an index into van_beat[]; 255 ends a thread. */
-#define VAN_THREADS 24u
+#define VAN_THREADS 25u
+#define VAN_FIRST_INNER 82u                  /* beat 82 is only reached from the song, not from a thread */
 static const uint8_t van_thread[VAN_THREADS][6] = {
     {0, 7, 1, 8, 3, 9},                  /* humans, and their habits */
     {5, 6, 19, 255, 0, 0},               /* the window: rain, moon, space */
     {11, 17, 18, 255, 0, 0},             /* home, and Mom's department */
     {12, 16, 38, 39, 40, 35},            /* the goldfish: at the glass, a long look, then what Van thinks of her */
-    {2, 22, 23, 36, 255, 0},             /* the couch, and Meow */
+    {2, 22, 23, 36, 83, 255},             /* the couch, and Meow */
     {25, 4, 24, 10, 255, 0},            /* snacks */
     {26, 34, 255, 0, 0, 0},              /* food on his planet, then hot dogs */
     {15, 33, 21, 255, 0, 0},             /* the tape measure */
@@ -194,6 +219,7 @@ static const uint8_t van_thread[VAN_THREADS][6] = {
     {75, 76, 255, 0, 0, 0},              /* you: sounds and sleep */
     {77, 78, 255, 0, 0, 0},              /* you: being human */
     {79, 80, 255, 0, 0, 0},              /* you: the measuring, and snacks */
+    {81, 255, 0, 0, 0, 0},               /* the song */
     {69, 70, 71, 72, 255, 0},            /* the pigeon */
 };
 static const char *const van_link_new[8] = {"Anyway.", "Okay, different thing.", "Oh. Unrelated.", "Hm. Random.", "So. Update.",

@@ -5516,7 +5516,7 @@ int app_expect(const char *what, int *got)
                     cnt[van_thread[th][k]]++;
             }
         for (k = 0; k < VAN_NBEATS; k++)
-            if (cnt[k] != 1u)
+            if (k != 82u && cnt[k] != 1u)
                 ok = 0;
         *got = (int)ok;
     } else if (!strcmp(what, "vanth"))
@@ -5529,6 +5529,11 @@ int app_expect(const char *what, int *got)
         van_cur = 73;
         van_choose(0);
         *got = van_cn;
+    }
+    else if (!strcmp(what, "vansong")) {  /* a test hook: say yes to the song; the cards it makes, and the ask that ends it */
+        van_cur = 81;
+        van_choose(0);
+        *got = (int)van_cn * 100 + (int)van_cur;
     }
     else if (!strcmp(what, "vanfish")) {  /* a test hook: the long look at the fish now */
         van_fish_start();
