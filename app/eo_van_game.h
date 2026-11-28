@@ -140,9 +140,10 @@ static void van_say(uint32_t pose, uint32_t after, const char *a, const char *b,
 }
 
 /* ---- the sounds */
+static void van_stop_sound(void);
 static void van_play_pair(uint32_t root, uint32_t semi)    /* two notes, root then the other: warm, never lit */
 {
-    seq_on = 0;
+    van_stop_sound();
     mv_sfx(0, 80, 640, root, V_WARM);
     mv_sfx(1, 860, 760, root + semi, V_WARM);
     seq_n = 2;
@@ -156,7 +157,7 @@ static void van_play_q(void)             /* the question's notes: one pair, or t
         van_play_pair(r, van_q_semi);
         return;
     }
-    seq_on = 0;
+    van_stop_sound();
     mv_sfx(0, 80, 520, r, V_WARM);
     mv_sfx(1, 700, 640, r + van_q_semi, V_WARM);
     mv_sfx(2, 2000, 520, r, V_WARM);
@@ -487,7 +488,7 @@ static void van_next_beat(void)
     for (i = 0; i < 4u && b->c[i] && nc < 6u; i++)
         cards[nc++] = b->c[i];
     if (b->kind == K_MEOW) {             /* a meow from the next room, then Van explains */
-        seq_on = 0;
+        van_stop_sound();
         mv_sfx(0, 0, 520, 14, V_CATFX);
         seq_n = 1;
         seq_end = 600;
@@ -543,7 +544,7 @@ static void van_answer(uint32_t ix)
     uint32_t i, right = ix == van_q_right, rt = set.root, count = right && !van_missed;   /* only a first try counts toward the level */
     char *p;
     van_q_pick = (uint8_t)ix;
-    seq_on = 0;
+    van_stop_sound();               /* the notes in the air stop too, not just the sequencer */
     if (!right) {                        /* a wrong answer: nothing lost, nothing shown; Van says something and you try again */
         van_missed = 1;
         eo_blub_soft = 1;                /* a low, sliding alien "hm": his own voice, no buzzer */
@@ -644,7 +645,7 @@ static void van_choose(uint32_t ix)      /* an ask beat: your pick, Van's reply 
             van_say(P_TALK, VN_BEAT, r, 0, 0, 0);
         }
     }
-    seq_on = 0;
+    van_stop_sound();
     mv_sfx(0, 0, 180, 12u + ix * 2u, V_TRI);
     seq_n = 1;
     seq_end = 260;

@@ -1,0 +1,17 @@
+# Answering while Van's two notes are still sounding must stop them (a held note used to sustain forever).
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+master 4096
+tap PLAY
+wait 100
+expect vanask 0
+wait 1300
+expect vanmiss 0
+wait 2500
+peakreset
+wait 1500
+expect peak_db_max -60
