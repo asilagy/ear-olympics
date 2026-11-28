@@ -1,9 +1,17 @@
 # Ear Olympics
 
-An ear-training arcade for the M-VAVE FM-1, run by a cast of strange animals and objects who are excellent at music and
-merely okay at people. Short challenges, one skill each, everything relative to a root note that sounds first. You
-learn to hear how notes relate, not what they are called. Levels rise by themselves, one new trick at a time, and a
-wrong answer always plays the right one. Nobody shouts at you. The cat comes close.
+*"It was THESE. Obviously."* Meow, a cat, after you got it wrong.
+
+A cozy ear-training arcade for the M-VAVE FM-1, hosted by a cast of animals and objects who are brilliant at music and
+hopeless at everything else. A cat with perfect pitch who is not shy about it. A dog in a white coat who feels every
+wrong chord in her bones. An alien who came for the snacks. A goldfish who sees the future and forgot what it was.
+
+You come to learn to hear. You stay because the alien is about to show you something on the TV and he says, "Don't say
+anything. Just watch."
+
+Every question is relative to a root note that sounds first, so you learn how notes sit against each other, not what
+they are called. Each game climbs one new trick at a time, the levels rise on their own, and a wrong answer never
+stings: you hear the right one, the key lights, and someone makes a face. Nobody shouts at you. The cat comes close.
 
 ![Ear Olympics ready to start: the cat at left, PRESS PLAY TO START. Meow.](img/screen.png "The ready screen")
 

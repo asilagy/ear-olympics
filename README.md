@@ -1,30 +1,45 @@
 # Ear Olympics
 
-**An ear-training arcade for the M-VAVE FM-1, run by a cast of strange animals and objects who are very good at music
-and only okay at people.**
+> "It was THESE. Obviously."
+> — Meow, a cat, after you got it wrong
+
+**A cozy ear-training arcade for the M-VAVE FM-1, hosted by a cast of animals and objects who are brilliant at music
+and hopeless at everything else.** A cat with perfect pitch who is not shy about it. A dog in a white coat who feels
+every wrong chord in her bones. An alien who came for the snacks. A goldfish who sees the future and forgot what it was.
 
 **[The colourful tour, with screenshots and the browser version](https://asilagy.github.io/ear-olympics/)**
 
-Short musical challenges, one skill each: repeat a melody, name a chord, measure an interval. Everything is
-**relative to a root note** that sounds first, so you are training relative pitch, never perfect pitch. Each game has
-levels that rise by themselves as you get things right, one new trick at a time, and a wrong answer always plays the
-right one, so every mistake teaches. Nobody ever shouts at you. (The cat comes close.)
+You come to learn to hear. You stay because the alien is about to show you something on the TV and he says,
+"Don't say anything. Just watch."
+
+## How it teaches
+
+Every question is **relative to a root note** that sounds first. You learn how notes sit against each other, not what
+they are called, which is the useful kind of hearing and the kind that can be trained. Each game climbs in small
+steps, **one new trick per level**, and the levels rise on their own as you get things right. A wrong answer never
+stings: you hear the right one, the key lights, and someone makes a face. Nobody shouts at you. The cat comes close.
+
+The world is bright, a little weird and very sure of itself. Underneath, the root is the one thing you can trust.
+Mostly. (Play long enough and you may hear something drift.)
 
 **Status: three games on one shell, no arcade mode yet.** Everything so far has been checked in the simulator and in
 screenshots only; the FM-1 itself is the next test. Installing on a real device is not open yet, but you can play it
 in the browser tour above.
 
-## The games
+## Meet the cast
 
-| Game | You | Host | Their deal |
+| Game | You | Host | In their own words |
 |---|---|---|---|
-| **Copycat** | Hear a melody over a root and play it back, 34 levels | **Meow**, an orange tabby in headphones | Has perfect pitch and mentions it. Snarky, withering, secretly rooting for you. |
-| **Chord Dogtor** | Name the chord: major, minor, diminished and on up to suspended | **Dr. Diggie**, a dog in a white coat | An anxious empath who physically feels every wrong chord. Speaks in silent-film title cards. |
-| **Name That Interval** | Which note is higher, then which interval | **Van** (Ivan Terval), an alien surveyor | Here for the snacks. About 90% hanging out on his couch, 10% training. |
-| **Simon** | Remember a sequence | **Simoné**, a goldfish clairvoyant | A placeholder game for now. She rhymes, calls you darling and forgets what she was saying. |
+| **Copycat** | Hear a melody over a root, play it back. 34 levels | **Meow**, an orange tabby in headphones | "Purrfect." / "...really?" Withering, a secret perfectionist, rooting for you very quietly. |
+| **Chord Dogtor** | Name the chord, from major and minor up to suspended | **Dr. Diggie**, a dog in a white coat | "Hello, I'm Dr. Diggie, your Chord Dogtor." The calm professional who feels every sad chord and runs on coffee. Speaks in silent-film title cards. |
+| **Name That Interval** | Which note is higher, then which interval | **Van** (Ivan Terval), an alien surveyor | "Sup duude, the name's Ivan Terval, but my bro-bros call me Van." About 90% couch, 10% training. |
+| **Simon** | Remember a sequence | **Simoné**, a goldfish clairvoyant | A placeholder game so far. She rhymes, calls you darling, and speaks of herself in the third person. Simoné forgot the rest. |
 
-Eight more games and characters are planned (a raccoon detective, a hedgehog inspector, a crab with a metal detector,
-a yodeling goat and others). The tiles for them say COMING SOON, and a few of them are already suspicious of each other.
+Eight more are on the way: a raccoon in a trench coat who questions everything, a hedgehog inspector, a crab with a
+metal detector, a bear who apologizes to the tuna, a yodeling goat, a snail in a racing helmet, birds on a wire and a
+drive-through speaker who just wants you to stay. A few of them already suspect each other.
+
+## The games
 
 ### Copycat: the cat judges your pitch
 
