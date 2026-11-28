@@ -4386,8 +4386,7 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         static char wl[48];
         uint32_t t = now - sim_wish_t0, beat;
         if (t < 3600u) {                     /* the shout, once */
-            sim_alert = 2;
-            return "THE FATES WILLED THIS";
+            return "Oh, darling. The fates have spoken.";     /* (a plain line, not a big card) */
         }
         beat = (t - 3600u) / 4200u;          /* then she talks: mostly plain words, the instruction every other beat */
         if (beat & 1u) {
@@ -4726,9 +4725,9 @@ static void sim_band(uint32_t now)
     if (ui.state == ST_MISS) {               /* a wrong note: a red card, so it is clear (the fates, not anger) */
         uint32_t t = now - sim_miss_t0;
         uint16_t bc = (t / 120u) & 1u ? EO_RGB(255, 60, 60) : EO_RGB(255, 140, 60);
-        cv_rect(30, 8, 180, 44, bc);
-        cv_rect(34, 12, 172, 36, C_BLACK);
-        ctext(16, &FONT_L, "WRONG NOTE", C_WHITE);
+        cv_rect(64, 6, 112, 22, bc);               /* (a small tag, not a big card) */
+        cv_rect(67, 9, 106, 16, C_BLACK);
+        ctext(11, &FONT_S, "WRONG NOTE", C_WHITE);
         return;
     }
     if (ui.state == ST_WIN)
