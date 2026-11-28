@@ -321,8 +321,8 @@ static void van_hum_start(void)
     set.van_seen |= 2u;
     set_dirty = 1;
     eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.12f);
-    eo_noise_vol = 0.07f;
-    eo_noise_dark = 0;                   /* brighter static, with a tube TV's hum under it */
+    eo_noise_vol = 0.062f;
+    eo_noise_dark = 1;                   /* mostly muffled static (80%) with a little bright hiss, and a tube TV's hum under it */
     eo_tv_hum = 1;
     eo_noise_on = 1;
     ui.redraw = 1;
@@ -1345,7 +1345,7 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
     }
     mrect(0, 0, 240, 240, EO_RGB(18, 24, 36));
     if (eo_res_ok())                     /* a close-up: three times his size, his face filling the glass */
-        van_lens(120, 110, 150, 50, 4, 1, 6, 0, 0);     /* pressed to the glass: the middle of his face blown up */
+        van_lens(120, 112, 150, 50, 4, 1, 4, 1, 0);     /* pressed to the glass: the middle of his face blown up */
     for (by = 0; by < 48; by++) {        /* the noise: blocks, a different pattern every frame, many see-through (so you see both) */
         int32_t y = by * 5;
         if (y + 5 <= mv_oy || y >= mv_oy + mv_h)
@@ -1353,13 +1353,13 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
         for (bx = 0; bx < 48; bx++) {
             uint32_t h = (((uint32_t)bx * 73856093u) ^ ((uint32_t)by * 19349663u) ^ ((uint32_t)f * 83492791u)) * 2654435761u;
             uint32_t g = (h >> 24) & 255u;
-            if ((h >> 8) % 100u < 50u)
+            if ((h >> 8) % 100u < 82u)
                 continue;
-            g = 80u + g * 175u / 255u;
+            g = 30u + g * 60u / 255u;
             mrect(bx * 5, y, 5, 5, EO_RGB(g, g, g));
         }
     }
-    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(150, 160, 185));    /* a slow roll bar */
+    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(60, 70, 90));    /* a slow roll bar */
 }
 
 static int32_t van_ghost_px(const void *s, int32_t x, int32_t y)    /* Van's face as a see-through reflection: every other pixel, washed pale */

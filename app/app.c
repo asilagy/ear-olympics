@@ -591,8 +591,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     w = (float)(nz_s >> 8) * (1.0f / 8388608.0f) - 1.0f;
                     nz_lp += 0.3f * (w - nz_lp);
                     nz_lev += ((eo_noise_on ? eo_noise_vol : 0.0f) - nz_lev) * 0.0004f;
-                    nz_lp2 += 0.12f * (nz_lp - nz_lp2);
-                    nz = eo_noise_dark ? 1.5f * nz_lp2 * nz_lev : (0.8f * w + 0.6f * nz_lp) * nz_lev;
+                    nz_lp2 += 0.05f * (nz_lp - nz_lp2);
+                    nz = eo_noise_dark ? 6.5f * nz_lp2 * nz_lev : (0.8f * w + 0.6f * nz_lp) * nz_lev;
                 }
                 if (eo_tv_hum || hm_lev > 0.0001f) {   /* a tube TV: mains hum and its second harmonic, and the thin line whine, faded so nothing clicks */
                     hm_lev += ((eo_tv_hum ? 1.0f : 0.0f) - hm_lev) * 0.0003f;
