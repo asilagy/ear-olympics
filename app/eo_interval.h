@@ -98,7 +98,7 @@ static const van_beat_t van_beat[] = {
       "Right? Back home we had a food called a glorp. Also not a dog. Nobody checked.", "Valid. Moving on."}},
     {{"Huh.", 0, 0, 0}, K_ASK, P_TALK, {"Huh.", "Yeah.", "..."}, {"Right?", "Right?", "Right?"}},
     {{"*Something meows, offstage.", "That's Meow. He doesn't like the fridge. I don't either, but I respect it.", 0, 0}, K_MEOW, P_IDLE, {0, 0, 0}, {0, 0, 0}},
-    {{"*Van looks at the TV.", "Hold on. Come look at this.", "Don't say anything. Just watch.", 0}, K_HUM, P_IDLE, {0, 0, 0}, {0, 0, 0}},
+    {{"*Van looks at the TV.", "Hold on. Come look at this with me.", "Trust me. This is gonna be awesome.", "Don't say anything. Just watch."}, K_HUM, P_IDLE, {0, 0, 0}, {0, 0, 0}},
     /* the fish: what Van says afterwards */
     VAN_SAY(P_FISH, "She does that. Just looks. Like she knows something.", "She doesn't. But she looks."),
     VAN_SAY(P_FISH, "I asked her what's coming. She said snacks.", "...She's never been wrong."),

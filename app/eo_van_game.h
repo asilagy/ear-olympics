@@ -86,7 +86,7 @@ static uint32_t van_wrap_into(const char *s, uint8_t *ls, uint8_t *ll)   /* retu
             for (k = st; k < e && m < 62u; k++)
                 buf[m++] = s[k] == '~' ? 'e' : s[k];
             buf[m] = 0;
-            if (best && text_w(&FONT_S, buf) > 224)
+            if (best && text_w(&FONT_M, buf) > 224)
                 break;
             best = e;
             j = e;
@@ -1738,8 +1738,8 @@ static void van_scene(uint32_t now)
             for (k = 0; k < van_ln; k++)
                 if (n >= van_ls[k])
                     li = k;
-            ws = li >= 5u ? li - 4u : 0u;
-            for (k = 0; k < 5u && ws + k < van_ln; k++) {
+            ws = li >= 4u ? li - 3u : 0u;     /* four lines of the medium font show; more lines scroll up as he types */
+            for (k = 0; k < 4u && ws + k < van_ln; k++) {
                 char buf[64];
                 uint32_t st = van_ls[ws + k], len = van_ll[ws + k], m = 0, j;
                 if (n <= st)
@@ -1749,9 +1749,9 @@ static void van_scene(uint32_t now)
                 for (j = 0; j < len && m < 62u; j++)
                     buf[m++] = s[st + j] == '~' ? 'e' : s[st + j];
                 buf[m] = 0;
-                mtext(8, 150 + (int32_t)k * 17, &FONT_S, buf, col);
+                mtext(8, 147 + (int32_t)k * 23, &FONT_M, buf, col);
                 if (kind == 1u)
-                    van_slant(150 + (int32_t)k * 17, 17);
+                    van_slant(147 + (int32_t)k * 23, 23);
                 for (j = 0; j < len; j++)        /* the e-acute: an e with its accent drawn by hand */
                     if (s[st + j] == '~') {
                         char pre[64];
@@ -1759,8 +1759,8 @@ static void van_scene(uint32_t now)
                         for (q = 0; q < j; q++)
                             pre[q] = buf[q];
                         pre[q] = 0;
-                        mrect(8 + text_w(&FONT_S, pre) + text_w(&FONT_S, "e") / 2, 151 + (int32_t)k * 17, 3, 2, col);
-                        mrect(8 + text_w(&FONT_S, pre) + text_w(&FONT_S, "e") / 2 - 2, 153 + (int32_t)k * 17, 3, 2, col);
+                        mrect(8 + text_w(&FONT_M, pre) + text_w(&FONT_M, "e") / 2 + 1, 146 + (int32_t)k * 23, 4, 2, col);
+                        mrect(8 + text_w(&FONT_M, pre) + text_w(&FONT_M, "e") / 2 - 2, 148 + (int32_t)k * 23, 4, 2, col);
                     }
             }
         }
