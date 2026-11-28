@@ -168,7 +168,7 @@ static const van_beat_t van_beat[] = {
     {{"*A tiny phone buzzes. Van picks it up.", "Hey, Mom. ...No, I'm at work. ...Measuring. ...Yes, things.", "...Yes, I ate. A snack is a meal if you're brave. ...Love you too. Bye. Bye. Bye.", "*Van hangs up. ...Mom says hi. And to wear a hat."}, K_PHONE, P_PHONE, {0, 0, 0}, {0, 0, 0}},
     /* 87: did you hear that? (a cricket, very faint; yes or no) */
     {{"*Van stops. Tilts his head.", "...", "...Hey. Did you hear that?", 0}, K_ASK, P_COOKED, {"Yes", "No", 0},
-     {"...Are you sure?|...Huh. Okay. Yeah. That's a cricket. He lives here now.", "Huh. Must be me.|...No. There it is. A cricket. Tiny. Rude. He lives here.", 0}},
+     {"...Are you sure?|...Huh. Okay. Yeah. That's a cricket. He lives here now.", "Huh. Must be me.|...No. There it is. A cricket. Tiny. Brave. He lives here.", 0}},
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
