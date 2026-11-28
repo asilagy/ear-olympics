@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EarOlympics: Ear Olympics</title>
+<meta name="description" content="Ear Olympics for EarOlympics, a firmware for the M-VAVE FM-1.">
+<style>
+/* paper and ink: warm white paper, ink-blue type, vermilion for what is played, mustard for asides; a shade of the
+   paper for code and callouts (CTL-1's; a firmware may restyle its site) */
+:root {
+  --paper: #fbf8f1; --sheet: #efe9dc; --rule: #ddd4c2; --ink: #1e2b5a; --muted: #5d6585;
+  --hot: #e5482e; --hot-t: #f8d3c9; --cool: #d9a21b; --cool-t: #f5e4b8;
+  --hot-ink: #c23a22;                                 /* the vermilion as text: 4.5:1 on the paper */
+  color-scheme: light;
+}
+body {
+  background: var(--paper); color: var(--ink); margin: 0;
+  font: 400 17px/1.6 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  padding-inline: 16px; padding-block: 32px 64px;
+}
+main { max-width: 46rem; margin: 0 auto; }
+.page > .site { max-width: 46rem; margin-inline: auto; }
+main:focus { outline: none; }
+h1, h2, h3 { font-family: inherit; text-wrap: balance; line-height: 1.2; }
+h1 { font-size: 2.2rem; font-weight: 700; margin: 0 0 .4rem; letter-spacing: .02em; }
+h2 { font-size: 1.3rem; font-weight: 700; margin: 3rem 0 .8rem; padding-top: .8rem; border-top: 2px solid var(--ink); }
+h2 .num { color: var(--hot); margin-right: .5em; font-variant-numeric: tabular-nums; }
+h3 { font-size: 1.1rem; font-weight: 700; margin: 2rem 0 .5rem; }
+p, li { max-width: 65ch; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.3rem; margin: 0 0 1rem; }
+li { margin: .2rem 0; }
+li::marker { color: var(--hot); }
+strong { font-weight: 700; }
+a { color: var(--ink); text-decoration-color: var(--hot); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { background: var(--hot-t); }
+:focus-visible { outline: 3px solid var(--hot-ink); outline-offset: 2px; }
+.skip { position: absolute; left: 16px; top: -100px; background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 0 0 6px 6px; z-index: 1; }
+.skip:focus { top: 0; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .86em; }
+code { background: var(--sheet); padding: .08em .35em; border-radius: 3px; }
+pre { background: var(--sheet); border-radius: 6px; padding: 14px 16px; overflow-x: auto; line-height: 1.45; margin: 0 0 1.2rem; }
+pre code { background: none; padding: 0; font-size: inherit; }
+hr { display: none; }
+.table { overflow-x: auto; margin: 0 0 1.3rem; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: .45rem .7rem .45rem 0; border-bottom: 1px solid var(--rule); }
+th { font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .78rem; color: var(--muted); border-bottom: 2px solid var(--ink); }
+td:first-child { white-space: nowrap; }
+.lede { margin-bottom: 1.6rem; }
+.status { background: var(--sheet); border-radius: 6px; padding: 12px 16px; }
+.status p { margin: 0; }
+.site { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.2rem; margin: 0 0 1.6rem; padding-bottom: .5rem; border-bottom: 2px solid var(--ink); }
+.site .home { font-size: 1.1rem; font-weight: 700; letter-spacing: .04em; color: var(--ink); text-decoration: none; }
+.site .home:hover { color: var(--hot-ink); background: none; }
+.site nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .92rem; }
+.site nav a { color: var(--ink); text-underline-offset: 3px; }
+.site nav a[aria-current] { text-decoration: none; color: var(--hot-ink); }
+a.home { color: inherit; text-decoration: none; }
+a.home:hover { background: none; color: var(--hot-ink); }
+main > a.home { display: inline-block; font-size: .9rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 .4rem; }
+.callout { border-left: 4px solid var(--cool); background: var(--cool-t); padding: 10px 16px; margin: 0 0 1.2rem; max-width: 65ch; border-radius: 0 6px 6px 0; }
+.callout p { margin: 0; }
+details { background: var(--sheet); border-radius: 6px; padding: 0 16px; margin: 0 0 1.2rem; }
+details > summary { cursor: pointer; padding: 10px 0; }
+details[open] > summary { margin-bottom: .4rem; }
+details > :last-child { margin-bottom: 1rem; }
+.swatch { display: inline-block; width: .7em; height: .7em; margin-right: .4em; vertical-align: .02em; }
+nav.contents ol { columns: 2 14rem; column-gap: 2rem; padding-left: 1.3rem; }
+.figs { display: flex; flex-wrap: wrap; gap: 20px; margin: .4rem 0 1.6rem; }
+figure { margin: 0; flex: 0 1 auto; }
+figure img { display: block; max-width: 100%; height: auto; }
+figure.shot img { width: 300px; image-rendering: pixelated; border-radius: 4px; box-shadow: 0 0 0 1px var(--rule); }
+figure.wide { flex-basis: 100%; }
+figure.wide img { width: 100%; }
+figcaption { color: var(--muted); font-size: .88rem; margin-top: .4rem; max-width: 300px; }
+figure.wide figcaption { max-width: none; }
+nav.contents li { break-inside: avoid; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="page">
+<main id="content" tabindex="-1">
+<a class="home" href="../">EarOlympics</a>
+<h1>Ear Olympics</h1>
+<p>Ear Olympics is an ear-training arcade for the M-VAVE FM-1. A cat called Meow plays you a tune, and you play it back. It has two games, Copycat (relative pitch, 34 levels) and Simon (follow the lights). Wrong answers play the right one, and levels rise by themselves as you get things right.</p>
+<div class="figs"><figure class="shot"><img src="img/ready.png" alt="The ready screen: COPYCAT - LEVEL 2 at the top, the cat, and PRESS PLAY TO START. Meow." loading="lazy"><figcaption>Ready to start</figcaption></figure></div>
+<hr>
+<nav class="contents" aria-label="Contents"><h2 id="contents">Contents</h2>
+<ol><li><a href="#s1">Trying it</a></li><li><a href="#s2">Starting up</a></li><li><a href="#s3">Playing Copycat</a></li><li><a href="#s4">The controls</a></li><li><a href="#s5">Levels</a></li><li><a href="#s6">The cat's moods</a></li><li><a href="#s7">Simon</a></li><li><a href="#s8">Saving</a></li><li><a href="#s9">Troubleshooting</a></li></ol>
+</nav>
+<hr>
+<h2 id="s1"><span class="num">1</span>Trying it</h2>
+<p>For now Ear Olympics runs in your browser. Open the emulator: it runs the same code as the FM-1, with sound, and you can play it with a mouse, a touch screen or your computer keyboard. Click the panel once, and the shortcuts listed under the controls work. "MIDI ports" lets a MIDI keyboard play it too. Installing on a real FM-1 isn't open yet.</p>
+<hr>
+<h2 id="s2"><span class="num">2</span>Starting up</h2>
+<p>Every start, the cat introduces itself, then explains the controls over three screens. <strong>Any key</strong> goes to the next screen. <strong>HOME</strong> skips straight to the game.</p>
+<div class="figs"><figure class="shot"><img src="img/intro.png" alt="The cat&#x27;s intro: Oh. A human." loading="lazy"><figcaption>The intro</figcaption></figure><figure class="shot"><img src="img/controls-1.png" alt="The first controls screen: PLAY, SELECT and HOME" loading="lazy"><figcaption>Controls, 1 of 3</figcaption></figure><figure class="shot"><img src="img/controls-2.png" alt="The second controls screen: the four knobs" loading="lazy"><figcaption>Controls, 2 of 3</figcaption></figure><figure class="shot"><img src="img/controls-3.png" alt="The third controls screen: PRESETS, SAVE and VOLUME" loading="lazy"><figcaption>Controls, 3 of 3</figcaption></figure></div>
+<p>On the ready screen, <strong>PLAY</strong> starts. To see the controls again, press <strong>SEL</strong>. The top line says the game and the level. Under the cat, a small line shows the root and the lights, and PRACTICE or the speed when they aren't the default.</p>
+<hr>
+<h2 id="s3"><span class="num">3</span>Playing Copycat</h2>
+<p>A round has three parts.</p>
+<ol><li><strong>Root.</strong> The cat plays the root note alone, and its key lights. A soft drone keeps it sounding under the melody.</li><li><strong>Listen.</strong> The cat dances while the melody plays, once. On the early levels the notes show as dashes, high or low, so you can see the shape.</li><li><strong>Your turn.</strong> Play the melody back, starting from the first note. The timer doesn't exist: think as long as you like.</li></ol>
+<div class="figs"><figure class="shot"><img src="img/listen.png" alt="Listening: the cat dances as the melody plays" loading="lazy"><figcaption>Listen</figcaption></figure><figure class="shot"><img src="img/turn.png" alt="Your turn: one dash for each note to play" loading="lazy"><figcaption>Your turn</figcaption></figure></div>
+<p>During your turn:</p>
+<ul><li><strong>PLAY</strong> plays the root and the melody again, from the start.</li><li>Turn the <strong>SELECT knob</strong> to hear the melody one note at a time, forward or back. A note still sounding is cut off first, so they never overlap.</li><li>The keys stay at C4 and above, because the FM-1's speaker is small and a low note is weak.</li></ul>
+<p>When you get the last note right, the screen says NICE!, WOW!, SWEET!, AMAZING! or YUP, and the cat cheers. When you get a note wrong, the cat yowls, the screen says MISS, UMM..., WHOOPS., HISSS!, WRONG!, NYAAAHH! or INCORRECT, and then you hear the right melody over its root. With the lights off, the keyboard slides in with the right notes lit.</p>
+<div class="figs"><figure class="shot"><img src="img/miss.png" alt="A miss with the lights off: the keyboard slides in with the right notes lit" loading="lazy"><figcaption>A miss</figcaption></figure></div>
+<p>After <strong>three misses in a row</strong>, the cat starts giving advice: press PLAY first, use the SELECT knob, slow it down with knob 3, try Practice mode, think before you act, sing the notes first.</p>
+<hr>
+<h2 id="s4"><span class="num">4</span>The controls</h2>
+<div class="table" tabindex="0" role="region" aria-label="Table: The controls (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>Keys</td><td>Play the notes back. The FM-1's keys light the root and the level's notes.</td></tr><tr><td>PLAY</td><td>Start. During your turn, play the melody again. On the GOOD JOB card, go on.</td></tr><tr><td>SEL</td><td>On the ready screen, show the controls again.</td></tr><tr><td>HOME</td><td>Stop the game and go back to ready. On the cat's talking screens, skip to the game.</td></tr><tr><td>SELECT knob</td><td>Before a round, choose the root, C4 to G4. During your turn, step through the melody a note at a time.</td></tr><tr><td>PRESETS knob</td><td>Choose the game: Copycat (the default) or Simon. Only while ready.</td></tr><tr><td>KNOB 1</td><td>Choose the level. Levels are locked, see below. Only while ready.</td></tr><tr><td>KNOB 2</td><td>Choose the voice of the notes: MEOW (the default), WARM, BELL, E-PIANO, TRIANGLE or SQUARE. Any time.</td></tr><tr><td>KNOB 3</td><td>Speed: 25% to 200%, in steps of 5%. Any time.</td></tr><tr><td>KNOB 4</td><td>Mode: CHALLENGE or PRACTICE. Any time.</td></tr><tr><td>SAVE</td><td>Keep your settings, levels and best scores now.</td></tr><tr><td>VOLUME</td><td>The master volume. It shows on the screen for a moment.</td></tr></tbody></table></div>
+<p><strong>Challenge</strong> is the game: a miss costs you progress. <strong>Practice</strong> lets you keep trying the same melody until you get it right, and nothing counts: no streak, no progress, no best. After <strong>three wrong tries</strong> at a no-lights melody, the cat says "Sssss... let me hit the lights for you." and replays it lit.</p>
+<div class="figs"><figure class="shot"><img src="img/practice-assist.png" alt="Practice mode: the cat has hit the lights for you" loading="lazy"><figcaption>Practice mode, after three wrong tries</figcaption></figure></div>
+<hr>
+<h2 id="s5"><span class="num">5</span>Levels</h2>
+<p>Copycat has 34 levels. Each adds one new idea: steps (do re mi), then fa and sol, la, ti and the octave, semitones, leaps, the drone taken away, notes below the root, a root that moves, chromatic notes, and a boss level at 34. When a new pitch arrives, the lights come back for one level and every melody uses the new pitch. The next level has the same notes with the lights off.</p>
+<p>You move up by playing enough melodies right at a level: 8 at levels 1 to 9, 10 at levels 10 to 20, and 12 after that. They needn't be in a row, but <strong>a miss takes a quarter of the rounds off your count</strong>, so guessing can't get you through. Every new level has a card saying what's new.</p>
+<div class="figs"><figure class="shot"><img src="img/good-job.png" alt="The GOOD JOB card for level 2" loading="lazy"><figcaption>A new level</figcaption></figure><figure class="shot"><img src="img/celebrate.png" alt="The cat celebrates in sunglasses" loading="lazy"><figcaption>Level up</figcaption></figure></div>
+<p>Levels are locked: you can play up to three levels above the highest you've completed. Knob 1 past that tells you what to finish first.</p>
+<p>From level 29 the root changes every round, round the cycle of fifths. Only its key is lit. The screen doesn't name it, since this is relative pitch.</p>
+<hr>
+<h2 id="s6"><span class="num">6</span>The cat's moods</h2>
+<p>Meow dances while the melody plays, sings along while you play, cheers when you're right, droops when you miss, and celebrates a level up in sunglasses, with a song and a purr. The success sound is always the cat. A miss is the cat's sad yowl. The MEOW voice hardly bends the pitch, so you have to copy it.</p>
+<p>Keep a run going and the cat comments: "Purrfect." every third, "Okay. Impressive." every sixth, and every ninth, "Are you cheating?"</p>
+<hr>
+<h2 id="s7"><span class="num">7</span>Simon</h2>
+<p>Press PRESETS to choose Simon. A sequence plays, lit as it sounds, and you play it back. Each round adds one note, and a wrong note ends the game. Your score is the longest sequence you got right. There's no root, because there's nothing to establish, and it speeds up as the sequence grows.</p>
+<div class="figs"><figure class="shot"><img src="img/simon.png" alt="Simon: your turn" loading="lazy"><figcaption>Simon</figcaption></figure></div>
+<p>The levels set how many keys are in play: 4, 5, 8 (the major scale) and 13 (every key of the octave). A sequence of ten moves you up a level.</p>
+<hr>
+<h2 id="s8"><span class="num">8</span>Saving</h2>
+<p>SAVE keeps the game, the root, your levels and best scores. HOME keeps them too, and so does a streak ending, a game ending, or moving up a level. Nothing is written to the FM-1's flash between rounds.</p>
+<hr>
+<h2 id="s9"><span class="num">9</span>Troubleshooting</h2>
+<div class="table" tabindex="0" role="region" aria-label="Table: Troubleshooting (Problem, What to do)"><table><thead><tr><th>Problem</th><th>What to do</th></tr></thead><tbody><tr><td>The notes are hard to hear</td><td>Turn the volume up, or change the voice with knob 2. The FM-1's speaker is small, so headphones help.</td></tr><tr><td>A level is locked</td><td>Finish more levels first. You can play up to three above the highest you've completed.</td></tr><tr><td>It's too hard</td><td>Turn knob 3 to slow the melody down, or knob 4 to Practice. There's no shame in either.</td></tr></tbody></table></div>
+</main>
+</div>
+</body>
+</html>
