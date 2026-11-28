@@ -110,7 +110,7 @@ static volatile float eo_pad_vol;
 static uint8_t eo_sel_in;               /* in the select: its bass pattern has started this visit */
 static volatile float eo_bass_vel = 1.0f;
 #define BASS_GAIN 0.28f
-#define PAD_GAIN 0.075f
+#define PAD_GAIN 0.045f
 #define GONG_GAIN 0.20f
 static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
 static volatile int32_t eo_blub_note;
@@ -292,7 +292,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     static uint32_t cr_seen;
     static float blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
     static uint32_t gong_seen;
-    static float pad_ph[3], pad_inc[3], pad_lev, pad_lp;
+    static float pad_ph[3], pad_ph2[3], pad_inc[3], pad_w[3] = {0.5f, 0.5f, 0.5f}, pad_lev, pad_lp, pad_lp2, pad_lfo;
+    static uint32_t pad_cnt;
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
     static uint8_t smp_run, smp_stop;
@@ -556,21 +557,35 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     bs = (bass_lp * 0.9f + fm_sinf(6.2831853f * bass_ph) * 0.55f) * env * bass_v * BASS_GAIN;
                     bass_age += 1.0f / 44100.0f;
                 }
-                if (eo_pad_vol > 0.0005f || pad_lev > 0.0005f) {   /* the select's pad: three soft sines, a major triad that glides to the next chord; its level arcs up and down */
+                if (eo_pad_vol > 0.0005f || pad_lev > 0.0005f) {   /* the select's pad: a string-machine pad, pulse waves with slowly moving width, two detuned per note, a major triad that glides to the next chord; its level arcs up and down */
                     uint32_t q;
                     float pv = 0.0f;
                     pad_lev += (eo_pad_vol - pad_lev) * 0.0004f;
+                    if ((pad_cnt++ & 15u) == 0u) {         /* the pulse widths drift (a slow, different LFO for each note), every 16 samples */
+                        pad_lfo += 16.0f * 0.35f / 44100.0f;
+                        if (pad_lfo >= 1.0f)
+                            pad_lfo -= 1.0f;
+                        for (q = 0; q < 3u; q++)
+                            pad_w[q] = 0.5f + 0.32f * fm_sinf(6.2831853f * (pad_lfo + 0.33f * (float)q));
+                    }
                     for (q = 0; q < 3u; q++) {
                         int32_t pn = eo_pad_n[q];
+                        float a, b2;
                         if (pn >= 0)
-                            pad_inc[q] += (eo_note_inc(pn) - pad_inc[q]) * 0.0006f;
-                        pad_ph[q] += pad_inc[q];
+                            pad_inc[q] = eo_note_inc(pn);               /* the chord steps (no slide: a slide is out of tune against the bass), the phase carries on */
+                        pad_ph[q] += pad_inc[q] * 0.9992f;           /* two oscillators a cent or two apart: the ensemble, with no wide beating */
+                        pad_ph2[q] += pad_inc[q] * 1.0008f;
                         if (pad_ph[q] >= 1.0f)
                             pad_ph[q] -= 1.0f;
-                        pv += fm_sinf(6.2831853f * pad_ph[q]);
+                        if (pad_ph2[q] >= 1.0f)
+                            pad_ph2[q] -= 1.0f;
+                        a = pad_ph[q] < pad_w[q] ? 1.0f : -1.0f;
+                        b2 = pad_ph2[q] < 1.0f - pad_w[q] ? 1.0f : -1.0f;
+                        pv += a + b2;
                     }
-                    pad_lp += 0.18f * (pv - pad_lp);                 /* a little darker */
-                    bs += pad_lp * pad_lev * PAD_GAIN;
+                    pad_lp += 0.11f * (pv - pad_lp);                 /* the filter takes the buzz off */
+                    pad_lp2 += 0.11f * (pad_lp - pad_lp2);
+                    bs += pad_lp2 * pad_lev * PAD_GAIN;
                 }
                 if (gong_age < 2.6f) {           /* a low gong: inharmonic partials, each dying at its own rate (the high ones first), a soft strike */
                     /* harmonic, so it sounds pleasant: a C major chord struck softly, low C with its G, the octave, the E above it, and a bright C on top that fades first */
@@ -5340,9 +5355,9 @@ void app_frame(void)
                 last_bt = 0xFFFFFFFFu;
             }
             bi = (bt - bt0) & 15u;
-            {   /* the pad: from the second time round the two bars, a major triad on each bass note (G, Eb, F), the level an arc over the two bars */
+            {   /* the pad: from the second time round the two bars, a string-pad major triad, an octave up from before, on each bass note (G, Eb, F), the level an arc over the two bars */
                 uint32_t u = now * SEL_BPM8 - bt0 * 60000u;
-                static const int32_t pc[3][3] = {{55, 59, 62}, {51, 55, 58}, {53, 57, 60}};
+                static const int32_t pc[3][3] = {{67, 71, 74}, {63, 67, 70}, {65, 69, 72}};
                 const int32_t *c = pc[bi < 8u ? 0 : bi < 12u ? 1 : 2];
                 eo_pad_n[0] = c[0];
                 eo_pad_n[1] = c[1];

@@ -72,7 +72,7 @@ expect padon 0
 # from the second time round: a pad swells over the bass, a major triad on each bass note (G here)
 wait 3300
 expect padon 1
-expect padnote 55
+expect padnote 67
 # the cursor: PRESETS move it; the empty tiles do not start anything
 turn PRESET 1
 wait 30
