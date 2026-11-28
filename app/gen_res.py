@@ -5,7 +5,7 @@
 
     python3 gen_res.py GEN_DIR          (the build runs this: fm1.toml gen = ["gen_res.py {gen}"])
 
-It reads the four SOURCE headers in app/res/ (they are no longer compiled into the app) and writes two files into GEN_DIR:
+It reads the five SOURCE headers in app/res/ (they are no longer compiled into the app) and writes two files into GEN_DIR:
 
     eo_res.bin      the payload fm1.toml resources points at: every array, little-endian, each starting on a 4-byte
                     boundary, in the order of ITEMS below. (The base tool adds the 32-byte header and the CRC.)
@@ -36,6 +36,11 @@ ITEMS = [
     ("TITLE_ROW", "eo_title.h", "EO_TITLE_ROW", "u16"),
     ("TITLE_RLE", "eo_title.h", "EO_TITLE_RLE", "u8"),
     ("DOG", "eo_dog.h", "EO_DOG", "char"),
+    ("VAN", "eo_van.h", "EO_VAN", "u8"),                     # Van's 7 poses and Meow's 4 extra ones (cast palettes), then his room
+    ("MEOWX", "eo_van.h", "EO_MEOWX", "u8"),
+    ("ROOM_PAL", "eo_van.h", "EO_ROOM_PAL", "u16"),
+    ("ROOM_ROW", "eo_van.h", "EO_ROOM_ROW", "u16"),
+    ("ROOM_RLE", "eo_van.h", "EO_ROOM_RLE", "u8"),
 ]
 SIZE = {"u8": 1, "u16": 2, "char": 1}
 NUM = re.compile(r"(?<![\w.])(0[xX][0-9a-fA-F]+|\d+)(?![\w.])")
@@ -113,13 +118,13 @@ def read_item(name, fname, symbol, kind):
 
 def check_rows(items):
     """a picture's row table: starts at 0, rises, ends where its colour runs end (a broken one would crash the drawing)"""
-    for pre in ("PRES", "TITLE"):
+    for pre, nrows in (("PRES", 240), ("TITLE", 240), ("ROOM", 144)):
         rows = struct.unpack("<%dH" % (len(items[pre + "_ROW"][0]) // 2), items[pre + "_ROW"][0])
         rle = items[pre + "_RLE"][0]
         if rows[0] != 0 or rows[-1] != len(rle) or any(b < a or (b - a) % 2 for a, b in zip(rows, rows[1:])):
             raise ResError(f"{pre}: the row table does not fit its picture ({len(rows)} rows, {len(rle)} bytes)")
-        if len(rows) != 241:
-            raise ResError(f"{pre}: a picture has 240 rows (the row table has {len(rows) - 1})")
+        if len(rows) != nrows + 1:
+            raise ResError(f"{pre}: this picture has {nrows} rows (the row table has {len(rows) - 1})")
 
 
 def build():

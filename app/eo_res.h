@@ -38,6 +38,13 @@ static void eo_res_refresh(void)
 #define EO_TITLE_PAL ((const uint16_t *)EO_RES_AT(EO_RES_OFF_TITLE_PAL))
 #define EO_TITLE_ROW ((const uint16_t *)EO_RES_AT(EO_RES_OFF_TITLE_ROW))
 #define EO_TITLE_RLE EO_RES_AT(EO_RES_OFF_TITLE_RLE)
+/* Van's game (not drawn yet: the game comes next): his poses and Meow's extra ones, 96 x 72 in the cast palettes (cast 2 and 10),
+ * and his room, 240 x 144 in colour runs like the title pictures (colour 0 = skip). */
+#define EO_VAN ((const uint8_t(*)[EO_POSE_BYTES])EO_RES_AT(EO_RES_OFF_VAN))
+#define EO_MEOWX ((const uint8_t(*)[EO_POSE_BYTES])EO_RES_AT(EO_RES_OFF_MEOWX))
+#define EO_ROOM_PAL ((const uint16_t *)EO_RES_AT(EO_RES_OFF_ROOM_PAL))
+#define EO_ROOM_ROW ((const uint16_t *)EO_RES_AT(EO_RES_OFF_ROOM_ROW))
+#define EO_ROOM_RLE EO_RES_AT(EO_RES_OFF_ROOM_RLE)
 #define EO_DOG ((const char(*)[EO_DOG_H][EO_DOG_W + 1])EO_RES_AT(EO_RES_OFF_DOG))
 
 /* Chord Dogtor: the poses (the pictures are the region's EO_DOG, in this order) and the colour of each letter */

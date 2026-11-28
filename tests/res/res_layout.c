@@ -13,6 +13,7 @@
 #include "../../app/res/eo_intro.h"
 #include "../../app/res/eo_title.h"
 #include "../../app/res/eo_dog.h"
+#include "../../app/res/eo_van.h"
 #include "eo_res_map.h"
 
 static const uint8_t *bin;
@@ -81,6 +82,11 @@ int main(int argc, char **argv)
     check("TITLE_ROW", EO_RES_OFF_TITLE_ROW, EO_TITLE_ROW, sizeof EO_TITLE_ROW);
     check("TITLE_RLE", EO_RES_OFF_TITLE_RLE, EO_TITLE_RLE, sizeof EO_TITLE_RLE);
     check("DOG", EO_RES_OFF_DOG, EO_DOG, sizeof EO_DOG);
+    check("VAN", EO_RES_OFF_VAN, EO_VAN, sizeof EO_VAN);
+    check("MEOWX", EO_RES_OFF_MEOWX, EO_MEOWX, sizeof EO_MEOWX);
+    check("ROOM_PAL", EO_RES_OFF_ROOM_PAL, EO_ROOM_PAL, sizeof EO_ROOM_PAL);
+    check("ROOM_ROW", EO_RES_OFF_ROOM_ROW, EO_ROOM_ROW, sizeof EO_ROOM_ROW);
+    check("ROOM_RLE", EO_RES_OFF_ROOM_RLE, EO_ROOM_RLE, sizeof EO_ROOM_RLE);
     if (EO_RES_LEN != bin_n || (EO_RES_LEN - cursor) >= 4u) {
         printf("FAIL the file is %zu bytes, the map says %u, the arrays end at %zu\n", bin_n, EO_RES_LEN, cursor);
         fails++;

@@ -107,7 +107,7 @@ with tempfile.TemporaryDirectory() as d:
         gen_res.RES = real
 
 # 5. the source headers stay out of the image
-for h in ("eo_cast.h", "eo_intro.h", "eo_title.h", "eo_dog.h"):
+for h in ("eo_cast.h", "eo_intro.h", "eo_title.h", "eo_dog.h", "eo_van.h"):
     check(f"app.c does not include {h} (it lives in app/res/ now)", f'"{h}"' not in appc and not (ROOT / "app" / h).exists())
 
 print("RES SET-UP FAILED" if fails else "the resource region's set-up checks out (the flash itself: only on the device)")
