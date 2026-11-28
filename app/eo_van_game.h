@@ -15,6 +15,7 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };         
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
+static uint8_t van_drop_force, van_drops;    /* name-drops after higher/lower answers (the force is a test hook) */
 static uint8_t pg_offers, van_qs;            /* 10-ISH invitations made, and questions answered this visit */
 static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
 static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live (3 is the TV) */   /* the multicam: which camera is live */
@@ -610,6 +611,22 @@ static void van_answer(uint32_t ix)
         van_say(P_TALK, VN_BEAT, van_nbuf[0], van_retry_ok[van_pick(4u, 4u)], 0, 0);
     } else {
         van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_pick(3u, 12u)], van_cmp ? 0 : van_iv[van_q_semi - 1u].joke, 0);
+    }
+    if (van_cmp && van_cn <= 3u && (van_drop_force || van_rnd(3u) == 0u)) {   /* now and then (not every time): the real name of the gap you picked, cheekily */
+        static char dn[112];
+        uint32_t semi = van_q_right ? van_q_semi2 : van_q_semi, t = van_pick(5u, 6u);
+        const char *nm = van_name_lc[semi - 1u];
+        dn[0] = 0;
+        text_cat(dn, van_drop_pre[t]);
+        if (t != 4u)
+            text_cat(dn, nm[0] == 'o' ? "an " : "a ");
+        text_cat(dn, nm);
+        text_cat(dn, van_drop_post[t]);
+        van_cd[van_cn++] = dn;
+        if (van_drop_force || van_rnd(2u) == 0u)
+            van_cd[van_cn++] = van_vibe[semi - 1u];
+        van_drops++;
+        van_drop_force = 0;
     }
     van_chips = 2;
     van_resume = van_th != 0xFFu && van_tp > 0u && van_thread[van_th][van_tp < 6u ? van_tp : 5u] != 255u && van_tp < 6u;

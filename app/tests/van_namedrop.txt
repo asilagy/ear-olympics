@@ -1,0 +1,26 @@
+# On a higher/lower question (no names yet) Van now and then adds the real name of the gap you picked, cheekily, and sometimes what it sounds like.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vandrops 0
+expect vandropforce 1
+expect vanask 0
+wait 300
+expect vancmp 1
+expect vanwin 0
+wait 100
+expect vandrops 1
+expect vancards 4
+wait 6000
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+tap PLAY
+wait 60
+shot van_namedrop.png

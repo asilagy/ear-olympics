@@ -5593,6 +5593,12 @@ int app_expect(const char *what, int *got)
         van_qs = 4;
         *got = 4;
     }
+    else if (!strcmp(what, "vandropforce")) {   /* a test hook: the next right higher/lower answer gets the name-drop and the vibe */
+        van_drop_force = 1;
+        *got = 1;
+    }
+    else if (!strcmp(what, "vandrops"))     /* how many name-drops so far */
+        *got = van_drops;
     else if (!strcmp(what, "vannext")) {    /* a test hook: on to the next beat now */
         van_next_beat();
         *got = 0;

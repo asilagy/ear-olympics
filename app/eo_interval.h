@@ -195,6 +195,13 @@ static const char *const van_blink_after[3] = {"*Van blinked.", "...You win.", "
 static const char *const van_pong_hint[3] = {"Knob four. The paddle sits still until you turn it.", "Knob four. It's shy. Give it a nudge.", "No pressure. I'll just play both sides."};
 static const char *const van_lead[8] = {"*Van pulls out the tape measure.", "Hold on. Gotta measure something.", "Okay, tape measure time.", "Two notes. How far apart?",
                                          "Yep. Still my job. Measuring stuff.", "Don't mind me. I'm just here to measure stuff.", "That's what I'm here for. Gaps.", "Okay. Back to work. Sort of."};
+/* the names as a person says them, and what each one sounds like: Van drops these now and then after a higher/lower question, so the names arrive slowly */
+static const char *const van_name_lc[12] = {"minor second", "major second", "minor third", "major third", "perfect fourth", "tritone", "perfect fifth", "minor sixth", "major sixth", "minor seventh", "major seventh", "octave"};
+static const char *const van_vibe[12] = {"Sounds tense, right? Like someone's about to say something.", "Sounds like a small step. Because it is.", "Sounds a little sad. The cozy kind.", "Sounds pretty happy, right?",
+                                         "Sounds like it's about to go somewhere.", "Sounds like a question nobody answered.", "Sounds sturdy. Like a good chair.", "Sounds wistful. Like missing a bus.",
+                                         "Sounds like a sunny window.", "Sounds like it wants to keep going.", "Sounds like it's leaning. Hard.", "Same note, bigger. Sounds like home."};
+static const char *const van_drop_pre[6] = {"By the way, humans call that one ", "I've been told that was ", "That's what you guys call ", "Small thing. That was ", "Official word for that: ", "Fun fact: that's "};
+static const char *const van_drop_post[6] = {".", ". I'm choosing to believe it.", ". Fun name.", ". Don't tell the tape measure.", ". Humans love a word.", ". Keep it."};
 static const char *const van_right[12] = {"Sick.", "Nice ears, dude.", "That's the one.", "That one landed.", "Okay, you've done this before.", "Yep.", "Ears: confirmed.",
                                            "Mm. That's it.", "You're better at this than my tape measure.", "Cool. Cool cool.", "Boom. That's a note.", "Correct. I think. I checked the tape."};
 static const char *const van_wrong[10] = {"Eh, close-ish.", "Not that one. No worries.", "Huh. Okay.", "Ooh. That was a different one.", "Hm. Bold. I respect the confidence.",
