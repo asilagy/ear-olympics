@@ -1,0 +1,25 @@
+# Van and the fish: a long look, full screen on Simone in her water with bubbles and Van's faint face on the glass. It cannot be
+# skipped. Then one quiet word, and (in the threads) more talk about her.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vanfish 0
+expect vanmode 4
+wait 1500
+shot van_fish.png
+tap PLAY
+wait 50
+key 12 down
+wait 30
+key 12 up
+wait 4000
+expect vanmode 4
+wait 3500
+expect vanmode 0
+expect vancards 1
+shot van_fish_after.png

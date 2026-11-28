@@ -5525,6 +5525,10 @@ int app_expect(const char *what, int *got)
         *got = van_tp;
     else if (!strcmp(what, "vancmp"))
         *got = van_cmp;
+    else if (!strcmp(what, "vanfish")) {  /* a test hook: the long look at the fish now */
+        van_fish_start();
+        *got = 0;
+    }
     else if (!strcmp(what, "vantyped"))
         *got = (int)van_typed(plat_ms());
     else if (!strcmp(what, "vanask")) {   /* a test hook: a question now, the notes sounding; the right key */

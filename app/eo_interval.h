@@ -41,7 +41,7 @@ static const van_level_t *van_level(uint32_t l) { return &van_level_tab[(l >= 1u
 
 /* ---- the lines */
 enum { P_IDLE, P_LOUNGE, P_TALK, P_LAUGH, P_COOKED, P_TAPE, P_SNACK, P_PHONE, P_ASLEEP, P_FISH };   /* the poses: the cast's two, then Van's seven */
-enum { K_SAY, K_ASK, K_MEOW, K_HUM };
+enum { K_SAY, K_ASK, K_MEOW, K_HUM, K_FISH };
 typedef struct {
     const char *c[4];                    /* the cards, in order (the last is the question for an ask) */
     uint8_t kind, pose;
@@ -69,7 +69,7 @@ static const van_beat_t van_beat[] = {
     VAN_SAY(P_COOKED, "Found a sock. ...Don't know if it's left or right foot. Good sock, though."),
     VAN_SAY(P_IDLE, "*The fridge hum changes pitch.", "Oh. It's in a new key. Good for it."),
     VAN_SAY(P_TALK, "I measured the couch once. Four tape-lengths. Then I forgot what a tape-length was. Anyway, it's still a couch."),
-    VAN_SAY(P_FISH, "*Van and you watch the fish for a while."),
+    {{"*Van and you watch the fish.", 0, 0, 0}, K_FISH, P_FISH, {0, 0, 0}, {0, 0, 0}},
     VAN_SAY(P_TALK, "Home's sun comes with a thirty-year warranty. Mom keeps the receipt."),
     VAN_SAY(P_TALK, "I requested a form. They sent back a form saying my request is a form. So technically I got what I asked for."),
     VAN_SAY(P_TALK, "Space is mostly nothing. Honestly? Less to carry."),
@@ -97,6 +97,10 @@ static const van_beat_t van_beat[] = {
     {{"Huh.", 0, 0, 0}, K_ASK, P_TALK, {"Huh.", "Yeah.", "..."}, {"Right?", "Right?", "Right?"}},
     {{"*Something meows, offstage.", "That's Meow. He doesn't like the fridge. I don't either, but I respect it.", 0, 0}, K_MEOW, P_IDLE, {0, 0, 0}, {0, 0, 0}},
     {{"*Van looks at the TV.", "Hold on. Come look at this.", "Don't say anything. Just watch.", 0}, K_HUM, P_IDLE, {0, 0, 0}, {0, 0, 0}},
+    /* the fish: what Van says afterwards */
+    VAN_SAY(P_FISH, "She does that. Just looks. Like she knows something.", "She doesn't. But she looks."),
+    VAN_SAY(P_FISH, "I asked her what's coming. She said snacks.", "...She's never been wrong."),
+    VAN_SAY(P_FISH, "They say a goldfish remembers three seconds. Is that true?", "...Or is that just something people tell fish?"),
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
@@ -117,7 +121,7 @@ static const uint8_t van_thread[VAN_THREADS][6] = {
     {0, 7, 1, 8, 3, 9},                  /* humans, and their habits */
     {5, 6, 19, 255, 0, 0},               /* the window: rain, moon, space */
     {11, 17, 18, 255, 0, 0},             /* home, and Mom's department */
-    {12, 16, 35, 255, 0, 0},             /* the goldfish, then a quiet moment */
+    {12, 16, 38, 39, 40, 35},            /* the goldfish: at the glass, a long look, then what Van thinks of her */
     {2, 22, 23, 36, 255, 0},             /* the couch, and Meow */
     {25, 4, 24, 10, 255, 0},            /* snacks */
     {26, 34, 255, 0, 0, 0},              /* food on his planet, then hot dogs */
@@ -131,3 +135,4 @@ static const char *const van_link_new[8] = {"Anyway.", "Okay, different thing.",
                                             "Wait. Thought of something.", "Where was I? ...Doesn't matter.", "Okay. New topic. Same couch."};
 static const char *const van_link_in[6] = {"Also.", "Speaking of.", "Related.", "Oh, and.", "Same energy.", "One more."};
 static const char *const van_link_back[4] = {"Anyway. Where was I?", "Right. So.", "Okay. Back to it.", "Sorry. You were saying nothing. Where was I?"};
+static const char *const van_fish_ack[4] = {"...right.", "...yeah.", "...cool.", "...that's Simon~."};

@@ -5,16 +5,18 @@
  * they are on the lit answer keys. Nothing is ever lost: a wrong answer is a shrug and the right key lights. */
 #include "eo_interval.h"
 
-enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM };                        /* what the keys do now */
-enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM };                         /* what comes when the cards run out */
+enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH };                        /* what the keys do now */
+enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH };                         /* what comes when the cards run out */
 #define VAN_CARDS 6u
 #define VAN_LINES 10u
 #define VAN_CPS 18u                                                  /* the typing speed: letters a second */
 #define VAN_HUM_MS 10000u
+#define VAN_FISH_MS 8000u                                            /* the long look at the fish: a quiet moment, not skippable */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
 static const char *van_cd[VAN_CARDS];
+static uint32_t van_fish_t0, van_fish_bub;
 static uint32_t van_t0, van_typed_last, van_hum_t0, van_ask_t0, van_ev_at;
 static uint8_t van_ev;                                               /* 1: play the interval again at van_ev_at */
 static uint8_t van_since, van_snacked, van_first_q, van_cur, van_first_beat;         /* beats since a question; the beat now; ... */
@@ -276,6 +278,21 @@ static void van_hum_start(void)
     eo_noise_on = 1;
     ui.redraw = 1;
 }
+static void van_fish_start(void)
+{
+    van_mode = VM_FISH;
+    van_chips = 0;
+    van_fish_t0 = plat_ms();
+    van_fish_bub = 0;
+    eo_noise_vol = 0.025f;               /* a soft watery hush */
+    eo_noise_on = 1;
+    ui.redraw = 1;
+}
+static void van_fish_stop(void)
+{
+    eo_noise_on = 0;
+    van_say(P_IDLE, VN_BEAT, van_fish_ack[van_rnd(4u)], 0, 0, 0);
+}
 static void van_hum_stop(void)
 {
     eo_noise_on = 0;
@@ -338,7 +355,7 @@ static void van_next_beat(void)
         seq_end = 600;
         eo_seq_start(0, 0);
     }
-    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
+    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : b->kind == K_FISH ? VN_FISH : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
     for (i = 4; i < nc; i++)
         van_cd[van_cn++] = cards[i];
 }
@@ -367,6 +384,8 @@ static void van_done_cards(void)
         van_choice_now();
     else if (a == VN_HUM)
         van_hum_start();
+    else if (a == VN_FISH)
+        van_fish_start();
     else
         van_next_beat();
 }
@@ -527,6 +546,8 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
                 van_choose(i);
                 return;
             }
+    } else if (van_mode == VM_FISH) {
+        (void)new_keys;                  /* a long look: no skipping (HOME leaves) */
     } else if (van_mode == VM_HUM) {
         (void)new_keys;                  /* ten seconds of it, whatever you press: that is the gag (HOME still leaves) */
     }
@@ -577,6 +598,17 @@ static void van_tick(uint32_t now)
         van_after = VN_ASK;
         van_chips = 1;
         van_card_start(now);
+    }
+    if (van_mode == VM_FISH) {
+        if (now - van_fish_t0 > VAN_FISH_MS) {
+            van_fish_stop();
+        } else if (now - van_fish_t0 >= van_fish_bub * 700u + 400u) {     /* a bubble comes up every so often: a soft plop */
+            static const uint8_t PL[5] = {79, 84, 76, 88, 81};
+            van_fish_bub++;
+            eo_blub_soft = 0;
+            eo_blub_note = PL[van_fish_bub % 5u];
+            eo_blub_trig++;
+        }
     }
     if (van_mode == VM_HUM && now - van_hum_t0 > VAN_HUM_MS) {
         van_hum_stop();
@@ -692,11 +724,56 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
     mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(200, 210, 230));    /* a slow roll bar */
 }
 
+static int32_t van_ghost_px(const void *s, int32_t x, int32_t y)    /* Van's face as a see-through reflection: every other pixel, washed pale */
+{
+    int32_t c = van_tint_px(s, x, y);
+    if (c < 0 || ((x + y) & 1))
+        return -1;
+    return (int32_t)(uint16_t)((((uint32_t)c >> 1) & 0x7BEFu) + 0x2104u * 3u);
+}
+static void van_tint_init(void)
+{
+    uint32_t i;
+    if (van_tint[1] || !eo_res_ok())
+        return;
+    for (i = 1; i < 16u; i++) {
+        uint32_t c = EO_CAST_PAL[2][i], r = (c >> 11) & 31u, g = (c >> 5) & 63u, b = c & 31u;
+        r = r * 6u / 10u;
+        g = g * 7u / 10u + 6u;
+        b = b * 8u / 10u + 10u;
+        van_tint[i] = (uint16_t)((r << 11) | ((g > 63u ? 63u : g) << 5) | (b > 31u ? 31u : b));
+    }
+}
+static void van_fish_scene(uint32_t now)   /* full screen on Simone in her water, bubbles rising, Van's face faint on the glass */
+{
+    uint32_t i, t = now - van_fish_t0;
+    int32_t y, sway = (int32_t)((t / 40u) % 40u);
+    van_tint_init();
+    for (y = 0; y < 240; y += 8)         /* the water, a little darker toward the bottom */
+        mrect(0, y, 240, 8, EO_RGB(30, 90 + (uint32_t)(240 - y) / 4u, 150 + (uint32_t)(240 - y) / 5u));
+    for (i = 0; i < 5u; i++)             /* slow light rays */
+        mrect((int32_t)(i * 58u + (t / 90u) % 20u), 0, 14, 240, EO_RGB(50, 130, 190));
+    if (eo_res_ok()) {                   /* her, big, drifting */
+        spr_pal = EO_CAST_PAL[0];
+        spr_paint(cast_px, EO_CAST[0][((now / 900u) & 1u) ? 1u : 0u], EO_CAST_W, EO_CAST_H, 24 + (sway > 20 ? 40 - sway : sway) / 2, 70 + (int32_t)((now / 500u) & 1u) * 2, 2, 1);
+        spr_paint(van_ghost_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, -24, 6, 3, 1);   /* Van's close-up, faint, on the glass */
+    }
+    for (i = 0; i < 16u; i++) {          /* bubbles rising, each its own speed and wobble */
+        uint32_t h = (i + 1u) * 2654435761u;
+        int32_t bx = (int32_t)((h >> 8) % 220u) + 10, r = 2 + (int32_t)((h >> 20) % 5u);
+        int32_t by = 250 - (int32_t)(((t * (30u + (h >> 12) % 40u)) / 100u + (h >> 4) % 240u) % 260u);
+        bx += (int32_t)(((t / 120u + i * 7u) % 8u)) - 4;
+        mdisc(bx, by, r, EO_RGB(150, 210, 245));
+        mdisc(bx, by, r - 1 > 0 ? r - 1 : 1, EO_RGB(90, 165, 215));
+        mrect(bx - r / 2, by - r / 2, 2, 2, EO_RGB(235, 250, 255));
+    }
+}
+
 static void van_bands(uint32_t now)      /* the room and the box under it (no header: the words are the game); the TV gag takes the whole glass */
 {
     static const uint8_t HY[3] = {0, 80, 160}, NY[2] = {0, 144}, NH[2] = {144, 96};
     uint32_t i;
-    if (van_mode == VM_HUM) {
+    if (van_mode == VM_HUM || van_mode == VM_FISH) {
         for (i = 0; i < 3u; i++) {
             mv_oy = HY[i];
             mv_h = 80;
@@ -722,6 +799,10 @@ static void van_scene(uint32_t now)
     int32_t bob = ((now / 600u) & 1u) ? 1 : 0;
     if (van_mode == VM_HUM) {
         van_hum_scene(now);
+        return;
+    }
+    if (van_mode == VM_FISH) {
+        van_fish_scene(now);
         return;
     }
     {
@@ -765,6 +846,16 @@ static void van_scene(uint32_t now)
                     buf[m++] = s[st + j] == '~' ? 'e' : s[st + j];
                 buf[m] = 0;
                 mtext(8, 150 + (int32_t)k * 17, &FONT_S, buf, col);
+                for (j = 0; j < len; j++)        /* the e-acute: an e with its accent drawn by hand */
+                    if (s[st + j] == '~') {
+                        char pre[64];
+                        uint32_t q;
+                        for (q = 0; q < j; q++)
+                            pre[q] = buf[q];
+                        pre[q] = 0;
+                        mrect(8 + text_w(&FONT_S, pre) + text_w(&FONT_S, "e") / 2, 151 + (int32_t)k * 17, 3, 2, col);
+                        mrect(8 + text_w(&FONT_S, pre) + text_w(&FONT_S, "e") / 2 - 2, 153 + (int32_t)k * 17, 3, 2, col);
+                    }
             }
         }
         (void)i;
