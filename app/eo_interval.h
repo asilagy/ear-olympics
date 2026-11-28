@@ -285,7 +285,6 @@ static const char *const van_link_new[8] = {"Anyway.", "Okay, different thing.",
                                             "Wait. Thought of something.", "Where was I? ...Doesn't matter.", "Okay. New topic. Same couch."};
 static const char *const van_link_in[6] = {"Also.", "Speaking of.", "Related.", "Oh, and.", "Same energy.", "One more."};
 static const char *const van_link_back[4] = {"Anyway. Where was I?", "Right. So.", "Okay. Back to it.", "Sorry. You were saying nothing. Where was I?"};
-static const char *const van_fish_ack[4] = {"...right.", "...yeah.", "...cool.", "...that's Simon~."};
 static const char *const van_retry[8] = {"Go again. I'll wait.", "Again. Nobody's timing you.", "Try another. I've got snacks.", "Listen again. No rush.",
                                            "Take your time. I live here.", "Same notes. Fresh ears.", "One more time. It's a good one.", "Shake it off. Go again."};
 static const char *const van_retry_ok[4] = {"There it is.", "That one doesn't count toward the level. But it counts to me.", "Got there. Scenic route.", "Doesn't count for the level. Still nice, though."};

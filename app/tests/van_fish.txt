@@ -21,7 +21,7 @@ wait 30
 key 12 up
 wait 4000
 expect vanmode 4
-wait 3500
+wait 5500
 expect vanmode 0
-expect vancards 1
+expect vancards 3
 shot van_fish_after.png
