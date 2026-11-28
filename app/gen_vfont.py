@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Not run by the build (it needs FriBiDi). Run by hand to remake app/eo_font_v.h: python3 app/gen_vfont.py app
 # SPDX-License-Identifier: MPL-2.0
 """Van's dialogue font: Barlow Semi Condensed SemiBold at 19 px, every printable character (lower case too), between
 fm1-base's S (16 px) and M (24 px). Uses fm1-base's own renderer (tools/gen_font.py) and writes the same glyph format

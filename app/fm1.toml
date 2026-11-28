@@ -8,7 +8,7 @@ usb_audio_out = false          # nothing to play through it
 words = "words.tsv"
 
 backup = true                  # backup and restore of the saved settings over USB; the resource region's write is the restore's transfer (needs these)
-gen = ["gen_res.py {gen}", "gen_vfont.py {gen}"]     # packs app/res/eo_*.h into {gen}/eo_res.bin and eo_res_map.h before the build
+gen = ["gen_res.py {gen}"]     # packs app/res/eo_*.h into {gen}/eo_res.bin and eo_res_map.h before the build
 resources = "{gen}/eo_res.bin" # the read-only art and sound live in the resource region (app.h APP_RES_BASE), not in the app image
 resources_what = "the art and the intro music"
 emu = ["midi"]                 # the browser emulator: a MIDI keyboard can play it (a "MIDI ports" button on the page)
