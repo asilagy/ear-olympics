@@ -115,6 +115,7 @@ static volatile uint8_t eo_noise_on;     /* the TV: white-ish noise, faded in an
 static volatile float eo_noise_vol;
 static volatile uint8_t eo_radio_on;    /* Van's radio, in the next room: a slow bossa loop, quiet, ducked before every question */
 static volatile float eo_radio_vol;
+static volatile float eo_rd_bend = 1.0f;   /* the radio's pitch: a power flicker sags it */
 static volatile int32_t eo_rd_tr;        /* the radio: which key it is in now (semitones from C), and how many times it has moved on (for the tests) */
 static volatile uint32_t eo_rd_changes;
 static volatile uint32_t eo_cricket_trig;   /* a cricket somewhere in the room: each trigger is one short trill (eo_cricket_vol is how faint) */
@@ -637,7 +638,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                         }
                     }
                     for (k = 0; k < 5u; k++) {
-                        rd_ph[k] += rd_inc[k];
+                        rd_ph[k] += rd_inc[k] * eo_rd_bend;
                         if (rd_ph[k] >= 1.0f)
                             rd_ph[k] -= 1.0f;
                         sum += (fm_sinf(6.2831853f * rd_ph[k]) + 0.3f * fm_sinf(12.566371f * rd_ph[k])) * rd_e[k] * (k == 4u ? 0.9f : 0.3f);
@@ -5680,6 +5681,14 @@ int app_expect(const char *what, int *got)
         *got = eo_rd_changes >= 2u ? 1 : 0;
     else if (!strcmp(what, "vanrdkey"))     /* ... and the key it is in, semitones from C, plus 2 */
         *got = eo_rd_tr + 2;
+    else if (!strcmp(what, "vanmoment0") || !strcmp(what, "vanmoment1") || !strcmp(what, "vanmoment2") || !strcmp(what, "vanmoment3") || !strcmp(what, "vanmoment4") ||
+             !strcmp(what, "vanmoment5") || !strcmp(what, "vanmoment6") || !strcmp(what, "vanmoment7") || !strcmp(what, "vanmoment8") || !strcmp(what, "vanmoment9")) {   /* a test hook: that moment now */
+        van_cd[0] = van_beat[88u + (uint32_t)(what[9] - '0')].c[1] ? van_beat[88u + (uint32_t)(what[9] - '0')].c[1] : van_beat[88u + (uint32_t)(what[9] - '0')].c[0];
+        van_cn = 1;
+        van_ci = 0;
+        van_mom_start((uint32_t)(what[9] - '0'));
+        *got = 0;
+    }
     else if (!strcmp(what, "vannext")) {    /* a test hook: on to the next beat now */
         van_next_beat();
         *got = 0;

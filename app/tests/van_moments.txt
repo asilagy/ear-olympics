@@ -1,0 +1,112 @@
+# Little moments (footsteps, station surf, asleep, flicker, rain, channels, knock, snack, silence, tape): each runs its length,
+# ignores the keys, and ends with Van's line.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+tap PLAY
+wait 100
+expect vanmoment0 0
+wait 900
+shot van_mom0.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 7000
+expect vanmode 0
+expect vancards 2
+expect vanmoment1 0
+wait 900
+shot van_mom1.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 5900
+expect vanmode 0
+expect vancards 2
+expect vanmoment2 0
+wait 900
+shot van_mom2.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 5900
+expect vanmode 0
+expect vancards 2
+expect vanmoment3 0
+wait 900
+shot van_mom3.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 2600
+expect vanmode 0
+expect vancards 2
+expect vanmoment4 0
+wait 900
+shot van_mom4.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 5900
+expect vanmode 0
+expect vancards 1
+expect vanmoment5 0
+wait 900
+shot van_mom5.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 5400
+expect vanmode 0
+expect vancards 1
+expect vanmoment6 0
+wait 900
+shot van_mom6.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 2900
+expect vanmode 0
+expect vancards 2
+expect vanmoment7 0
+wait 900
+shot van_mom7.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 3900
+expect vanmode 0
+expect vancards 1
+expect vanmoment8 0
+wait 900
+shot van_mom8.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 4900
+expect vanmode 0
+expect vancards 1
+expect vanmoment9 0
+wait 900
+shot van_mom9.png
+expect vanmode 9
+tap PLAY
+wait 50
+expect vanmode 9
+wait 2400
+expect vanmode 0
+expect vancards 1

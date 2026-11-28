@@ -5,8 +5,8 @@
  * they are on the lit answer keys. Nothing is ever lost: a wrong answer is a shrug and the right key lights. */
 #include "eo_interval.h"
 
-enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH, VM_BLINK, VM_TEN, VM_TITLE, VM_LISTEN };   /* VM_TITLE: before the chat, where the level is picked */                        /* what the keys do now */
-enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN, VN_LISTEN };                         /* what comes when the cards run out */
+enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH, VM_BLINK, VM_TEN, VM_TITLE, VM_LISTEN, VM_MOMENT };   /* VM_TITLE: before the chat, where the level is picked */                        /* what the keys do now */
+enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN, VN_LISTEN, VN_MOMENT };                         /* what comes when the cards run out */
 #define VAN_CARDS 24u
 #define VAN_LINES 10u
 #define VAN_CPS 18u                                                  /* the typing speed: letters a second */
@@ -15,11 +15,12 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN, VN_LISTEN 
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
-#define VAN_NSET 7u
+#define VAN_NSET 17u
 static uint8_t van_cr_q, van_cr_gone, van_force_close;     /* the cricket lives on for this many more questions; the next cards are a close-up (a squint) */
 static uint32_t van_lis_t0, van_cr_once, van_cr_next;   /* the fridge listening; a cricket trill due at (ms); the next stray trill */
 static float van_cr_vol;
-static uint8_t van_norm, van_set_used;        /* ordinary topics since the last set piece; which set pieces have had their turn this visit */
+static uint8_t van_norm, van_mom, van_mom_ev;
+static uint32_t van_set_used, van_mom_t0;        /* ordinary topics since the last set piece; which set pieces have had their turn this visit */
 static uint8_t van_hum_seen, van_drop_force, van_drops;   /* the TV static gag this visit; name-drops (the force is a test hook) */    /* name-drops after higher/lower answers (the force is a test hook) */
 static uint8_t pg_offers, van_qs;            /* 10-ISH invitations made, and questions answered this visit */
 static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
@@ -359,6 +360,204 @@ static void van_cricket(float vol)       /* one trill, this faint */
     eo_cricket_vol = vol;
     eo_cricket_trig++;
 }
+static void van_room(int32_t num, int32_t den, int32_t px, int32_t py);
+static void van_paint(uint32_t pose, int32_t ox, int32_t oy, int32_t num, int32_t den, uint32_t now, uint32_t talking);
+/* ---- little moments: a few seconds of sound and picture between two topics, with a line before and a line after */
+static void van_mblip(int32_t note, uint32_t soft, float glide)
+{
+    eo_blub_soft = (uint8_t)soft;
+    eo_blub_glide = glide;
+    eo_blub_note = note;
+    eo_blub_trig++;
+}
+static void van_noise(float vol, uint32_t on)
+{
+    eo_noise_vol = vol;
+    eo_noise_on = (uint8_t)on;
+}
+static void van_mom_start(uint32_t m)
+{
+    van_mode = VM_MOMENT;
+    van_mom = (uint8_t)m;
+    van_mom_ev = 0;
+    van_mom_t0 = plat_ms();
+    van_chips = 0;
+    ui.redraw = 1;
+}
+static void van_mom_end(void)
+{
+    const char *a = van_mom_after[van_mom][0], *b = van_mom_after[van_mom][1];
+    eo_noise_on = 0;
+    eo_rd_bend = 1.0f;
+    van_say(P_IDLE, VN_BEAT, a, b, 0, 0);
+}
+static float van_mom_radio(uint32_t now)   /* the radio's level in each moment */
+{
+    uint32_t t = now - van_mom_t0;
+    switch (van_mom) {
+    case 0: return 0.35f;
+    case 1: return (t < 1200u || t > 5200u) ? 1.0f : 0.0f;
+    case 2: return 0.5f;
+    case 3: return 1.0f;
+    case 4: return 0.25f;
+    case 5: return 0.0f;
+    case 6: return 0.2f;
+    case 7: return 0.4f;
+    case 8: return 0.0f;
+    default: return 0.4f;
+    }
+}
+static void van_mom_step(uint32_t now)   /* the sounds of each moment, by time */
+{
+    uint32_t t = now - van_mom_t0, m = van_mom, n;
+    if (t >= van_mom_ms[m]) {
+        van_mom_end();
+        return;
+    }
+    switch (m) {
+    case 0:                              /* eight steps upstairs, a pause, eight again */
+        n = t / 380u;
+        if ((n < 8u || (n >= 11u && n < 19u)) && van_mom_ev <= n) {
+            van_mom_ev = (uint8_t)(n + 1u);
+            van_mblip(26 + (int32_t)(n & 1u) * 2, 0, -0.5f);
+        }
+        break;
+    case 1:                              /* the dial: static, a talk show, a polka, and back to the bossa */
+        n = t / 150u;
+        if (t >= 1200u && t < 5200u) {
+            van_noise(t < 2400u ? 0.06f : 0.012f, 1);
+            if (van_mom_ev <= n) {
+                van_mom_ev = (uint8_t)(n + 1u);
+                if (t < 2400u)
+                    van_mblip(60 + (int32_t)(n % 8u) * 5, 1, 0.8f);
+                else if (t < 3800u)
+                    van_mblip((n & 1u) ? 68 : 73, 1, 0.1f);
+                else
+                    van_mblip((n & 1u) ? 64 : 40, (n & 1u) ? 1u : 0u, 0.0f);
+            }
+        } else {
+            van_noise(0.0f, 0);
+        }
+        break;
+    case 2:                              /* a slow snore */
+        n = t / 1400u;
+        if (van_mom_ev <= n && t > 600u) {
+            van_mom_ev = (uint8_t)(n + 1u);
+            van_mblip(38, 1, -0.4f);
+        }
+        break;
+    case 3:                              /* the light buzzes and flickers; the radio sags and recovers */
+        if (t < 2400u)
+            van_noise(((t / 110u) & 1u) ? 0.0f : 0.03f, 1);
+        else
+            van_noise(0.0f, 0);
+        n = t < 1500u ? 0u : t < 2200u ? (t - 1500u) : t < 3000u ? (3000u - t) * 7u / 8u : 0u;
+        eo_rd_bend = 1.0f - 0.2f * (float)(n > 700u ? 700u : n) / 700.0f;
+        break;
+    case 4:                              /* rain on the window, and a drip now and then */
+        van_noise(0.03f, 1);
+        n = t / 700u;
+        if (van_mom_ev <= n) {
+            van_mom_ev = (uint8_t)(n + 1u);
+            van_mblip(86 + (int32_t)((n * 7u) % 5u), 1, 0.0f);
+        }
+        break;
+    case 5:                              /* channels: a burst of static and a beep for each */
+        n = t / 1000u;
+        if (van_mom_ev <= n) {
+            van_mom_ev = (uint8_t)(n + 1u);
+            van_mblip(55 + (int32_t)(n % 5u) * 6, 1, 0.3f);
+        }
+        van_noise(((t % 1000u) < 180u) ? 0.07f : 0.0f, 1);
+        break;
+    case 6:                              /* two knocks */
+        if ((van_mom_ev == 0u && t >= 700u) || (van_mom_ev == 1u && t >= 1100u)) {
+            van_mom_ev++;
+            van_mblip(33, 0, -0.3f);
+        }
+        break;
+    case 7:                              /* a loud bag, then crunching */
+        n = t / 90u;
+        if (t < 2200u) {
+            van_noise((n & 1u) ? 0.0f : ((n * 7u) % 3u ? 0.05f : 0.09f), 1);
+        } else {
+            van_noise((((t - 2200u) % 600u) < 120u) ? 0.1f : 0.0f, 1);
+        }
+        break;
+    case 8:                              /* nothing at all */
+        break;
+    default:                             /* the tape: a zip out, a snap back */
+        if (van_mom_ev == 0u && t > 300u) {
+            van_mom_ev = 1;
+            van_mblip(44, 1, 1.2f);
+        } else if (van_mom_ev == 1u && t > 1800u) {
+            van_mom_ev = 2;
+            van_noise(0.08f, 1);
+            van_mblip(76, 0, -1.0f);
+        } else if (van_mom_ev == 2u && t > 2000u) {
+            van_noise(0.0f, 0);
+        }
+        break;
+    }
+}
+static void van_dither(int32_t lvl)      /* darkens the picture with black rows (0 none .. 4 all) */
+{
+    int32_t y;
+    for (y = 0; y < 144; y++)
+        if ((y & 3) < lvl)
+            mrect(0, y, 240, 1, C_BLACK);
+}
+static void van_mom_scene(uint32_t now)
+{
+    uint32_t t = now - van_mom_t0, m = van_mom;
+    int32_t shake = 0, i;
+    if (m == 4u) {                       /* the window, close: the room punched in, and rain */
+        van_room(2, 1, 60, 0);
+        for (i = 0; i < 70; i++) {
+            uint32_t h = (uint32_t)(i + 1) * 2654435761u;
+            int32_t x = (int32_t)((h >> 8) % 240u), y = (int32_t)((h >> 18) % 160u + t / 5u * (2u + (h >> 28) % 3u) / 2u) % 150 - 6;
+            mrect(x, y, 1, 9, EO_RGB(190, 220, 250));
+        }
+        return;
+    }
+    if (m == 5u) {                       /* the TV, changing channels */
+        uint32_t ch = t / 1000u;
+        static const uint16_t BAR[5][4] = {{0xF800, 0x07E0, 0x001F, 0xFFE0}, {0x07FF, 0xF81F, 0xFFFF, 0x4208}, {0x2104, 0xA514, 0x2104, 0xA514}, {0xFD20, 0x0400, 0x780F, 0x07E0}, {0x8410, 0x8410, 0x2104, 0xFFFF}};
+        mrect(0, 0, 240, 144, EO_RGB(22, 26, 38));
+        mrect(18, 8, 204, 128, EO_RGB(64, 58, 74));
+        for (i = 0; i < 4; i++)
+            mrect(32 + i * 44, 16, 44, 96, BAR[ch % 5u][i]);
+        if ((t % 1000u) < 180u)          /* the change: static */
+            for (i = 0; i < 60; i++) {
+                uint32_t h = ((uint32_t)i * 2654435761u ^ (t / 40u) * 40503u) * 2246822519u;
+                mrect(32 + (int32_t)((h >> 8) % 176u), 16 + (int32_t)((h >> 20) % 96u), 3, 2, EO_RGB(220, 220, 230));
+            }
+        return;
+    }
+    if (m == 0u && ((t / 380u) < 8u || ((t / 380u) >= 11u && (t / 380u) < 19u)) && (t % 380u) < 70u)
+        shake = 1;                       /* each step shakes the room a pixel */
+    if (m == 6u) {                       /* close on Van, not moving */
+        van_room(2, 1, 40, 60);
+        van_paint(P_IDLE, -24, 6, 3, 1, now, 0);
+        return;
+    }
+    van_room(1, 1, 0, shake);
+    van_paint(m == 2u ? P_ASLEEP : m == 7u ? P_SNACK : m == 9u ? P_TAPE : m == 1u ? P_LOUNGE : P_IDLE, 48, 4 + shake, 3, 2, now, 0);
+    if (m == 2u) {                       /* the lights go out as he nods off, and come back as he wakes */
+        uint32_t u = t < 2000u ? t : t > 4500u ? (van_mom_ms[2] > t ? van_mom_ms[2] - t : 0u) * 2u : 2000u;
+        van_dither((int32_t)(u / 500u > 3u ? 3u : u / 500u));
+    }
+    if (m == 3u && t < 2400u && ((t / 110u) & 1u))   /* the flicker */
+        van_dither(3);
+    if (m == 8u)                         /* quiet: just a thin letterbox, the room very still */
+        van_dither(0);
+    if (m == 9u && t > 300u && t < 2100u) {          /* the tape measure runs out across the screen, then snaps back */
+        int32_t w = t < 1800u ? (int32_t)((t - 300u) * 220u / 1500u) : 0;
+        mrect(10, 110, w, 4, EO_RGB(240, 200, 60));
+        mrect(10, 112, w, 1, EO_RGB(60, 50, 20));
+    }
+}
+
 static void van_blink_start(void)
 {
     van_mode = VM_BLINK;
@@ -502,7 +701,7 @@ static void van_next_beat(void)
     }
     if (van_th == 0xFFu || van_thread[van_th][van_tp > 5u ? 5u : van_tp] == 255u || van_tp >= 6u) {   /* a thread is done: another one, not one of the last three */
         {   /* pacing: after two ordinary topics comes a set piece (the fish, Meow, the TV, the song, the staring contest, Mom), so the chat keeps getting broken up */
-            static const uint8_t SET_FIRST[VAN_NSET] = {12, 2, 37, 81, 84, 86, 87};   /* the first beat of each set piece's thread: the fish, then Meow, first */
+            static const uint8_t SET_FIRST[VAN_NSET] = {12, 2, 37, 81, 84, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97};   /* the first beat of each set piece's thread: the fish, then Meow, first */
             uint32_t want = 0xFFu, k, th, pick = 0xFFu;
             if (van_norm >= 2u) {
                 for (k = 0; k < VAN_NSET && want == 0xFFu; k++) {
@@ -532,7 +731,7 @@ static void van_next_beat(void)
             }
             if (pick != 0xFFu) {
                 van_th = (uint8_t)pick;
-                van_set_used |= (uint8_t)(1u << want);
+                van_set_used |= 1u << want;
                 van_norm = 0;
             } else {
                 for (tries = 0; tries < 20u; tries++) {
@@ -585,6 +784,8 @@ static void van_next_beat(void)
         seq_end = 600;
         eo_seq_start(0, 0);
     }
+    if (b->kind == K_MOM)
+        van_mom = b->arg;
     if (van_cur == 87u)                  /* the dots, and then, very faintly, something */
         van_cr_once = plat_ms() + 2600u, van_cr_vol = 0.006f;
     if (b->kind == K_PHONE) {            /* a ring: one high alien chirp */
@@ -593,7 +794,7 @@ static void van_next_beat(void)
         eo_blub_note = 88;
         eo_blub_trig++;
     }
-    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : b->kind == K_FISH ? VN_FISH : b->kind == K_BLINK ? VN_BLINK : (b->kind == K_TEN && !pg_on) ? VN_TEN : b->kind == K_FRIDGE ? VN_LISTEN : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
+    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : b->kind == K_FISH ? VN_FISH : b->kind == K_BLINK ? VN_BLINK : (b->kind == K_TEN && !pg_on) ? VN_TEN : b->kind == K_FRIDGE ? VN_LISTEN : b->kind == K_MOM ? VN_MOMENT : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
     for (i = 4; i < nc; i++)
         van_cd[van_cn++] = cards[i];
 }
@@ -630,6 +831,8 @@ static void van_done_cards(void)
         van_ten_start();
     else if (a == VN_LISTEN)
         van_fridge_start();
+    else if (a == VN_MOMENT)
+        van_mom_start(van_mom);
     else
         van_next_beat();
 }
@@ -861,6 +1064,7 @@ static void van_end(void)
     eo_radio_on = 0;
     van_cr_q = 0;
     van_cr_once = 0;
+    eo_rd_bend = 1.0f;
     van_force_close = 0;
     eo_cricket_vol = 0.0f;
     van_stop_sound();
@@ -911,6 +1115,8 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
             }
     } else if (van_mode == VM_BLINK) {
         (void)new_keys;                  /* a staring contest: you cannot skip it (HOME leaves) */
+    } else if (van_mode == VM_MOMENT) {
+        (void)new_keys;                  /* a moment: no skipping (HOME leaves) */
     } else if (van_mode == VM_LISTEN) {
         (void)new_keys;                  /* listening: no skipping (HOME leaves) */
     } else if (van_mode == VM_FISH) {
@@ -943,7 +1149,7 @@ static void van_tick(uint32_t now)
     {   /* the radio plays in the next room: quiet, and turned down before every question and for the long gags */
         uint32_t quiet = van_mode == VM_ASK || van_mode == VM_HUM || van_mode == VM_FISH || van_mode == VM_BLINK || van_mode == VM_LISTEN || van_chips || (van_cur == 87u && (van_mode == VM_CARDS || van_mode == VM_CHOICE)) ||
                          (van_mode == VM_CARDS && van_after == VN_ASK);
-        eo_radio_vol = quiet ? 0.0f : (pg_on && van_on_tv(now)) ? 0.3f : 1.0f;   /* ducked under Pong while it plays, not gone */
+        eo_radio_vol = van_mode == VM_MOMENT ? van_mom_radio(now) : quiet ? 0.0f : (pg_on && van_on_tv(now)) ? 0.3f : 1.0f;   /* ducked under Pong while it plays, not gone */
         eo_radio_on = 1;
     }
     if (van_mode == VM_BLINK) {
@@ -958,6 +1164,8 @@ static void van_tick(uint32_t now)
     }
     if (pg_on)
         van_pong_step(now);
+    if (van_mode == VM_MOMENT)
+        van_mom_step(now);
     if (van_mode == VM_LISTEN && now - van_lis_t0 > 5500u)
         van_fridge_stop();
     if (van_cr_once && now >= van_cr_once) {
@@ -1301,6 +1509,14 @@ static void van_scene(uint32_t now)
     int32_t bob = ((now / 600u) & 1u) ? 1 : 0;
     if (van_mode == VM_TITLE) {
         van_title_scene(now);
+        return;
+    }
+    if (van_mode == VM_MOMENT) {
+        van_mom_scene(now);
+        mrect(0, 144, 240, 96, C_BLACK);
+        mrect(0, 144, 240, 2, EO_RGB(110, 200, 90));
+        if (van_cn)
+            mtext(8, 150, &FONT_S, van_text(van_cd[van_ci]), van_kind(van_cd[van_ci]) == 1u ? EO_RGB(150, 190, 235) : C_WHITE);
         return;
     }
     if (van_mode == VM_LISTEN) {          /* the room punched in on the fridge, trembling a pixel with the hum */
