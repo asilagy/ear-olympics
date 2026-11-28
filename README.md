@@ -29,7 +29,7 @@ Mostly. (Play long enough and you may hear something drift.)
 | **Copycat** | Hear a melody over a root, play it back. 34 levels | **Meow**, an orange tabby in headphones | "Purrfect." / "...really?" Withering, a secret perfectionist, rooting for you very quietly. |
 | **Chord Dogtor** | Name the chord, from major and minor up to suspended | **Dr. Diggie**, a dog in a white coat | "Hello, I'm Dr. Diggie, your Chord Dogtor." The calm professional who feels every sad chord and runs on coffee. Speaks in silent-film title cards. |
 | **Name That Interval** | Which note is higher, then which interval | **Van** (Ivan Terval), an alien surveyor | "Sup duude, the name's Ivan Terval, but my bro-bros call me Van." About 90% couch, 10% training. |
-| **Simon** | Remember a sequence | **Simoné**, a goldfish clairvoyant | A placeholder game so far. She rhymes, calls you darling, and speaks of herself in the third person. Simoné forgot the rest. |
+| **Simoné Says** | Remember a growing sequence of notes | **Simoné**, a goldfish clairvoyant | A serene mystic with a three-second memory. She rhymes, calls you darling, and speaks of herself in the third person. Simoné forgot the rest. |
 
 Eight more are on the way: a raccoon in a trench coat who questions everything, a hedgehog inspector, a crab with a
 metal detector, a bear who apologizes to the tuna, a yodeling goat, a snail in a racing helmet, birds on a wire and a
@@ -62,9 +62,12 @@ knob 4 while the conversation carries on over it. Under it all, a radio plays a 
 You pick a level on a title screen and after that it rises by itself. He talks in plain mixed-case text, five lines at a
 time, and takes the occasional drawl very slowly.
 
-### Simon
+### Simoné Says: a goldfish who remembers the future
 
-A placeholder for now: a sequence game that exists so the select screen has something in the corner.
+Simoné plays a growing sequence on four keys and you play it back, every round from the start, so the early notes stick.
+Each note has a word that flashes as it sounds (DRIP, WATER, SPLASH, SPLISH) and the sequence floats above her bowl as
+bubbles that pop while you think. You are racing her forgetting. Her game keeps getting more of her: she rhymes, she
+forgets mid-sentence, and she knows, a little, that she lives in a box.
 
 ## Playing it
 
