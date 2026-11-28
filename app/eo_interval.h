@@ -221,7 +221,7 @@ static const char *const van_song[] = {
 #define VAN_NSONG ((uint32_t)(sizeof van_song / sizeof van_song[0]))
 static const char *const van_radio_down = "*Van turns the radio down.";
 static const char *const van_blink_after[3] = {"*Van blinked.", "...You win.", "I wasn't even trying. ...Okay, I was a little."};
-static const char *const van_pong_hint[3] = {"Knob four. The paddle sits still until you turn it.", "Knob four. It's shy. Give it a nudge.", "No pressure. I'll just play both sides."};
+static const char *const van_tenish_hint[3] = {"Knob four. The paddle sits still until you turn it.", "Knob four. It's shy. Give it a nudge.", "No pressure. I'll just play both sides."};
 static const char *const van_lead[8] = {"*Van pulls out the tape measure.", "Hold on. Gotta measure something.", "Okay, tape measure time.", "Two notes. How far apart?",
                                          "Yep. Still my job. Measuring stuff.", "Don't mind me. I'm just here to measure stuff.", "That's what I'm here for. Gaps.", "Okay. Back to work. Sort of."};
 /* the names as a person says them, and what each one sounds like: Van drops these now and then after a higher/lower question, so the names arrive slowly */

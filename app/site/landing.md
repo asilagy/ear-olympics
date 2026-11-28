@@ -44,7 +44,7 @@ sevenths and suspended. He speaks in silent-film title cards. A right answer ear
 
 Van is an alien surveyor who is only here for the snacks. His game is about 90% hanging out on his couch and 10% ear
 training: which note is higher, then which interval it was. Now and then he stops and shows you something: a long look
-at Simoné the goldfish, the fridge hum, the TV static, and 10-ISH, a game of Pong on his TV that you play with knob 4
+at Simoné the goldfish, the fridge hum, the TV static, and 10-ISH, a familiar retro videogame on his TV that you play with knob 4
 while he keeps talking.
 
 ![Van on his couch: Okay, I have to ask. What do you do all day?](img/van_room.png "Van's room")
@@ -53,7 +53,7 @@ while he keeps talking.
 
 ![The TV static gag: Van, very close to the glass](img/van_static.png "The TV static gag")
 
-![10-ISH: Pong on Van's TV, playing while he talks](img/van_tenish.png "10-ISH, Pong with knob 4")
+![10-ISH: a familiar retro videogame on Van's TV, playing while he talks](img/van_tenish.png "10-ISH, played with knob 4")
 
 ## Simoné Says, with Simoné
 
