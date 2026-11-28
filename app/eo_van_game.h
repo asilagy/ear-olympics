@@ -15,7 +15,8 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };         
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
-static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live */
+static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
+static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live (3 is the TV) */   /* the multicam: which camera is live */
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
 static const char *van_cd[VAN_CARDS];
 static uint32_t van_fish_t0, van_fish_bub, van_blink_t0, van_blink_tk;
@@ -95,7 +96,11 @@ static void van_card_start(uint32_t now)
     van_cut++;                           /* every card is a cut: wide on the first, then medium and close, flipping sides */
     {
         uint32_t cam, last = (van_cn > 1u && (uint32_t)van_ci + 1u == van_cn);
-        if (van_pose == P_FISH || van_ci == 0u)
+        if (van_pose == P_FISH)
+            cam = 0u;
+        else if (pg_on)                  /* with the game on: the TV shot opens a bit and every other line goes back to it; Van's lines cut away */
+            cam = last ? 2u : (van_ci & 1u) ? ((van_cut & 1u) ? 1u : 2u) : 3u;
+        else if (van_ci == 0u)
             cam = 0u;
         else if (last)
             cam = 2u;                    /* the last line of a bit gets the close-up */
@@ -337,8 +342,7 @@ static void van_blink_stop(void)
 #define PG_H 96
 #define PG_PH 24                                                     /* paddle height */
 static int32_t pg_bx, pg_by, pg_vx, pg_vy, pg_pp, pg_vp, pg_aim;
-static uint32_t pg_ms, pg_run, pg_turn_ms, pg_sp, pg_sv, pg_hint, pg_turned;
-static uint8_t pg_on;                                                /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
+static uint32_t pg_cut, pg_ms, pg_run, pg_turn_ms, pg_sp, pg_sv, pg_hint, pg_turned;
 static void pg_serve(int32_t dir)
 {
     pg_bx = PG_W * 8;
@@ -351,7 +355,7 @@ static void van_next_beat(void);
 static void van_ten_start(void)          /* the TV goes on and stays on; the chat goes on around it */
 {
     pg_on = 1;
-    pg_sp = pg_sv = pg_hint = pg_turned = pg_run = 0;
+    pg_sp = pg_sv = pg_hint = pg_turned = pg_run = pg_cut = 0;
     pg_pp = pg_vp = PG_H * 8;
     pg_ms = pg_turn_ms = plat_ms();
     pg_serve(-1);
@@ -378,8 +382,10 @@ static void van_pong_step(uint32_t now)
     uint32_t dt = now - pg_ms;
     int32_t half = PG_PH * 8, tgt, d;
     pg_ms = now;
-    if (!van_on_tv(now))                 /* a cutaway: the game waits, frozen, until the cut back */
+    if (!van_on_tv(now)) {               /* a cutaway: the game waits, frozen, until the cut back */
+        pg_cut += dt > 50u ? 50u : dt;
         return;
+    }
     if (dt > 50u)
         dt = 50u;
     pg_run += dt;
@@ -961,12 +967,16 @@ static int32_t van_ghost_px(const void *s, int32_t x, int32_t y)    /* Van's fac
         return -1;
     return (int32_t)(uint16_t)((((uint32_t)c >> 1) & 0x7BEFu) + 0x2104u * 3u);
 }
-static int32_t van_ghost4_px(const void *s, int32_t x, int32_t y)   /* the same, but a quarter of the pixels, and darker: a reflection that leaves the game readable */
+static int32_t van_glass_px(const void *s, int32_t x, int32_t y)   /* the static gag's face (solid, tinted) but dimmed, with scanlines: for the Pong glass */
 {
     int32_t c = van_tint_px(s, x, y);
-    if (c < 0 || (x & 1) || (y & 1))
+    uint32_t k = (y & 1) ? 2u : 3u, r, g, b;      /* every other row darker: the scanlines */
+    if (c < 0)
         return -1;
-    return (int32_t)(uint16_t)((((uint32_t)c >> 1) & 0x7BEFu) + 0x0821u * 2u);
+    r = (((uint32_t)c >> 11) & 31u) * k / 8u + 1u;
+    g = (((uint32_t)c >> 5) & 63u) * k / 8u + 3u;
+    b = ((uint32_t)c & 31u) * k / 8u + 2u;
+    return (int32_t)(uint16_t)((r << 11) | (g << 5) | b);
 }
 static void van_tint_init(void)
 {
@@ -1029,20 +1039,38 @@ static void van_bands(uint32_t now)      /* the room and the box under it (no he
     }
 }
 
-static uint32_t van_on_tv(uint32_t now)   /* the TV shot: the game is on, Van is not mid-line, and nothing else has the screen */
+static uint32_t van_on_tv(uint32_t now)   /* the TV shot: the game runs. Any other shot is a cutaway on Van and the game waits */
 {
-    return pg_on && van_mode == VM_CARDS && !van_chips && van_typed(now) >= van_len();
-}
-static void van_pong_draw(uint32_t now)   /* the TV in close-up: the field, two paddles, a ball, Van's face faint on the glass */
-{
-    const int32_t fx = 32, fy = 22;
-    uint16_t lit = EO_RGB(150, 230, 150), dim = EO_RGB(46, 92, 62);
-    int32_t y;
-    char sc[8];
     (void)now;
+    return pg_on && (van_chips || van_mode == VM_ASK || van_mode == VM_CHOICE || (van_mode == VM_CARDS && van_cam == 3u));
+}
+static void van_pong_draw(uint32_t now)   /* the TV in close-up: the glass with Van's face faint in it (like the static), then the game on top */
+{
+    const int32_t fx = 32, fy = 16, bz = 6;
+    uint16_t lit = EO_RGB(150, 230, 150), dim = EO_RGB(46, 92, 62), frame = EO_RGB(64, 58, 74);
+    int32_t y, i;
+    uint32_t f = now / 70u;
+    char sc[8];
     mrect(0, 0, 240, 144, EO_RGB(22, 26, 38));
-    mrect(18, 8, 204, 128, EO_RGB(64, 58, 74));
-    mrect(fx - 6, fy - 6, PG_W + 12, PG_H + 12, EO_RGB(12, 26, 22));
+    mrect(fx - bz, fy - bz, PG_W + 2 * bz, PG_H + 2 * bz, EO_RGB(14, 22, 30));
+    if (eo_res_ok()) {
+        van_tint_init();
+        spr_paint(van_glass_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, 62, 6, 3, 2);
+    }
+    for (i = 0; i < 70; i++) {           /* a little static: single specks, a new set every frame */
+        uint32_t h = ((uint32_t)i * 2654435761u ^ f * 40503u) * 2246822519u;
+        mrect(fx - bz + (int32_t)((h >> 8) % (uint32_t)(PG_W + 2 * bz)), fy - bz + (int32_t)((h >> 20) % (uint32_t)(PG_H + 2 * bz)), 1, 1, EO_RGB(120, 130, 140));
+    }
+    mrect(18, 8, 204, fy - bz - 8, frame);                                  /* the bezel, over anything that spilled */
+    mrect(18, fy + PG_H + bz, 204, 136 - (fy + PG_H + bz), frame);
+    mrect(18, 8, fx - bz - 18, 128, frame);
+    mrect(fx + PG_W + bz, 8, 222 - (fx + PG_W + bz), 128, frame);
+    for (i = 0; i < 4; i++) {            /* rounded glass: a stepped corner at each end */
+        int32_t cx = (i & 1) ? fx + PG_W + bz - 1 : fx - bz, cy = (i & 2) ? fy + PG_H + bz - 1 : fy - bz;
+        int32_t sx = (i & 1) ? -1 : 1, sy = (i & 2) ? -1 : 1, k;
+        for (k = 0; k < 4; k++)
+            mrect(sx > 0 ? cx : cx - (3 - k), sy > 0 ? cy + k : cy - k, 4 - k, 1, frame);
+    }
     for (y = 0; y < PG_H; y += 8)        /* the dashed line down the middle */
         mrect(fx + PG_W / 2 - 1, fy + y, 2, 4, dim);
     mrect(fx + 6, fy + pg_vp / 16 - PG_PH / 2, 4, PG_PH, lit);                 /* Van's */
@@ -1053,10 +1081,6 @@ static void van_pong_draw(uint32_t now)   /* the TV in close-up: the field, two 
     mtext(fx + PG_W / 2 - 20, fy - 2, &FONT_XS, sc, dim);                       /* the score, quiet: Van's, then yours */
     sc[0] = (char)('0' + (pg_sp > 9u ? 9u : pg_sp));
     mtext(fx + PG_W / 2 + 14, fy - 2, &FONT_XS, sc, dim);
-    if (eo_res_ok()) {
-        van_tint_init();
-        spr_paint(van_ghost4_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, 66, 10, 3, 2);   /* Van's reflection in the glass */
-    }
 }
 
 static void van_scene(uint32_t now)
@@ -1080,8 +1104,11 @@ static void van_scene(uint32_t now)
             mrect(0, 0, 240, 240, C_BLACK);
         return;
     }
-    if (van_on_tv(now))
+    if (van_on_tv(now)) {
         van_pong_draw(now);
+        if (van_chips || van_mode == VM_CHOICE)
+            van_chip_row(now);
+    }
     else {
         int32_t big = van_chips || van_mode == VM_CHOICE;
         uint32_t talk = van_mode == VM_CARDS && van_typed(now) < van_len();

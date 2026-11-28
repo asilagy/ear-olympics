@@ -5583,6 +5583,16 @@ int app_expect(const char *what, int *got)
     }
     else if (!strcmp(what, "vanontv"))      /* 1 when the shot is the TV with the game running, 0 on a cutaway */
         *got = (int)van_on_tv(plat_ms());
+    else if (!strcmp(what, "vancut")) {     /* a test hook: cut to Van (medium shot) */
+        van_cam = 1;
+        *got = 1;
+    }
+    else if (!strcmp(what, "vancuttv")) {   /* a test hook: cut back to the TV */
+        van_cam = 3;
+        *got = 3;
+    }
+    else if (!strcmp(what, "vanpcut"))      /* 10-ISH: 1 once the game has waited through half a second of cutaways */
+        *got = pg_cut > 500u ? 1 : 0;
     else if (!strcmp(what, "vanprun"))      /* 10-ISH: 0 until the game has run for a second (it waits on every cutaway) */
         *got = pg_run > 1000u ? 1 : 0;
     else if (!strcmp(what, "vanpp"))        /* 10-ISH: your paddle's place, in pixels */
