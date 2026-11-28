@@ -1,0 +1,29 @@
+# The cricket is acknowledged out loud, and on its last question Van notices it has gone.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+tap PLAY
+wait 100
+expect vancricket 0
+expect vanpick0 0
+wait 100
+expect vancricketq 3
+expect vanask 0
+wait 200
+expect vanwin 0
+expect vancricketq 2
+expect vanask 0
+wait 200
+expect vanwin 0
+expect vancricketq 1
+expect vanask 0
+wait 200
+expect vanwin 0
+expect vancricketq 0
+wait 100
+expect vancricketgone 0

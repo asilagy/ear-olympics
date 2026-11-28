@@ -168,7 +168,7 @@ static const van_beat_t van_beat[] = {
     {{"*A tiny phone buzzes. Van picks it up.", "Hey, Mom. ...No, I'm at work. ...Measuring. ...Yes, things.", "...Yes, I ate. A snack is a meal if you're brave. ...Love you too. Bye. Bye. Bye.", "*Van hangs up. ...Mom says hi. And to wear a hat."}, K_PHONE, P_PHONE, {0, 0, 0}, {0, 0, 0}},
     /* 87: did you hear that? (a cricket, very faint; yes or no) */
     {{"*Van stops. Tilts his head.", "...", "...Hey. Did you hear that?", 0}, K_ASK, P_COOKED, {"Yes", "No", 0},
-     {"...Are you sure?|...Huh. Okay. Yeah. I hear it too.", "Huh. Must be me.|...No. There it is. Tiny. Rude.", 0}},
+     {"...Are you sure?|...Huh. Okay. Yeah. That's a cricket. He lives here now.", "Huh. Must be me.|...No. There it is. A cricket. Tiny. Rude. He lives here.", 0}},
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
@@ -176,6 +176,7 @@ static const char *const van_intro[4] = {"#", "...Hold on. Decoder was off.", "S
                                          "Yeah, I'm not, like, the evolved kind. Sorry."};
 static const char *const van_again = "Oh. Hey. You're back. Cool.";
 static const char *const van_fridge_after[3] = {"There. ...You hear it?", "It's a B. A little flat. Every fridge. Same B.", "I'm counting that as a thank you."};
+static const char *const van_cricket_bye = "...The cricket stopped. I think he moved out. ...I'll miss him.";
 static const char *const van_hum_after[2] = {"...", "...Yeah."};
 static const char *const van_snack = "Wait, was that your snack break? ...Oh. Cool. Cool cool cool.";
 static const char *const van_song[] = {

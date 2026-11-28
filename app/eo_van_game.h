@@ -16,7 +16,7 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN, VN_LISTEN 
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
 #define VAN_NSET 7u
-static uint8_t van_cr_q, van_force_close;     /* the cricket lives on for this many more questions; the next cards are a close-up (a squint) */
+static uint8_t van_cr_q, van_cr_gone, van_force_close;     /* the cricket lives on for this many more questions; the next cards are a close-up (a squint) */
 static uint32_t van_lis_t0, van_cr_once, van_cr_next;   /* the fridge listening; a cricket trill due at (ms); the next stray trill */
 static float van_cr_vol;
 static uint8_t van_norm, van_set_used;        /* ordinary topics since the last set piece; which set pieces have had their turn this visit */
@@ -652,8 +652,8 @@ static void van_answer(uint32_t ix)
     }
     if (van_qs < 255u)
         van_qs++;
-    if (van_cr_q)
-        van_cr_q--;
+    if (van_cr_q && --van_cr_q == 0u)
+        van_cr_gone = 1;
     eo_blub_soft = 1;                    /* a happy upward alien chirp: his own voice, no bell */
     eo_blub_glide = 0.9f;
     eo_blub_note = 69;
@@ -716,6 +716,11 @@ static void van_answer(uint32_t ix)
             van_cd[van_cn++] = van_vibe[semi - 1u];
         van_drops++;
         van_drop_force = 0;
+    }
+    if (van_cr_gone) {                   /* the cricket's last question: he notices it has gone */
+        van_cr_gone = 0;
+        if (van_cn < 6u)
+            van_cd[van_cn++] = van_cricket_bye;
     }
     van_chips = 2;
     van_resume = van_th != 0xFFu && van_tp > 0u && van_thread[van_th][van_tp < 6u ? van_tp : 5u] != 255u && van_tp < 6u;

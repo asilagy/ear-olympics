@@ -5665,6 +5665,8 @@ int app_expect(const char *what, int *got)
         van_fridge_start();
         *got = 0;
     }
+    else if (!strcmp(what, "vancricketgone"))   /* the cricket's goodbye is among the cards */
+        *got = (van_cn > 0u && van_cd[van_cn - 1u] == van_cricket_bye) ? 0 : 1;
     else if (!strcmp(what, "vancricketq"))  /* questions the cricket has left to live */
         *got = van_cr_q;
     else if (!strcmp(what, "vancricket")) { /* a test hook: the "did you hear that" beat now */
