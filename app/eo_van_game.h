@@ -15,6 +15,8 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };         
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
+#define VAN_NSET 6u
+static uint8_t van_norm, van_set_used;        /* ordinary topics since the last set piece; which set pieces have had their turn this visit */
 static uint8_t van_hum_seen, van_drop_force, van_drops;   /* the TV static gag this visit; name-drops (the force is a test hook) */    /* name-drops after higher/lower answers (the force is a test hook) */
 static uint8_t pg_offers, van_qs;            /* 10-ISH invitations made, and questions answered this visit */
 static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
@@ -471,16 +473,58 @@ static void van_next_beat(void)
         return;
     }
     if (van_th == 0xFFu || van_thread[van_th][van_tp > 5u ? 5u : van_tp] == 255u || van_tp >= 6u) {   /* a thread is done: another one, not one of the last three */
-        for (tries = 0; tries < 20u; tries++) {
-            uint32_t th = van_rnd(VAN_THREADS), ok = 1;
-            if (van_thread[th][0] == 37u && (set.van_seen & 2u))
-                ok = 0;
-            for (i = 0; i < 3u; i++)
-                if (van_th_recent[i] == th)
-                    ok = 0;
-            if (ok) {
-                van_th = (uint8_t)th;
-                break;
+        {   /* pacing: after two ordinary topics comes a set piece (the fish, Meow, the TV, the song, the staring contest, Mom), so the chat keeps getting broken up */
+            static const uint8_t SET_FIRST[VAN_NSET] = {12, 2, 37, 81, 84, 86};   /* the first beat of each set piece's thread: the fish, then Meow, first */
+            uint32_t want = 0xFFu, k, th, pick = 0xFFu;
+            if (van_norm >= 2u) {
+                for (k = 0; k < VAN_NSET && want == 0xFFu; k++) {
+                    if (van_set_used & (1u << k))
+                        continue;
+                    if (SET_FIRST[k] == 37u && (set.van_seen & 2u))
+                        continue;
+                    want = k;
+                }
+                if (want == 0xFFu) {     /* all of them have had a turn this visit: start the round again */
+                    van_set_used = 0;
+                    want = 0;
+                }
+            }
+            if (want != 0xFFu) {
+                if (want >= 2u) {        /* after the fish and Meow, the rest in a random order */
+                    uint32_t n = 0, c[VAN_NSET];
+                    for (k = 2; k < VAN_NSET; k++)
+                        if (!(van_set_used & (1u << k)) && !(SET_FIRST[k] == 37u && (set.van_seen & 2u)))
+                            c[n++] = k;
+                    if (n)
+                        want = c[van_rnd(n)];
+                }
+                for (th = 0; th < VAN_THREADS; th++)
+                    if (van_thread[th][0] == SET_FIRST[want])
+                        pick = th;
+            }
+            if (pick != 0xFFu) {
+                van_th = (uint8_t)pick;
+                van_set_used |= (uint8_t)(1u << want);
+                van_norm = 0;
+            } else {
+                for (tries = 0; tries < 20u; tries++) {
+                    uint32_t ok = 1;
+                    th = van_rnd(VAN_THREADS);
+                    if (van_thread[th][0] == 37u && (set.van_seen & 2u))
+                        ok = 0;
+                    for (k = 0; k < VAN_NSET; k++)     /* the set pieces come on the schedule, not by chance */
+                        if (van_thread[th][0] == SET_FIRST[k])
+                            ok = 0;
+                    for (i = 0; i < 3u; i++)
+                        if (van_th_recent[i] == th)
+                            ok = 0;
+                    if (ok) {
+                        van_th = (uint8_t)th;
+                        break;
+                    }
+                }
+                if (van_norm < 255u)
+                    van_norm++;
             }
         }
         for (i = 2; i > 0; i--)
@@ -722,6 +766,7 @@ static void van_enter(void)
     van_snacked = 0;
     pg_on = 0;
     pg_offers = van_qs = van_hum_seen = 0;
+    van_norm = van_set_used = 0;
     van_ev = 0;
     van_chips = 0;
     van_q_n = 0;

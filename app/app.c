@@ -5599,6 +5599,23 @@ int app_expect(const char *what, int *got)
     }
     else if (!strcmp(what, "vandrops"))     /* how many name-drops so far */
         *got = van_drops;
+    else if (!strcmp(what, "vanpacing")) {  /* a test hook: run 60 beats; the topic count at which the fish and Meow first came, as fish*10+meow */
+        uint32_t n = 0, fish = 99, meow = 99, i;
+        van_set_used = van_norm = 0;
+        van_th = 0xFFu;
+        for (i = 0; i < 60u; i++) {
+            van_since = 0;
+            van_next_beat();
+            if (van_tp == 1u) {
+                n++;
+                if (van_thread[van_th][0] == 12u && fish == 99u)
+                    fish = n;
+                if (van_thread[van_th][0] == 2u && meow == 99u)
+                    meow = n;
+            }
+        }
+        *got = (int)(fish * 10u + meow);
+    }
     else if (!strcmp(what, "vannext")) {    /* a test hook: on to the next beat now */
         van_next_beat();
         *got = 0;

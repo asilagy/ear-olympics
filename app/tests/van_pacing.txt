@@ -1,0 +1,10 @@
+# Pacing: after two ordinary topics comes a set piece. The fish tank is the first (topic 3), Meow the next (topic 6, after two more).
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vanpacing 36
