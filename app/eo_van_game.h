@@ -24,7 +24,8 @@ static uint32_t van_set_used, van_mom_t0;        /* ordinary topics since the la
 static uint8_t van_hum_seen, van_drop_force, van_drops;   /* the TV static gag this visit; name-drops (the force is a test hook) */    /* name-drops after higher/lower answers (the force is a test hook) */
 static uint8_t pg_offers, van_qs;            /* 10-ISH invitations made, and questions answered this visit */
 static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
-static uint8_t van_tvshot, van_tv_arm;      /* arm: the very next van_say is the static gag's after-cards, which keep the TV shot (and its hiss) until they are done */
+static int32_t fz_s = 4, fz_cx = 120, fz_cy = 122;   /* the fish bowl's size (4 = full screen, 3 = in the top band over the words), and its centre */
+static uint8_t van_tvshot, van_tv_arm;      /* tvshot 1: the static gag's after-cards keep the TV shot (and its hiss); 2: the fish look's after-cards keep the bowl; arm = the very next van_say is such a set */
 static uint8_t van_tvshot_dummy_unused;                  /* 1: the cards after the static gag stay on the static's picture (the TV shot) until the drawl is done */
 static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live (3 is the TV) */   /* the multicam: which camera is live */
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
@@ -142,8 +143,8 @@ static void van_say(uint32_t pose, uint32_t after, const char *a, const char *b,
     const char *l[4] = {a, b, c, d};
     uint32_t i;
     if (van_tv_arm) {
+        van_tvshot = van_tv_arm;
         van_tv_arm = 0;
-        van_tvshot = 1;
     } else if (van_tvshot) {             /* the static gag's cards are done: the hiss fades and the room comes back */
         van_tvshot = 0;
         eo_noise_on = 0;
@@ -353,6 +354,7 @@ static void van_fish_start(void)
 static void van_fish_stop(void)
 {
     eo_noise_on = 0;
+    van_tv_arm = 2;                      /* these lines are said while we are still looking at the bowl */
     van_say(P_TALK, VN_BEAT, "That's Simon~. She came with the hat. I guess.", "I swear sometimes it feels like she's talking to me.", "Maybe I was dreaming. I could've sworn she said something about visions of pizza... yeah.", 0);
 }
 static void van_fridge_start(void)       /* he stops and listens: the fridge really hums, for a few seconds, and nothing else happens */
@@ -1221,8 +1223,8 @@ static void van_tick(uint32_t now)
         van_chips = 1;
         van_card_start(now);
     }
-    if (van_mode == VM_FISH) {
-        if (now - van_fish_t0 > VAN_FISH_MS) {
+    if (van_mode == VM_FISH || (van_tvshot == 2u && van_mode == VM_CARDS)) {     /* the bubbles go on under the words he says about her */
+        if (van_mode == VM_FISH && now - van_fish_t0 > VAN_FISH_MS) {
             van_fish_stop();
         } else if (now - van_fish_t0 >= van_fish_next) {     /* a bubble comes up now and then: a small plip, never on a beat */
             eo_blub_soft = 0;
@@ -1350,11 +1352,11 @@ static int32_t van_lens_px(int32_t fx, int32_t fy, int32_t R, int32_t sc, int32_
 /* The TV's glass, pixel by pixel (the approved preview): the dark glass (18, 24, 36), his face in it as 55% of his own light (screen blend), his face bulged by a lens
  * (a fisheye, strongest in the middle), a dimmer scanline on every even row, then the static (5 px blocks, 18% of them lit, grey 30 to 90, never darkening anything,
  * so it shows on his skin too) and a roll bar. He sways a little and breathes (his size changes). Drawn as runs of one colour along each row. */
-static void van_tv_glass(uint32_t now, int32_t fy, uint32_t f)
+static void van_tv_glass(uint32_t now, int32_t fy, uint32_t f, int32_t sc0, int32_t R, int32_t blend, int32_t flags)   /* flags: 1 the static, 2 the roll bar */
 {
     uint32_t tm = now - van_hum_t0;
-    int32_t fx = 120 + (int32_t)(4.0f * fm_sinf((float)(tm % 12566u) * 0.0005f)), sc = 500 + (int32_t)(15.0f * fm_sinf((float)(tm % 10472u) * 0.0006f));
-    int32_t w = 68 * sc / 100, h = 66 * sc / 100, ox = fx - w / 2, oy = fy - h * 4 / 10, R2 = 150 * 150, bar = (int32_t)((tm * 140u / 1000u) % 300u) - 30, x, y;
+    int32_t fx = 120 + (int32_t)(4.0f * fm_sinf((float)(tm % 12566u) * 0.0005f)), sc = sc0 + (int32_t)((float)sc0 * 0.03f * fm_sinf((float)(tm % 10472u) * 0.0006f));
+    int32_t w = 68 * sc / 100, h = 66 * sc / 100, ox = fx - w / 2, oy = fy - h * 4 / 10, R2 = R * R, bar = (int32_t)((tm * 140u / 1000u) % 300u) - 30, x, y;
     int32_t face = eo_res_ok();
     if (face)
         spr_pal = EO_CAST_PAL[2];
@@ -1375,7 +1377,7 @@ static void van_tv_glass(uint32_t now, int32_t fy, uint32_t f)
                         c = cast_px(EO_VAN[0], 95 - (14 + lx * 68 / w), ly * 66 / h);
                 }
                 if (c >= 0) {
-                    uint32_t cr = (((uint32_t)c >> 11) & 31u) * 255u / 31u * 55u / 100u, cg = (((uint32_t)c >> 5) & 63u) * 255u / 63u * 55u / 100u, cb = ((uint32_t)c & 31u) * 255u / 31u * 55u / 100u;
+                    uint32_t cr = (((uint32_t)c >> 11) & 31u) * 255u / 31u * (uint32_t)blend / 100u, cg = (((uint32_t)c >> 5) & 63u) * 255u / 63u * (uint32_t)blend / 100u, cb = ((uint32_t)c & 31u) * 255u / 31u * (uint32_t)blend / 100u;
                     r = 255u - (255u - 18u) * (255u - cr) / 255u;
                     g = 255u - (255u - 24u) * (255u - cg) / 255u;
                     b = 255u - (255u - 36u) * (255u - cb) / 255u;
@@ -1386,13 +1388,13 @@ static void van_tv_glass(uint32_t now, int32_t fy, uint32_t f)
                     b = b * 80u / 100u;
                 }
                 h5 = ((((uint32_t)(x / 5) * 73856093u) ^ ((uint32_t)(y / 5) * 19349663u) ^ (f * 83492791u)) * 2654435761u);
-                if ((h5 >> 8) % 100u >= 82u) {       /* a lit static block: grey, only ever lighter than what is there */
+                if ((flags & 1) && (h5 >> 8) % 100u >= 82u) {       /* a lit static block: grey, only ever lighter than what is there */
                     uint32_t n = 30u + ((h5 >> 24) & 255u) * 60u / 255u;
                     r = r > n ? r : n;
                     g = g > n ? g : n;
                     b = b > n ? b : n;
                 }
-                if (y >= bar && y < bar + 3) {      /* the roll bar */
+                if ((flags & 2) && y >= bar && y < bar + 3) {      /* the roll bar */
                     r = r > 60u ? r : 60u;
                     g = g > 70u ? g : 70u;
                     b = b > 90u ? b : 90u;
@@ -1421,7 +1423,7 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
             van_tint[i] = (uint16_t)((r << 11) | ((g > 63u ? 63u : g) << 5) | (b > 31u ? 31u : b));
         }
     }
-    van_tv_glass(now, fyv, (uint32_t)f);
+    van_tv_glass(now, fyv, (uint32_t)f, 500, 150, 55, 3);
     for (i = 0; i < 26u; i++) {          /* the rounded corners of the glass */
         int32_t w = 0;
         while ((26 - w) * (26 - w) + (26 - (int32_t)i) * (26 - (int32_t)i) > 26 * 26 && w < 26)
@@ -1496,8 +1498,8 @@ static void van_lens(int32_t fx, int32_t fy, int32_t R, int32_t sc, int32_t blk,
             if (((x / blk + y / bh) % m) != 0 && dark != 2)
                 continue;
             if (clip) {
-                int32_t ex = x - 120, ey = y - 122;
-                if (ex * ex * 88 * 88 + ey * ey * 104 * 104 >= 104 * 104 * 88 * 88)    /* only inside the bowl's round */
+                int32_t ex = x - fz_cx, ey = y - fz_cy, rx = 26 * fz_s, ry = 22 * fz_s;
+                if (ex * ex * ry * ry + ey * ey * rx * rx >= rx * rx * ry * ry)    /* only inside the bowl's round */
                     continue;
             }
             c = van_lens_px(fx, fy, R, sc, x, y);
@@ -1520,35 +1522,36 @@ static void van_lens(int32_t fx, int32_t fy, int32_t R, int32_t sc, int32_t blk,
 }
 static void van_fish_reflect(uint32_t now)   /* Van at the bowl: big, off to the left, seen through a dither so the fish shows */
 {
-    van_lens(68 + (int32_t)((now / 90u) % 20u > 10u ? 1 : 0) * 2, 94, 99, 27, 3, 2, 8, 1, 1);
+    van_lens(fz_cx - 52 * fz_s / 4 + (int32_t)((now / 90u) % 20u > 10u ? 1 : 0) * 2, fz_cy - 28 * fz_s / 4, 26 * fz_s * 95 / 100, 27 * fz_s / 4, 3, 2, 8, 1, 1);
 }
 static void van_fish_scene(uint32_t now)   /* the room behind (soft, out of focus), then Simon~'s bowl right up close, bubbles inside it, Van's face on the glass */
 {
     uint32_t i, t = now - van_fish_t0;
-    int32_t y;
+    int32_t y, cx = fz_cx, cy = fz_cy, S = fz_s, rx = 26 * S, ry = 22 * S;
     for (y = 0; y < 240; y += 8)         /* a dim wall and a sill */
         mrect(0, y, 240, 8, EO_RGB(46 + (uint32_t)y / 14u, 56 + (uint32_t)y / 16u, 80 + (uint32_t)y / 18u));
     mrect(150, 18, 76, 92, EO_RGB(120, 150, 185));     /* the window, a soft glow */
-    mrect(0, 204, 240, 36, EO_RGB(86, 62, 48));
-    mrect(0, 200, 240, 6, EO_RGB(120, 90, 66));
-    mdisc(120, 232, 70, EO_RGB(50, 38, 32));           /* her shadow on the sill */
-    if (eo_res_ok()) {                   /* her bowl, four times the size */
+    mrect(0, cy + 82, 240, 240 - (cy + 82), EO_RGB(86, 62, 48));
+    mrect(0, cy + 78, 240, 6, EO_RGB(120, 90, 66));
+    mdisc(cx, cy + 110, 70, EO_RGB(50, 38, 32));       /* her shadow on the sill */
+    if (eo_res_ok()) {                   /* her bowl, big */
         spr_pal = EO_CAST_PAL[0];
-        spr_paint(cast_px, EO_CAST[0][((now / 900u) & 1u) ? 1u : 0u], EO_CAST_W, EO_CAST_H, -70, -66 + (int32_t)((now / 700u) & 1u) * 2, 4, 1);
+        spr_paint(cast_px, EO_CAST[0][((now / 900u) & 1u) ? 1u : 0u], EO_CAST_W, EO_CAST_H, cx - 475 * S / 10, cy - 47 * S + (int32_t)((now / 700u) & 1u) * 2, S, 1);
     }
     for (i = 0; i < 9u; i++) {           /* bubbles inside the bowl only */
         uint32_t h = (i + 1u) * 2654435761u;
-        int32_t r = 2 + (int32_t)((h >> 20) % 4u), bx = 120 + (int32_t)((h >> 8) % 150u) - 75 + (int32_t)((t / 160u + i * 3u) % 6u) - 3;
-        int32_t by = 210 - (int32_t)(((t * (14u + (h >> 12) % 16u)) / 100u + (h >> 4) % 180u) % 190u), ex = bx - 120, ey = by - 122;
-        if (ex * ex * 88 * 88 + ey * ey * 104 * 104 >= 100 * 100 * 84 * 84)
+        int32_t r = 2 + (int32_t)((h >> 20) % 4u) * S / 4, bx = cx + ((int32_t)((h >> 8) % 150u) - 75) * S / 4 + (int32_t)((t / 160u + i * 3u) % 6u) - 3;
+        int32_t by = cy + ry - (int32_t)(((t * (14u + (h >> 12) % 16u)) / 100u + (h >> 4) % 180u * (uint32_t)S / 4u) % (uint32_t)(2 * ry + 14)), ex = bx - cx, ey = by - cy;
+        int32_t ax = rx - 4, ay = ry - 4;
+        if (ex * ex * ay * ay + ey * ey * ax * ax >= ax * ax * ay * ay)
             continue;
         mdisc(bx, by, r, EO_RGB(150, 210, 240));
         mdisc(bx, by, r - 1 > 0 ? r - 1 : 1, EO_RGB(90, 165, 215));
         mrect(bx - r / 2, by - r / 2, 2, 2, EO_RGB(235, 250, 255));
     }
     van_fish_reflect(now);
-    mrect(38, 52, 4, 14, EO_RGB(235, 250, 255));       /* a glint on the glass */
-    mrect(44, 44, 10, 3, EO_RGB(235, 250, 255));
+    mrect(cx - 82 * S / 4, cy - 70 * S / 4, 4, 14, EO_RGB(235, 250, 255));       /* a glint on the glass */
+    mrect(cx - 76 * S / 4, cy - 78 * S / 4, 10, 3, EO_RGB(235, 250, 255));
 }
 
 static void van_bands(uint32_t now)      /* the room and the box under it (no header: the words are the game); the TV gag takes the whole glass */
@@ -1584,17 +1587,12 @@ static void van_pong_draw(uint32_t now)   /* the TV in close-up: the glass with 
     const int32_t fx = 32, fy = 16, bz = 6;
     uint16_t lit = EO_RGB(150, 230, 150), dim = EO_RGB(46, 92, 62), frame = EO_RGB(64, 58, 74);
     int32_t y, i;
-    uint32_t f = now / 70u;
     char sc[8];
     mrect(0, 0, 240, 144, EO_RGB(22, 26, 38));
     mrect(fx - bz, fy - bz, PG_W + 2 * bz, PG_H + 2 * bz, EO_RGB(14, 22, 30));
     if (eo_res_ok()) {
         van_tint_init();
-        van_lens(120, 66, 80, 17, 3, 3, 5, 1, 0);     /* further back from the glass: smaller, darker, mostly see-through */
-    }
-    for (i = 0; i < 70; i++) {           /* a little static: single specks, a new set every frame */
-        uint32_t h = ((uint32_t)i * 2654435761u ^ f * 40503u) * 2246822519u;
-        mrect(fx - bz + (int32_t)((h >> 8) % (uint32_t)(PG_W + 2 * bz)), fy - bz + (int32_t)((h >> 20) % (uint32_t)(PG_H + 2 * bz)), 1, 1, EO_RGB(120, 130, 140));
+        van_tv_glass(now, 66, 0u, 230, 85, 62, 0);     /* the same glass as the static gag, but he is further back (smaller), and no static: it is just the game on the screen */
     }
     mrect(18, 8, 204, fy - bz - 8, frame);                                  /* the bezel, over anything that spilled */
     mrect(18, fy + PG_H + bz, 204, 136 - (fy + PG_H + bz), frame);
@@ -1674,6 +1672,9 @@ static void van_scene(uint32_t now)
         return;
     }
     if (van_mode == VM_FISH) {
+        fz_s = 4;
+        fz_cx = 120;
+        fz_cy = 122;
         van_fish_scene(now);
         return;
     }
@@ -1685,7 +1686,12 @@ static void van_scene(uint32_t now)
             mrect(0, 0, 240, 240, C_BLACK);
         return;
     }
-    if (van_tvshot && van_mode == VM_CARDS) {
+    if (van_tvshot == 2u && van_mode == VM_CARDS) {
+        fz_s = 3;                        /* still the bowl, a size smaller so all of it shows above the words */
+        fz_cx = 120;
+        fz_cy = 74;
+        van_fish_scene(now);
+    } else if (van_tvshot && van_mode == VM_CARDS) {
         van_hum_scene(now);              /* still the TV: the static, his face on the glass */
     } else if (van_on_tv(now)) {
         van_pong_draw(now);
