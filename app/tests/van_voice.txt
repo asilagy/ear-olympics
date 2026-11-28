@@ -1,0 +1,17 @@
+# Van's talk: soft bubbles (a Hann envelope; a letter that comes while one is sounding waits, so none is cut short and nothing clicks).
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+master 4096
+peakreset
+tap PLAY
+wait 1500
+tap PLAY
+wait 50
+tap PLAY
+wait 3000
+expect peak_db_min -40
+expect peak_db_max -8

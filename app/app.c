@@ -110,6 +110,7 @@ static volatile float eo_bass_vel = 1.0f;
 #define GONG_GAIN 0.20f
 static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
 static volatile int32_t eo_blub_note;
+static volatile uint8_t eo_blub_soft;    /* Van's talk: rounder, longer bubbles with a Hann envelope, and a letter that comes while one is sounding waits (no cut, no click) */
 static volatile uint8_t eo_rev;          /* 1: the bell plays reversed: it swells in and stops, like a tape run backwards */
 static volatile float eo_bend_v = 1.0f;  /* the record's speed now (for the tests) */
 #define BLUB_GAIN 0.10f
@@ -267,7 +268,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
-    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
+    static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
     static uint32_t gong_seen;
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
@@ -326,9 +327,14 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     }
     if (blub_seen != eo_blub_trig) {
         blub_seen = eo_blub_trig;
-        blub_age = 0.0f;
-        blub_ph = 0.0f;
-        blub_inc = eo_note_inc(eo_blub_note);
+        if (eo_blub_soft && blub_age < blub_dur) {   /* Van: never cut a bubble short: this letter stays silent */
+        } else {
+            blub_age = 0.0f;
+            blub_ph = 0.0f;
+            blub_inc = eo_note_inc(eo_blub_note);
+            blub_dur = eo_blub_soft ? 0.11f : 0.07f;
+            blub_up = eo_blub_soft ? 0.3f : 0.9f;
+        }
     }
     if (beep_seen != eo_beep_trig) {
         beep_seen = eo_beep_trig;
@@ -541,11 +547,14 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     bs += g * up * GONG_GAIN * 0.8f;
                     gong_age += 1.0f / 44100.0f;
                 }
-                if (blub_age < 0.07f) {          /* a bubble: a quick sine chirping up */
-                    blub_ph += blub_inc * (1.0f + 0.9f * blub_age * (1.0f / 0.07f));
+                if (blub_age < blub_dur) {       /* a bubble: a quick sine chirping up */
+                    float u = blub_age * (1.0f / blub_dur), e = fm_sinf(3.1415927f * u);
+                    blub_ph += blub_inc * (1.0f + blub_up * u);
                     if (blub_ph >= 1.0f)
                         blub_ph -= 1.0f;
-                    bl = fm_sinf(6.2831853f * blub_ph) * fm_sinf(3.1415927f * blub_age * (1.0f / 0.07f)) * BLUB_GAIN;
+                    if (eo_blub_soft)
+                        e *= e;                  /* Hann: starts and ends at zero with no corner */
+                    bl = fm_sinf(6.2831853f * blub_ph) * e * (eo_blub_soft ? BLUB_GAIN * 0.8f : BLUB_GAIN);
                     blub_age += 1.0f / 44100.0f;
                 }
                 v = vo * bend + cs * bend + bv + bl + bs + wet * 0.45f;
@@ -5471,6 +5480,8 @@ int app_expect(const char *what, int *got)
         *got = van_since;
     else if (!strcmp(what, "vanbeat"))
         *got = van_cur;
+    else if (!strcmp(what, "blubtrig"))
+        *got = (int)eo_blub_trig;
     else if (!strcmp(what, "vantyped"))
         *got = (int)van_typed(plat_ms());
     else if (!strcmp(what, "vanask")) {   /* a test hook: a question now, the notes sounding; the right key */

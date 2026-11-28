@@ -9,7 +9,7 @@
 #define APP_SPLASH
 void app_splash(void);
 #define APP_NAME "EAR OLYMPICS"
-#define EO_VERSION "0.25.0-van"
+#define EO_VERSION "0.25.1-van-voice"
 #define APP_SPLASH_RGB RGB(255, 196, 64)
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 #define APP_TICK                         /* 1 kHz, in the timer interrupt: the melodies are played on this clock */

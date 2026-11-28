@@ -117,10 +117,11 @@ static void van_play_pair(uint32_t root, uint32_t semi)    /* two notes, root th
     seq_end = 1700;
     eo_seq_start(0, 0);
 }
-static void van_blip(uint32_t n)
+static void van_blip(uint32_t n)         /* a bubble for a letter: low, rounded, a small tune on a pentatonic scale */
 {
     static const uint8_t SC[5] = {0, 2, 4, 7, 9};
-    eo_blub_note = 45 + SC[(n * 3u + van_ci) % 5u] + ((n & 8u) ? 12 : 0);
+    eo_blub_soft = 1;
+    eo_blub_note = 52 + SC[(n * 3u + van_ci * 2u) % 5u] + ((n % 7u) == 0u ? 5 : 0);
     eo_blub_trig++;
 }
 static void van_stop_sound(void)
@@ -384,6 +385,7 @@ static void van_enter(void)
 
 static void van_end(void)
 {
+    eo_blub_soft = 0;
     van_stop_sound();
     van_ev = 0;
     if (set_dirty)
