@@ -65,8 +65,8 @@ static uint32_t van_mask(uint32_t n)     /* the answer keys that are lit */
 }
 
 /* ---- the card: its words, wrapped to the dialogue box, typed out letter by letter */
-static const char *van_text(const char *c) { return (c[0] == '*' || c[0] == '#') ? c + 1 : c; }
-static uint32_t van_kind(const char *c) { return c[0] == '*' ? 1u : c[0] == '#' ? 2u : 0u; }
+static const char *van_text(const char *c) { return (c[0] == '*' || c[0] == '#' || c[0] == '@') ? c + 1 : c; }
+static uint32_t van_kind(const char *c) { return c[0] == '*' ? 1u : c[0] == '#' ? 2u : c[0] == '@' ? 3u : 0u; }   /* 1 stage direction (slanted), 2 his own symbols, 3 a drawl: big and slow */
 static uint32_t van_wrap_into(const char *s, uint8_t *ls, uint8_t *ll)   /* returns the line count (up to VAN_LINES) */
 {
     uint32_t len = eo_strlen(s), i = 0, n = 0;
@@ -132,7 +132,7 @@ static uint32_t van_len(void)
 }
 static uint32_t van_typed(uint32_t now)
 {
-    uint32_t n = (now - van_t0) * VAN_CPS / 1000u, l = van_len();
+    uint32_t n = (now - van_t0) * (van_ci < van_cn && van_kind(van_cd[van_ci]) == 3u ? 4u : VAN_CPS) / 1000u, l = van_len();
     return n > l ? l : n;
 }
 static void van_say(uint32_t pose, uint32_t after, const char *a, const char *b, const char *c, const char *d)
@@ -1220,7 +1220,7 @@ static void van_tick(uint32_t now)
     }
     if (van_mode == VM_HUM && now - van_hum_t0 > VAN_HUM_MS) {
         van_hum_stop();
-        van_say(P_IDLE, VN_BEAT, van_hum_after[0], van_hum_after[1], 0, 0);
+        van_say(P_IDLE, VN_BEAT, van_hum_after[0], van_hum_after[1], van_hum_after[2], 0);
     }
 }
 
@@ -1637,6 +1637,16 @@ static void van_scene(uint32_t now)
         uint16_t col = kind == 1u ? EO_RGB(150, 190, 235) : C_WHITE;
         if (kind == 2u) {
             van_gibber(158, n, now);
+        } else if (kind == 3u) {         /* a drawl: one line, big, a letter at a time, in the middle of the box */
+            char buf[64];
+            uint32_t m = 0, j, len = eo_strlen(s);
+            const felucca_font_t *ft = &FONT_L;
+            for (j = 0; j < len && j < n && m < 62u; j++)
+                buf[m++] = s[j];
+            buf[m] = 0;
+            if (text_w(ft, s) > 228)
+                ft = &FONT_M;
+            mtext((240 - text_w(ft, s)) / 2, 172, ft, buf, col);
         } else {
             for (k = 0; k < van_ln; k++)
                 if (n >= van_ls[k])

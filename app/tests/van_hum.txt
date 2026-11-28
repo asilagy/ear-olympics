@@ -25,3 +25,10 @@ shot van_hum2.png
 wait 10000
 expect vanmode 0
 expect vanseen 3
+# after the static: "...", then the drawl: big, slow, a letter at a time
+wait 1200
+tap PLAY
+wait 1800
+shot van_drawl.png
+wait 2500
+expect vancards 3

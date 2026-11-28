@@ -27,9 +27,11 @@ wait 15500
 expect vanmode 0
 wait 1200
 tap PLAY
-wait 1200
+wait 4500
 tap PLAY
-wait 1200
+wait 4500
+tap PLAY
+wait 4500
 tap PLAY
 wait 600
 expect vancur 85
