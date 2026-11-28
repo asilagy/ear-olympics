@@ -261,7 +261,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
-    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[4], gong_e[4], gong_inc;
+    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
     static uint32_t gong_seen;
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
@@ -309,8 +309,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (gong_seen != eo_gong_trig) {     /* the gong: struck once, then left to ring */
         gong_seen = eo_gong_trig;
         gong_age = 0.0f;
-        gong_ph[0] = gong_ph[1] = gong_ph[2] = gong_ph[3] = 0.0f;
-        gong_e[0] = gong_e[1] = gong_e[2] = gong_e[3] = 1.0f;
+        gong_ph[0] = gong_ph[1] = gong_ph[2] = gong_ph[3] = gong_ph[4] = 0.0f;
+        gong_e[0] = gong_e[1] = gong_e[2] = gong_e[3] = gong_e[4] = 1.0f;
         gong_inc = eo_note_inc(eo_gong_note);
     }
     if (blub_seen != eo_blub_trig) {
@@ -516,17 +516,18 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     bass_age += 1.0f / 44100.0f;
                 }
                 if (gong_age < 2.6f) {           /* a low gong: inharmonic partials, each dying at its own rate (the high ones first), a soft strike */
-                    static const float ratio[4] = {1.0f, 2.012f, 2.76f, 5.40f}, dec[4] = {0.999970f, 0.999950f, 0.999897f, 0.999676f}, amp[4] = {1.0f, 0.6f, 0.45f, 0.3f};   /* (decay per sample: 0.75, 0.45, 0.22 and 0.07 s) */
-                    float g = 0.0f, up = gong_age < 0.008f ? gong_age * 125.0f : 1.0f;
+                    /* harmonic, so it sounds pleasant: a C major chord struck softly, low C with its G, the octave, the E above it, and a bright C on top that fades first */
+                    static const float ratio[5] = {1.0f, 1.5f, 2.0f, 2.5f, 4.0f}, dec[5] = {0.999975f, 0.999965f, 0.999950f, 0.999930f, 0.999850f}, amp[5] = {1.0f, 0.5f, 0.55f, 0.3f, 0.22f};   /* (decay per sample: about 0.9, 0.65, 0.45, 0.32 and 0.15 s) */
+                    float g = 0.0f, up = gong_age < 0.02f ? gong_age * 50.0f : 1.0f;     /* (a soft 20 ms swell in, not a hard strike) */
                     uint32_t q;
-                    for (q = 0; q < 4u; q++) {
+                    for (q = 0; q < 5u; q++) {
                         gong_ph[q] += gong_inc * ratio[q];
                         if (gong_ph[q] >= 1.0f)
                             gong_ph[q] -= 1.0f;
                         gong_e[q] *= dec[q];
                         g += amp[q] * fm_sinf(6.2831853f * gong_ph[q]) * gong_e[q];
                     }
-                    bs += g * up * GONG_GAIN;
+                    bs += g * up * GONG_GAIN * 0.8f;
                     gong_age += 1.0f / 44100.0f;
                 }
                 if (blub_age < 0.07f) {          /* a bubble: a quick sine chirping up */
