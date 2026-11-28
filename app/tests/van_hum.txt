@@ -1,4 +1,4 @@
-# Van's text always fits the box (at most four lines), and the TV hum beat: ten seconds of static, his reflection, then "...".
+# Van's text always fits the box (at most five lines), and the TV gag: ten seconds of noise with his face showing through, and no skipping it.
 wait 600
 tap HOME
 turn PRESET 1
@@ -7,11 +7,19 @@ turn PRESET 1
 wait 30
 tap PLAY
 wait 100
-expect vanlines 4
+expect vanlines 5
 expect vanhum 0
 wait 100
 expect vanmode 3
 shot van_hum.png
-wait 10500
+tap PLAY
+wait 50
+key 12 down
+wait 30
+key 12 up
+wait 4000
+expect vanmode 3
+shot van_hum2.png
+wait 6500
 expect vanmode 0
 expect vanseen 3

@@ -110,6 +110,9 @@ static volatile float eo_bass_vel = 1.0f;
 #define GONG_GAIN 0.20f
 static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
 static volatile int32_t eo_blub_note;
+static volatile float eo_blub_glide;     /* Van: the chirp's pitch glide (-0.5 down .. +0.8 up) */
+static volatile uint8_t eo_noise_on;     /* the TV: white-ish noise, faded in and out (eo_noise_vol is its level) */
+static volatile float eo_noise_vol;
 static volatile uint8_t eo_blub_soft;    /* Van's talk: rounder, longer bubbles with a Hann envelope, and a letter that comes while one is sounding waits (no cut, no click) */
 static volatile uint8_t eo_rev;          /* 1: the bell plays reversed: it swells in and stops, like a tape run backwards */
 static volatile float eo_bend_v = 1.0f;  /* the record's speed now (for the tests) */
@@ -268,7 +271,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
-    static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
+    static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_pm, nz_lp, nz_lev;
+    static uint32_t nz_s = 0x2545F491u;
+    static float blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
     static uint32_t gong_seen;
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
@@ -333,7 +338,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             blub_ph = 0.0f;
             blub_inc = eo_note_inc(eo_blub_note);
             blub_dur = eo_blub_soft ? 0.11f : 0.07f;
-            blub_up = eo_blub_soft ? 0.3f : 0.9f;
+            blub_up = eo_blub_soft ? eo_blub_glide : 0.9f;
+            blub_pm = 0.0f;
         }
     }
     if (beep_seen != eo_beep_trig) {
@@ -518,7 +524,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                         eo_rv_i[j] = 0;
                     wet += y;
                 }
-                float bl = 0.0f, bs = 0.0f;
+                float bl = 0.0f, bs = 0.0f, nz = 0.0f;
                 if (bass_age < 0.30f) {          /* a plucked bass: a saw whose brightness closes as it decays, over a sub sine; 4 ms in, then a fall */
                     float env = (bass_age < 0.004f ? bass_age * 250.0f : 1.0f) * (1.0f - bass_age * (1.0f / 0.30f)) * (1.0f - bass_age * (1.0f / 0.30f));
                     float sw = eo_lookup(eo_wt_saw, bass_ph);
@@ -552,12 +558,29 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     blub_ph += blub_inc * (1.0f + blub_up * u);
                     if (blub_ph >= 1.0f)
                         blub_ph -= 1.0f;
-                    if (eo_blub_soft)
-                        e *= e;                  /* Hann: starts and ends at zero with no corner */
-                    bl = fm_sinf(6.2831853f * blub_ph) * e * (eo_blub_soft ? BLUB_GAIN * 0.8f : BLUB_GAIN);
+                    if (eo_blub_soft) {          /* Van's alien chirp: two-operator FM with a wobble, a Hann envelope (no corner, no click) */
+                        float wob = fm_sinf(6.2831853f * 21.0f * blub_age);
+                        blub_pm += blub_inc * (1.0f + blub_up * u) * 2.41f * (1.0f + 0.04f * wob);
+                        if (blub_pm >= 1.0f)
+                            blub_pm -= 1.0f;
+                        e *= e;
+                        bl = fm_sinf(6.2831853f * blub_ph + (1.3f + 1.2f * u) * fm_sinf(6.2831853f * blub_pm)) * e * BLUB_GAIN * 0.8f;
+                    } else {
+                        bl = fm_sinf(6.2831853f * blub_ph) * e * BLUB_GAIN;
+                    }
                     blub_age += 1.0f / 44100.0f;
                 }
-                v = vo * bend + cs * bend + bv + bl + bs + wet * 0.45f;
+                if (eo_noise_on || nz_lev > 0.0001f) {   /* the TV: noise, a little pinked, ramped so it never clicks */
+                    float w;
+                    nz_s ^= nz_s << 13;
+                    nz_s ^= nz_s >> 17;
+                    nz_s ^= nz_s << 5;
+                    w = (float)(nz_s >> 8) * (1.0f / 8388608.0f) - 1.0f;
+                    nz_lp += 0.3f * (w - nz_lp);
+                    nz_lev += ((eo_noise_on ? eo_noise_vol : 0.0f) - nz_lev) * 0.0004f;
+                    nz = (0.55f * w + 0.9f * nz_lp) * nz_lev;
+                }
+                v = vo * bend + cs * bend + bv + bl + bs + nz + wet * 0.45f;
             }
         }
         if (smp_run) {                   /* 8 kHz to 44.1 kHz: a straight line between two neighbours */
@@ -687,6 +710,7 @@ static void van_level_step(int32_t d);
 static void van_enter(void);
 static void van_tick(uint32_t now);
 static void van_scene(uint32_t now);
+static void van_bands(uint32_t now);
 static void sel_go(void);
 static void sel_enter(void);
 static void van_key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim);
@@ -4943,7 +4967,7 @@ static void draw(void)
         return;
     }
     if (ui.state == ST_VAN) {
-        mv_bands(van_scene, now);
+        van_bands(now);
         return;
     }
     if (ui.state == ST_SELECT) {
@@ -5482,10 +5506,29 @@ int app_expect(const char *what, int *got)
         *got = van_cur;
     else if (!strcmp(what, "blubtrig"))
         *got = (int)eo_blub_trig;
+    else if (!strcmp(what, "vancover")) {  /* every beat is in exactly one thread, and no thread names a beat that is not there */
+        uint32_t cnt[64] = {0}, th, k, ok = 1;
+        for (th = 0; th < VAN_THREADS; th++)
+            for (k = 0; k < 6u && van_thread[th][k] != 255u; k++) {
+                if (van_thread[th][k] >= VAN_NBEATS)
+                    ok = 0;
+                else
+                    cnt[van_thread[th][k]]++;
+            }
+        for (k = 0; k < VAN_NBEATS; k++)
+            if (cnt[k] != 1u)
+                ok = 0;
+        *got = (int)ok;
+    } else if (!strcmp(what, "vanth"))
+        *got = van_th;
+    else if (!strcmp(what, "vantp"))
+        *got = van_tp;
+    else if (!strcmp(what, "vancmp"))
+        *got = van_cmp;
     else if (!strcmp(what, "vantyped"))
         *got = (int)van_typed(plat_ms());
     else if (!strcmp(what, "vanask")) {   /* a test hook: a question now, the notes sounding; the right key */
-        van_since = VAN_BEATS;
+        van_since = 0;
         van_question();
         van_done_cards();
         *got = 0;

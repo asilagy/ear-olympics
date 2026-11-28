@@ -9,7 +9,7 @@ enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM };                        /* what the
 enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM };                         /* what comes when the cards run out */
 #define VAN_CARDS 6u
 #define VAN_LINES 10u
-#define VAN_CPS 30u                                                  /* the typing speed: letters a second */
+#define VAN_CPS 18u                                                  /* the typing speed: letters a second */
 #define VAN_HUM_MS 10000u
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
@@ -17,8 +17,9 @@ static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
 static const char *van_cd[VAN_CARDS];
 static uint32_t van_t0, van_typed_last, van_hum_t0, van_ask_t0, van_ev_at;
 static uint8_t van_ev;                                               /* 1: play the interval again at van_ev_at */
-static uint8_t van_since, van_snacked, van_first_q, van_cur;         /* beats since a question; the beat now; ... */
+static uint8_t van_since, van_snacked, van_first_q, van_cur, van_first_beat;         /* beats since a question; the beat now; ... */
 static uint8_t van_recent[6];
+static uint8_t van_th = 0xFFu, van_tp, van_th_recent[3], van_resume, van_cmp, van_q_semi2, van_dir;   /* the thread now and where in it; a link back after a question; the compare question */
 static uint8_t van_ls[VAN_LINES], van_ll[VAN_LINES], van_ln;         /* the card, wrapped */
 static uint8_t van_q_semi, van_q_n, van_q_right, van_q_pick, van_last_semi;
 static uint8_t van_q_semis[VAN_MAX_KEYS];
@@ -61,7 +62,7 @@ static uint32_t van_wrap_into(const char *s, uint8_t *ls, uint8_t *ll)   /* retu
             for (k = st; k < e && m < 62u; k++)
                 buf[m++] = s[k] == '~' ? 'e' : s[k];
             buf[m] = 0;
-            if (best && text_w(&FONT_XS, buf) > 220)
+            if (best && text_w(&FONT_S, buf) > 224)
                 break;
             best = e;
             j = e;
@@ -117,15 +118,34 @@ static void van_play_pair(uint32_t root, uint32_t semi)    /* two notes, root th
     seq_end = 1700;
     eo_seq_start(0, 0);
 }
-static void van_blip(uint32_t n)         /* a bubble for a letter: low, rounded, a small tune on a pentatonic scale */
+static void van_play_q(void)             /* the question's notes: one pair, or two (a gap, then another gap) */
 {
-    static const uint8_t SC[5] = {0, 2, 4, 7, 9};
+    uint32_t r = set.root;
+    if (!van_cmp) {
+        van_play_pair(r, van_q_semi);
+        return;
+    }
+    seq_on = 0;
+    mv_sfx(0, 80, 520, r, V_WARM);
+    mv_sfx(1, 700, 640, r + van_q_semi, V_WARM);
+    mv_sfx(2, 2000, 520, r, V_WARM);
+    mv_sfx(3, 2620, 640, r + van_q_semi2, V_WARM);
+    seq_n = 4;
+    seq_end = 3400;
+    eo_seq_start(0, 0);
+}
+static void van_blip(uint32_t n)         /* an alien chirp for a letter: an FM warble that glides up or down */
+{
+    static const uint8_t SC[5] = {0, 2, 5, 7, 10};
+    static const float GL[5] = {0.55f, -0.35f, 0.3f, -0.5f, 0.75f};
     eo_blub_soft = 1;
-    eo_blub_note = 52 + SC[(n * 3u + van_ci * 2u) % 5u] + ((n % 7u) == 0u ? 5 : 0);
+    eo_blub_glide = GL[(n + van_ci) % 5u];
+    eo_blub_note = 62 + SC[(n * 3u + van_ci * 2u) % 5u] + ((n % 7u) == 0u ? 7 : 0);
     eo_blub_trig++;
 }
 static void van_stop_sound(void)
 {
+    eo_noise_on = 0;
     seq_on = 0;
     seq_lit = 0;
     voice_note = -1;
@@ -157,6 +177,33 @@ static void van_question(void)
     uint32_t n = lv->keys, pn = lv->pn, i, j, root = set.root;
     uint8_t cand[12], cn = 0, t;
     uint32_t correct;
+    van_cmp = lv->cmp;
+    if (van_cmp) {                       /* no names yet: two gaps, which is bigger (or smaller)? */
+        uint32_t i1 = 0, i2 = 0, tr;
+        for (tr = 0; tr < 40u; tr++) {
+            int32_t d;
+            i1 = lv->pool[van_rnd(pn)];
+            i2 = lv->pool[van_rnd(pn)];
+            d = (int32_t)i1 - (int32_t)i2;
+            if ((d < 0 ? -d : d) >= (int32_t)lv->mind && (i1 != van_q_semi || i2 != van_q_semi2))
+                break;
+        }
+        van_dir = (uint8_t)van_rnd(2u);
+        van_q_semi = (uint8_t)i1;
+        van_q_semi2 = (uint8_t)i2;
+        van_q_n = 2;
+        van_lbl[0] = "FIRST";
+        van_lbl[1] = "SECOND";
+        van_q_right = (uint8_t)(van_dir == 0u ? (i1 > i2 ? 0u : 1u) : (i1 < i2 ? 0u : 1u));
+        van_q_pick = 0xFFu;
+        van_snacked = 0;
+        van_nbuf[2][0] = 0;
+        text_cat(van_nbuf[2], van_dir ? "Which gap is smaller?" : "Which gap is bigger?");
+        van_say(P_TAPE, VN_ASK, van_first_q ? van_lead[0] : van_lead[1u + van_rnd(2u)], van_first_q ? van_lead[1] : van_nbuf[2], van_first_q ? van_nbuf[2] : 0, 0);
+        van_first_q = 0;
+        (void)root;
+        return;
+    }
     do
         correct = lv->pool[van_rnd(pn)];
     while (correct == van_last_semi && pn > 1u && van_rnd(4u));   /* mostly not the same one twice */
@@ -212,7 +259,7 @@ static void van_ask_now(void)            /* the cards are done: the question sta
     van_mode = VM_ASK;
     van_chips = 1;
     van_ask_t0 = plat_ms();
-    van_play_pair(set.root, van_q_semi);
+    van_play_q();
     ui.redraw = 1;
 }
 
@@ -224,14 +271,23 @@ static void van_hum_start(void)
     van_hum_t0 = plat_ms();
     set.van_seen |= 2u;
     set_dirty = 1;
-    eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.22f);
+    eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.12f);
+    eo_noise_vol = 0.09f;
+    eo_noise_on = 1;
     ui.redraw = 1;
 }
+static void van_hum_stop(void)
+{
+    eo_noise_on = 0;
+    eo_drone_set(-1, 0.0f);
+}
 
+static const char *van_pick_link(const char *const *pool, uint32_t n) { return pool[van_rnd(n)]; }
 static void van_next_beat(void)
 {
     const van_beat_t *b;
-    uint32_t i, tries, ok;
+    const char *cards[6];
+    uint32_t i, tries, nc = 0, fresh = 0;
     if (set_dirty && !seq_on)
         (void)store_now();
     if (van_since >= VAN_BEATS) {
@@ -239,20 +295,42 @@ static void van_next_beat(void)
         van_question();
         return;
     }
-    for (tries = 0; tries < 16u; tries++) {
-        van_cur = (uint8_t)van_rnd(VAN_NBEATS);
-        ok = !(van_beat[van_cur].kind == K_HUM && (set.van_seen & 2u));
-        for (i = 0; i < 6u; i++)
-            if (van_recent[i] == van_cur)
+    if (van_th == 0xFFu || van_thread[van_th][van_tp > 5u ? 5u : van_tp] == 255u || van_tp >= 6u) {   /* a thread is done: another one, not one of the last three */
+        for (tries = 0; tries < 20u; tries++) {
+            uint32_t th = van_rnd(VAN_THREADS), ok = 1;
+            if (van_thread[th][0] == 37u && (set.van_seen & 2u))
                 ok = 0;
-        if (ok)
-            break;
+            for (i = 0; i < 3u; i++)
+                if (van_th_recent[i] == th)
+                    ok = 0;
+            if (ok) {
+                van_th = (uint8_t)th;
+                break;
+            }
+        }
+        for (i = 2; i > 0; i--)
+            van_th_recent[i] = van_th_recent[i - 1u];
+        van_th_recent[0] = van_th;
+        van_tp = 0;
+        fresh = 1;
     }
-    for (i = 5; i > 0; i--)
-        van_recent[i] = van_recent[i - 1u];
-    van_recent[0] = van_cur;
+    van_cur = van_thread[van_th][van_tp];
     van_since++;
     b = &van_beat[van_cur];
+    if (van_tp == 0u && van_first_beat) {                 /* the very first beat of a visit has nobody to link from */
+        van_first_beat = 0;
+    } else if (van_resume) {
+        cards[nc++] = van_pick_link(van_link_back, 4u);   /* after a question: back to the thread */
+    } else if (fresh) {
+        cards[nc++] = van_pick_link(van_link_new, 8u);
+    } else {
+        cards[nc++] = van_pick_link(van_link_in, 6u);
+    }
+    van_first_beat = 0;
+    van_resume = 0;
+    van_tp++;
+    for (i = 0; i < 4u && b->c[i] && nc < 6u; i++)
+        cards[nc++] = b->c[i];
     if (b->kind == K_MEOW) {             /* a meow from the next room, then Van explains */
         seq_on = 0;
         mv_sfx(0, 0, 520, 14, V_CATFX);
@@ -260,7 +338,9 @@ static void van_next_beat(void)
         seq_end = 600;
         eo_seq_start(0, 0);
     }
-    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : VN_BEAT, b->c[0], b->c[1], b->c[2], b->c[3]);
+    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
+    for (i = 4; i < nc; i++)
+        van_cd[van_cn++] = cards[i];
 }
 
 static void van_choice_now(void)         /* an ask beat: pick a reply (lit keys) */
@@ -317,8 +397,13 @@ static void van_answer(uint32_t ix)
     }
     p = van_nbuf[0];
     p[0] = 0;
-    text_cat(p, van_iv[van_q_semi - 1u].name);
-    text_cat(p, ".");
+    if (van_cmp) {
+        text_cat(p, van_lbl[van_q_right]);
+        text_cat(p, van_dir ? " was the smaller one." : " was the bigger one.");
+    } else {
+        text_cat(p, van_iv[van_q_semi - 1u].name);
+        text_cat(p, ".");
+    }
     if (right && set.van_prog >= VAN_ROUNDS && set.van_lvl < VAN_LEVELS) {    /* the level is done */
         const van_level_t *ol = van_level(set.van_lvl), *nl = van_level(set.van_lvl + 1u);
         if (set.van_top < set.van_lvl)
@@ -327,8 +412,12 @@ static void van_answer(uint32_t ix)
         set.van_prog = 0;
         set_dirty = 1;
         van_nbuf[1][0] = 0;
-        text_cat(van_nbuf[1], "*New on the tape: ");
-        for (i = ol->pn; i < nl->pn; i++) {
+        if (nl->cmp) {
+            text_cat(van_nbuf[1], "*The gaps are closer together now.");
+        } else {
+            text_cat(van_nbuf[1], ol->cmp ? "*They have names now: " : "*New on the tape: ");
+        }
+        for (i = nl->cmp ? nl->pn : ol->cmp ? 0u : ol->pn; i < nl->pn; i++) {
             text_cat(van_nbuf[1], van_iv[nl->pool[i] - 1u].name);
             text_cat(van_nbuf[1], i + 1u < nl->pn ? ", " : ".");
         }
@@ -338,12 +427,13 @@ static void van_answer(uint32_t ix)
             set.van_top = set.van_lvl;
             set_dirty = 1;
         }
-        van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_rnd(5u)], van_iv[van_q_semi - 1u].joke, 0);
+        van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_rnd(5u)], van_cmp ? 0 : van_iv[van_q_semi - 1u].joke, 0);
     } else {
         van_say(right ? P_LAUGH : P_COOKED, VN_BEAT, van_nbuf[0], right ? van_right[van_rnd(5u)] : van_wrong[van_rnd(5u)],
-                van_iv[van_q_semi - 1u].joke, 0);
+                van_cmp ? 0 : van_iv[van_q_semi - 1u].joke, 0);
     }
     van_chips = 2;
+    van_resume = van_th != 0xFFu && van_tp > 0u && van_thread[van_th][van_tp < 6u ? van_tp : 5u] != 255u && van_tp < 6u;
 }
 
 static void van_choose(uint32_t ix)      /* an ask beat: your pick, Van's reply */
@@ -362,7 +452,16 @@ static void van_enter(void)
     uint32_t seen = set.van_seen & 1u;
     van_stop_sound();
     van_since = 0;
+    van_th = 0xFFu;
+    van_tp = 0;
+    van_resume = 0;
+    van_first_beat = 1;
     van_first_q = 1;
+    {
+        uint32_t k;
+        for (k = 0; k < 3u; k++)
+            van_th_recent[k] = 0xFFu;
+    }
     van_snacked = 0;
     van_ev = 0;
     van_chips = 0;
@@ -386,6 +485,7 @@ static void van_enter(void)
 static void van_end(void)
 {
     eo_blub_soft = 0;
+    eo_noise_on = 0;
     van_stop_sound();
     van_ev = 0;
     if (set_dirty)
@@ -414,7 +514,7 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
         }
     } else if (van_mode == VM_ASK) {
         if (new_btn & (1u << B_PLAY)) {
-            van_play_pair(set.root, van_q_semi);
+            van_play_q();
             van_ev = 0;
             return;
         }
@@ -428,10 +528,7 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
                 return;
             }
     } else if (van_mode == VM_HUM) {
-        if ((new_keys || new_btn) && now - van_hum_t0 > 3000u) {
-            eo_drone_set(-1, 0.0f);
-            van_say(P_IDLE, VN_BEAT, van_hum_after[0], van_hum_after[1], 0, 0);
-        }
+        (void)new_keys;                  /* ten seconds of it, whatever you press: that is the gag (HOME still leaves) */
     }
 }
 
@@ -468,7 +565,7 @@ static void van_tick(uint32_t now)
     }
     if (van_ev && now >= van_ev_at) {
         van_ev = 0;
-        van_play_pair(set.root, van_q_semi);
+        van_play_q();
     }
     if (van_mode == VM_ASK && !van_snacked && now - van_ask_t0 > VAN_SNACK_MS && !seq_on) {
         van_snacked = 1;
@@ -482,7 +579,7 @@ static void van_tick(uint32_t now)
         van_card_start(now);
     }
     if (van_mode == VM_HUM && now - van_hum_t0 > VAN_HUM_MS) {
-        eo_drone_set(-1, 0.0f);
+        van_hum_stop();
         van_say(P_IDLE, VN_BEAT, van_hum_after[0], van_hum_after[1], 0, 0);
     }
 }
@@ -525,7 +622,7 @@ static void van_room(void)
     if (!eo_res_ok())
         return;
     for (y = 0; y < (int32_t)EO_ROOM_ROWS; y++) {
-        int32_t py = 36 + y - mv_oy, x = 0;
+        int32_t py = y - mv_oy, x = 0;
         const uint8_t *p = rle + row[y], *e = rle + row[y + 1];
         if (py < 0 || py >= mv_h)
             continue;
@@ -555,86 +652,109 @@ static void van_chip_row(uint32_t now)
         } else if (((now / 500u) & 1u) && van_mode == VM_ASK && seq_on) {
             ed = EO_RGB(200, 200, 230);
         }
-        mrect(x, 154, w, 24, ed);
-        mrect(x + 1, 155, w - 2, 22, bg);
-        tw = text_w(&FONT_XS, van_lbl[i]);
-        mtext(x + (w - tw) / 2, 161, &FONT_XS, van_lbl[i], fg);
+        mrect(x, 114, w, 28, ed);
+        mrect(x + 1, 115, w - 2, 26, bg);
+        tw = text_w(&FONT_S, van_lbl[i]);
+        if (tw > w - 6)
+            tw = text_w(&FONT_XS, van_lbl[i]);
+        mtext(x + (w - tw) / 2, 120, tw > w - 6 || text_w(&FONT_S, van_lbl[i]) > w - 6 ? &FONT_XS : &FONT_S, van_lbl[i], fg);
     }
 }
-static void van_hum_scene(uint32_t now)
+static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Van's face showing through it, like a reflection */
 {
-    uint32_t i, t = now - van_hum_t0;
+    uint32_t i;
+    int32_t bx, by, f = (int32_t)(now / 60u);
     if (!van_tint[1]) {                  /* Van's colours washed toward the screen's blue, once */
         for (i = 1; i < 16u && eo_res_ok(); i++) {
             uint32_t c = EO_CAST_PAL[2][i], r = (c >> 11) & 31u, g = (c >> 5) & 63u, b = c & 31u;
-            r = r * 5u / 10u;
-            g = g * 6u / 10u + 4u;
-            b = b * 7u / 10u + 10u;
+            r = r * 6u / 10u;
+            g = g * 7u / 10u + 6u;
+            b = b * 8u / 10u + 10u;
             van_tint[i] = (uint16_t)((r << 11) | ((g > 63u ? 63u : g) << 5) | (b > 31u ? 31u : b));
         }
     }
-    mrect(0, 36, 240, 144, EO_RGB(10, 18, 34));
-    if (eo_res_ok())
-        spr_paint(van_tint_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, 24, 36, 2, 1);
-    for (i = 0; i < 90u; i++) {          /* the static: speckles, new every few frames */
-        uint32_t h = (i * 2246822519u) ^ ((now / 66u) * 3266489917u);
-        int32_t sx = (int32_t)((h >> 3) % 240u), sy = 36 + (int32_t)((h >> 13) % 144u);
-        mrect(sx, sy, 2 + (int32_t)(h & 1u), 1, ((h >> 20) & 3u) ? EO_RGB(70, 90, 120) : EO_RGB(190, 205, 230));
+    mrect(0, 0, 240, 240, EO_RGB(18, 24, 36));
+    if (eo_res_ok())                     /* a close-up: three times his size, his face filling the glass */
+        spr_paint(van_tint_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, -24, 6, 3, 1);
+    for (by = 0; by < 48; by++) {        /* the noise: blocks, a different pattern every frame, many see-through (so you see both) */
+        int32_t y = by * 5;
+        if (y + 5 <= mv_oy || y >= mv_oy + mv_h)
+            continue;
+        for (bx = 0; bx < 48; bx++) {
+            uint32_t h = (((uint32_t)bx * 73856093u) ^ ((uint32_t)by * 19349663u) ^ ((uint32_t)f * 83492791u)) * 2654435761u;
+            uint32_t g = (h >> 24) & 255u;
+            if ((h >> 8) % 100u < 62u)
+                continue;
+            g = 60u + g * 150u / 255u;
+            mrect(bx * 5, y, 5, 5, EO_RGB(g, g, g));
+        }
     }
-    mrect(0, 36 + (int32_t)((t / 9u) % 150u), 240, 2, EO_RGB(40, 60, 90));       /* a slow roll bar */
+    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(200, 210, 230));    /* a slow roll bar */
+}
+
+static void van_bands(uint32_t now)      /* the room and the box under it (no header: the words are the game); the TV gag takes the whole glass */
+{
+    static const uint8_t HY[3] = {0, 80, 160}, NY[2] = {0, 144}, NH[2] = {144, 96};
+    uint32_t i;
+    if (van_mode == VM_HUM) {
+        for (i = 0; i < 3u; i++) {
+            mv_oy = HY[i];
+            mv_h = 80;
+            cv_begin(240, 80, C_BLACK);
+            van_scene(now);
+            cv_blit(0, HY[i]);
+        }
+        return;
+    }
+    for (i = 0; i < 2u; i++) {
+        mv_oy = NY[i];
+        mv_h = NH[i];
+        cv_begin(240, NH[i], C_BLACK);
+        van_scene(now);
+        cv_blit(0, NY[i]);
+    }
 }
 
 static void van_scene(uint32_t now)
 {
-    uint32_t i, lvl = set.van_lvl;
+    uint32_t i;
     const char *c = van_cd[van_ci];
-    char tb[40], nb[12];
     int32_t bob = ((now / 600u) & 1u) ? 1 : 0;
-    /* the header: the game, the level, and the round pips */
-    mrect(0, 0, 240, 36, C_BLACK);
-    mctext(3, &FONT_XS, "NAME THAT INTERVAL", EO_RGB(110, 200, 90));
-    tb[0] = 0;
-    text_cat(tb, "LEVEL ");
-    int_text((int32_t)lvl, nb);
-    text_cat(tb, nb);
-    mtext(6, 20, &FONT_XS, tb, C_GRAY);
-    for (i = 0; i < VAN_ROUNDS; i++)
-        mrect(240 - 6 - (int32_t)(VAN_ROUNDS - i) * 12, 22, 9, 9, i < set.van_prog ? EO_RGB(110, 200, 90) : EO_RGB(40, 50, 40));
     if (van_mode == VM_HUM) {
         van_hum_scene(now);
-    } else {
+        return;
+    }
+    {
         int32_t big = van_chips || van_mode == VM_CHOICE;
         van_room();
-        van_paint(van_pose, big ? 56 : 48, big ? 54 : 44, big ? 4 : 3, big ? 3 : 2, now,
+        van_paint(van_pose, big ? 56 : 48, big ? 12 : 4, big ? 4 : 3, big ? 3 : 2, now,
                   van_mode == VM_CARDS && van_typed(now) < van_len());
         if (van_pose == P_FISH) {        /* Simone, in her bowl, on the sill (her sprite from her own game) */
-            mrect(176, 120, 60, 50, EO_RGB(150, 200, 230));
-            mrect(178, 122, 56, 46, EO_RGB(40, 90, 150));
+            mrect(176, 84, 60, 50, EO_RGB(150, 200, 230));
+            mrect(178, 86, 56, 46, EO_RGB(40, 90, 150));
             if (eo_res_ok()) {
                 spr_pal = EO_CAST_PAL[0];
-                spr_paint(cast_px, EO_CAST[0][((now / 700u) & 1u) ? 1u : 0u], EO_CAST_W, EO_CAST_H, 186, 128 + bob * 2, 1, 2);
+                spr_paint(cast_px, EO_CAST[0][((now / 700u) & 1u) ? 1u : 0u], EO_CAST_W, EO_CAST_H, 186, 92 + bob * 2, 1, 2);
             }
         }
         if (van_chips || van_mode == VM_CHOICE)
             van_chip_row(now);
     }
-    /* the dialogue box */
-    mrect(0, 180, 240, 60, C_BLACK);
-    mrect(0, 180, 240, 2, van_mode == VM_HUM ? EO_RGB(70, 90, 120) : EO_RGB(110, 200, 90));
-    if (van_mode == VM_HUM)
-        return;
+    /* the dialogue box: five lines of the bigger font */
+    mrect(0, 144, 240, 96, C_BLACK);
+    mrect(0, 144, 240, 2, EO_RGB(110, 200, 90));
     {
         uint32_t n = van_typed(now), k, kind = van_kind(c), li = 0, ws;
         const char *s = van_text(c);
         uint16_t col = kind == 1u ? EO_RGB(150, 190, 235) : C_WHITE;
         if (kind == 2u) {
-            van_gibber(190, n, now);
+            van_gibber(158, n, now);
         } else {
             for (k = 0; k < van_ln; k++)
                 if (n >= van_ls[k])
                     li = k;
-            ws = li >= 4u ? li - 3u : 0u;
-            for (k = 0; k < 4u && ws + k < van_ln; k++) {
+            ws = li >= 5u ? li - 4u : 0u;
+            for (k = 0; k < 5u && ws + k < van_ln; k++) {
                 char buf[64];
                 uint32_t st = van_ls[ws + k], len = van_ll[ws + k], m = 0, j;
                 if (n <= st)
@@ -644,13 +764,14 @@ static void van_scene(uint32_t now)
                 for (j = 0; j < len && m < 62u; j++)
                     buf[m++] = s[st + j] == '~' ? 'e' : s[st + j];
                 buf[m] = 0;
-                mtext(10, 186 + (int32_t)k * 14, &FONT_XS, buf, col);
+                mtext(8, 150 + (int32_t)k * 17, &FONT_S, buf, col);
             }
         }
+        (void)i;
         if (van_mode == VM_CARDS && n >= van_len() && ((now / 450u) & 1u)) {
             int32_t r;
             for (r = 0; r < 5; r++)
-                mrect(226 + r, 228 + r, 10 - 2 * r, 1, C_AMB);
+                mrect(226 + r, 230 + r, 10 - 2 * r, 1, C_AMB);
         }
     }
 }

@@ -7,7 +7,7 @@
 #pragma once
 #include <stdint.h>
 
-#define VAN_LEVELS 6u
+#define VAN_LEVELS 8u
 #define VAN_ROUNDS 6u                    /* intervals named right to graduate a level */
 #define VAN_MAX_KEYS 4u
 #define VAN_BEATS 3u                     /* chat beats between questions (a first guess: it sets how much of a visit is hangout) */
@@ -23,15 +23,19 @@ typedef struct {
     uint8_t keys;                        /* how many answer keys are lit (never more than four) */
     uint8_t pn;                          /* how many intervals are in the pool */
     uint8_t close;                       /* 1: the wrong answers are the nearest neighbours of the right one */
+    uint8_t cmp;                         /* 1: no names yet: two gaps, which is bigger (or smaller)? mind: the least difference between them */
+    uint8_t mind;
     uint8_t pool[12];                    /* semitones, the new ones last */
 } van_level_t;
 static const van_level_t van_level_tab[VAN_LEVELS] = {
-    {2, 2, 0, {12, 7}},
-    {3, 4, 0, {12, 7, 4, 3}},
-    {3, 6, 0, {12, 7, 4, 3, 5, 2}},
-    {4, 8, 0, {12, 7, 4, 3, 5, 2, 9, 10}},
-    {4, 10, 1, {12, 7, 4, 3, 5, 2, 9, 10, 1, 6}},
-    {4, 12, 1, {12, 7, 4, 3, 5, 2, 9, 10, 1, 6, 8, 11}},
+    {2, 4, 0, 1, 5, {12, 7, 4, 2}},                            /* 1: which gap is bigger or smaller (no names), far apart */
+    {2, 6, 0, 1, 2, {12, 7, 5, 4, 3, 2}},                      /* 2: the same, closer together */
+    {2, 2, 0, 0, 0, {12, 7}},                                  /* 3: now they have names: octave, fifth */
+    {3, 4, 0, 0, 0, {12, 7, 4, 3}},
+    {3, 6, 0, 0, 0, {12, 7, 4, 3, 5, 2}},
+    {4, 8, 0, 0, 0, {12, 7, 4, 3, 5, 2, 9, 10}},
+    {4, 10, 1, 0, 0, {12, 7, 4, 3, 5, 2, 9, 10, 1, 6}},
+    {4, 12, 1, 0, 0, {12, 7, 4, 3, 5, 2, 9, 10, 1, 6, 8, 11}},
 };
 static const van_level_t *van_level(uint32_t l) { return &van_level_tab[(l >= 1u && l <= VAN_LEVELS ? l : 1u) - 1u]; }
 
@@ -92,7 +96,7 @@ static const van_beat_t van_beat[] = {
       "Right? Back home we had a food called a glorp. Also not a dog. Nobody checked.", "Valid. Moving on."}},
     {{"Huh.", 0, 0, 0}, K_ASK, P_TALK, {"Huh.", "Yeah.", "..."}, {"Right?", "Right?", "Right?"}},
     {{"*Something meows, offstage.", "That's Meow. He doesn't like the fridge. I don't either, but I respect it.", 0, 0}, K_MEOW, P_IDLE, {0, 0, 0}, {0, 0, 0}},
-    {{"Hold on. Listen to this.", 0, 0, 0}, K_HUM, P_IDLE, {0, 0, 0}, {0, 0, 0}},
+    {{"*Van looks at the TV.", "Hold on. Come look at this.", "Don't say anything. Just watch.", 0}, K_HUM, P_IDLE, {0, 0, 0}, {0, 0, 0}},
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
@@ -105,3 +109,25 @@ static const char *const van_lead[4] = {"*Van pulls out the tape measure.", "Hol
 static const char *const van_right[5] = {"Sick.", "Nice ears, dude.", "That's the one.", "No cap, that was bussin.", "Third? Fifth? Bro. You ate."};
 static const char *const van_wrong[5] = {"Eh, close-ish.", "Not that one. No worries.", "Huh. Okay.", "Ooh. Cooked. Lowkey cooked.", "Sus. But I respect the confidence."};
 static const char *const van_up[2] = {"New level, bro. Bigger gaps.", "You got better at distances. I'm not sure how I feel. Proud? Proud, probably."};
+
+/* ---- conversation: beats come in threads (a few that follow from one another), with a link between threads, so it talks
+ * like a person who wanders but does not just list facts. Each number is an index into van_beat[]; 255 ends a thread. */
+#define VAN_THREADS 12u
+static const uint8_t van_thread[VAN_THREADS][6] = {
+    {0, 7, 1, 8, 3, 9},                  /* humans, and their habits */
+    {5, 6, 19, 255, 0, 0},               /* the window: rain, moon, space */
+    {11, 17, 18, 255, 0, 0},             /* home, and Mom's department */
+    {12, 16, 35, 255, 0, 0},             /* the goldfish, then a quiet moment */
+    {2, 22, 23, 36, 255, 0},             /* the couch, and Meow */
+    {25, 4, 24, 10, 255, 0},            /* snacks */
+    {26, 34, 255, 0, 0, 0},              /* food on his planet, then hot dogs */
+    {15, 33, 21, 255, 0, 0},             /* the tape measure */
+    {27, 28, 29, 255, 0, 0},             /* what things are made of, and weighed by */
+    {30, 31, 32, 255, 0, 0},             /* feet, meters, approximately */
+    {13, 14, 20, 255, 0, 0},             /* small odd things in the room */
+    {37, 255, 0, 0, 0, 0},               /* the TV (once, ever) */
+};
+static const char *const van_link_new[8] = {"Anyway.", "Okay, different thing.", "Oh. Unrelated.", "Hm. Random.", "So. Update.",
+                                            "Wait. Thought of something.", "Where was I? ...Doesn't matter.", "Okay. New topic. Same couch."};
+static const char *const van_link_in[6] = {"Also.", "Speaking of.", "Related.", "Oh, and.", "Same energy.", "One more."};
+static const char *const van_link_back[4] = {"Anyway. Where was I?", "Right. So.", "Okay. Back to it.", "Sorry. You were saying nothing. Where was I?"};
