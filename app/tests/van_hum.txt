@@ -1,4 +1,4 @@
-# Van's text always fits the box (at most seven lines, four showing at a time), and the TV gag: ten seconds of noise with his face showing through, and no skipping it.
+# Van's text always fits the box (at most six lines, five showing at a time), and the TV gag: ten seconds of noise with his face showing through, and no skipping it.
 wait 600
 tap HOME
 turn PRESET 1
@@ -9,7 +9,7 @@ tap PLAY
 wait 100
 tap PLAY
 wait 100
-expect vanlines 7
+expect vanlines 6
 expect vanhum 0
 wait 100
 expect vanmode 3
