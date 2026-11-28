@@ -42,8 +42,8 @@ key 11 up
 wait 100
 expect note -1
 wait 200
-# the ding is above the top key (key 31 = 84): not a note you could play
-expect note 84
+# the success sound is a low gong (F3 sounds as MIDI 65 here): not a note you could play in the game
+expect note 65
 wait 4300
 expect state 1
 expect len 2

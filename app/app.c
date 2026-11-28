@@ -64,10 +64,10 @@ static uint8_t set_dirty;                /* changed since the last save: SAVE is
  * audio interrupt plays them. */
 #define WT_N 256u
 enum { V_MEOW, V_WARM, V_BELL, V_EPIANO, V_TRI, V_SQUARE, VOICES,   /* VOICES: the ones you can pick */
-       V_CATFX = VOICES, V_CATSAD, V_PURR, V_HOWL, V_PING, VOICES_ALL };            /* the cat's success meow, its sad yowl, its purr */
+       V_CATFX = VOICES, V_CATSAD, V_PURR, V_HOWL, V_PING, V_GONG, VOICES_ALL };            /* the cat's success meow, its sad yowl, its purr */
 static const char *const eo_voice_name[VOICES] = {"MEOW", "WARM", "BELL", "E-PIANO", "TRIANGLE", "SQUARE"};
 /* each voice's level before MASTER, to make them about equally loud (measured in the simulator) */
-static const float eo_voice_gain[VOICES_ALL] = {1.15f, 1.0f, 1.3f, 1.5f, 1.25f, 0.8f, 1.15f, 1.0f, 1.6f, 1.2f, 0.5f};
+static const float eo_voice_gain[VOICES_ALL] = {1.15f, 1.0f, 1.3f, 1.5f, 1.25f, 0.8f, 1.15f, 1.0f, 1.6f, 1.2f, 0.5f, 1.9f};
 /* one cycle each, normalised, first sample again at the end: warm (the old voice), the drone, triangle, square, and a
  * bright saw for the meow's resonances */
 static float eo_wt[WT_N + 1u], eo_wt_soft[WT_N + 1u], eo_wt_tri[WT_N + 1u], eo_wt_sq[WT_N + 1u], eo_wt_saw[WT_N + 1u];
@@ -241,6 +241,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     static float last_inc;               /* a released note keeps its pitch while it fades: a frozen phase would leave a thump */
     float inc = note >= 0 ? eo_note_inc(note) : last_inc;
     float vk = eo_soft_env ? 0.0006f : 0.002f;
+    if (vc == V_GONG)                    /* the gong: a soft strike (~7 ms) and a long release, ringing on */
+        vk = target > voice_level ? 0.003f : 0.00006f;
     if (vc == V_BELL && !eo_soft_env)    /* the bell: a quick strike (~5 ms) and a softer release (~25 ms), so it never clicks */
         vk = target > voice_level ? 0.005f : 0.0009f;
     static float lfo_ph;                 /* the ostinato swells in volume and fades back, about every 3.5 s */
@@ -414,6 +416,25 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 v = 0.55f * batk * (fm_sinf(6.2831853f * voice_phase) * e1 + 0.5f * fm_sinf(6.2831853f * ph2) * e2 +
                              0.3f * fm_sinf(6.2831853f * ph3) * e3);
                 break;
+            case V_GONG: {               /* a low gong: inharmonic partials that die away slowly at different speeds, shimmering */
+                float sh = 1.0f + 0.18f * fm_sinf(6.2831853f * 4.6f * age);
+                ph2 += inc * 2.012f;
+                ph3 += inc * 3.38f;
+                if (ph2 >= 1.0f)
+                    ph2 -= 1.0f;
+                if (ph3 >= 1.0f)
+                    ph3 -= 1.0f;
+                if (batk < 1.0f)
+                    batk += 1.0f / (44100.0f * 0.012f);
+                if (batk > 1.0f)
+                    batk = 1.0f;
+                e1 *= 0.999990f;
+                e2 *= 0.999972f;
+                e3 *= 0.999930f;
+                v = 0.55f * batk * sh * (fm_sinf(6.2831853f * voice_phase) * e1 + 0.55f * fm_sinf(6.2831853f * ph2) * e2 +
+                                         0.35f * fm_sinf(6.2831853f * ph3) * e3);
+                break;
+            }
             case V_EPIANO: {             /* two-operator FM: a bright tine that settles into a soft tone */
                 float m = fm_sinf(6.2831853f * voice_phase);
                 e1 *= 0.99989f;
@@ -1145,6 +1166,17 @@ static void eo_win_begin(void)           /* NICE! at once; the success sound onc
     eo_win_due = eo_win_at + 250u;
 }
 
+static void eo_play_gong(void)           /* Simone's success: one low gong, left to ring */
+{
+    seq_at[0] = 0;
+    seq_len[0] = 220;                            /* (the key lets go early; the gong's own slow release is the ring) */
+    seq_key[0] = (uint8_t)(SIMON_BASE - 7u);     /* F3: the lowest key there is */
+    seq_vo_stage[0] = V_GONG;
+    seq_n = 1;
+    seq_end = 280;
+    eo_seq_start(0, 0);
+}
+
 static void eo_win_sound(void)
 {
     eo_win_pending = 0;
@@ -1153,6 +1185,8 @@ static void eo_win_sound(void)
     } else if (set.game == GAME_COPYCAT) {
         eo_drone_set(-1, 0.0f);              /* the root stops as the ding comes */
         play_chime();
+    } else if (set.game == GAME_SIMON) {
+        eo_play_gong();                      /* Simone: a low gong */
     } else {
         eo_play_blip();
     }
@@ -4300,22 +4334,29 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
     sim_alert = 0;
     sim_full = 0;
     if (ui.state == ST_WISH || (ui.state == ST_READY && ui.text == TX_OVER)) {   /* you have angered the spirits */
-        static const char *const talk[6] = {"No fear, darling. Simon~ foresaw this. ...Just now.",
-                                            "The spirits scowl, my sweet. Still, you're a treat.",
-                                            "Calm waters, sweet one. Now... who are you again?",
-                                            "Defeat, my dear, is the future drawing near.",
-                                            "The spirits are cross. I'd tell you why. ...I'd tell you why.",
-                                            "Chin up, my love. Tomorrow's stars are kind. ...Did I say that before?"};
+        static const char *const talk[6] = {"The fates willed this upon you, darling. Be at peace.",
+                                            "Simon~ foresaw a wrong note. ...Just now. Truly.",
+                                            "It was written in the stars, my sweet. Smudged, but written.",
+                                            "A mistake is only the future arriving early, dear.",
+                                            "The spirits whisper: again. They are never cross, darling.",
+                                            "Chin up, my love. Tomorrow's stars are kind. ...Did Simon~ say that before?"};
+        static char wl[48];
         uint32_t t = now - sim_wish_t0, beat;
         if (t < 3600u) {                     /* the shout, once */
             sim_alert = 2;
-            return "YOU'VE ANGERED THE SPIRITS";
+            return "THE FATES WILLED THIS";
         }
         beat = (t - 3600u) / 4200u;          /* then she talks: mostly plain words, the instruction every other beat */
         if (beat & 1u) {
             if (ui.state == ST_WISH) {
+                char wn[8];
                 sim_alert = 1;
-                return "SELECT: MAKE A WISH. PLAY: GIVE UP.";
+                wl[0] = 0;
+                text_cat(wl, "SELECT: A WISH (");
+                int_text((int32_t)sim_wishes, wn);
+                text_cat(wl, wn);
+                text_cat(wl, " LEFT). PLAY: GIVE UP.");
+                return wl;
             }
             sim_alert = 1;
             return "Oh, the spirits cry! Press PLAY to try.";
@@ -4345,7 +4386,7 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
         }
         if (sim_angry_pre && sim_pre && seq_pos < sim_pre) {
             sim_alert = 2;
-            return seq_pos < sim_pre / 2u ? "YOU'VE ANGERED THE SPIRITS" : "NOW PLAY IT BACKWARDS!";
+            return seq_pos < sim_pre / 2u ? "THE FATES DEMAND A TWIST!" : "NOW PLAY IT BACKWARDS!";
         }
         if (sim_dark && sim_pre && seq_pos < sim_pre) {
             sim_alert = 1;
@@ -4429,6 +4470,8 @@ static const char *sim_quip(uint32_t tx)                     /* what she says: r
             {"Riddles, darling! Simon~ speaks in rhyme. ...Always. Mostly.", "Listen well, my sweet. The riddle's in the beat.", "Press PLAY. A rule is coming your way."},
             {"The lights may dim. Don't be grim.", "Trust your ears, my dear. The lights may disappear.", "Press PLAY, my sweet. Let's feel the beat."},
             {"Everything at once, my darling. Don't panic. ...I'm panicking.", "The finale, my dear. The end is near.", "One last PLAY, my love. The spirits are above."}};
+        if (lv == 1u && sim_say_n == 0u && !set.mode)
+            return "Simon~ grants you three wishes, darling. SELECT hears a round again.";
         return rd[(lv < 1u ? 1u : lv > 8u ? 8u : lv) - 1u][sim_say_n % 3u];
     }
     if (tx == TX_WATCH) {

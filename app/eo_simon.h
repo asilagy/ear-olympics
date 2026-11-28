@@ -37,7 +37,7 @@ static inline uint32_t simon_pre_ms(uint32_t level)
  * it, then it joins a small random pool; a later level twists it). The chance, in percent, a round has each, by level 1..8.
  * The first few are about looks and sound (polish, not difficulty); the rules and the memory tricks come later. */
 enum { SIMON_FX_NONE, SIMON_FX_PRE, SIMON_FX_LAPSE, SIMON_FX_RESTART, SIMON_FX_STALL, SIMON_FX_CRYSTAL, SIMON_FX_SLEEP, SIMON_FX_TWICE, SIMON_FX_DARK, SIMON_FX_EYES };   /* (TWICE is the riddle family: each has its own rule) */
-static const uint8_t SIMON_PCT_PRE[SIMON_LEVELS]     = {0, 15, 12, 10, 10, 10, 10, 10};   /* the dazzle (level 1 debut) */
+static const uint8_t SIMON_PCT_PRE[SIMON_LEVELS]     = {0, 30, 28, 26, 25, 25, 25, 25};   /* the dazzle (level 1 debut) */
 static const uint8_t SIMON_PCT_SLEEP[SIMON_LEVELS]   = {0, 15, 15, 12, 12, 12, 12, 12};   /* sleepy: gray-blue, rippling (level 2) */
 static const uint8_t SIMON_PCT_CRYSTAL[SIMON_LEVELS] = {0, 0, 20, 15, 15, 15, 15, 15};    /* the crystal ball (level 3) */
 static const uint8_t SIMON_PCT_LAPSE[SIMON_LEVELS]   = {0, 0, 0, 20, 15, 15, 15, 15};     /* she loses her place (level 4); level 8 adds the stall and the restart */
