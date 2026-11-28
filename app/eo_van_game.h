@@ -24,7 +24,8 @@ static uint32_t van_set_used, van_mom_t0;        /* ordinary topics since the la
 static uint8_t van_hum_seen, van_drop_force, van_drops;   /* the TV static gag this visit; name-drops (the force is a test hook) */    /* name-drops after higher/lower answers (the force is a test hook) */
 static uint8_t pg_offers, van_qs;            /* 10-ISH invitations made, and questions answered this visit */
 static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
-static uint8_t van_tvshot;                  /* 1: the cards after the static gag stay on the static's picture (the TV shot) until the drawl is done */
+static uint8_t van_tvshot, van_tv_arm;      /* arm: the very next van_say is the static gag's after-cards, which keep the TV shot (and its hiss) until they are done */
+static uint8_t van_tvshot_dummy_unused;                  /* 1: the cards after the static gag stay on the static's picture (the TV shot) until the drawl is done */
 static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live (3 is the TV) */   /* the multicam: which camera is live */
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
 static const char *van_cd[VAN_CARDS];
@@ -102,12 +103,6 @@ static uint32_t van_wrap_into(const char *s, uint8_t *ls, uint8_t *ll)   /* retu
 }
 static void van_card_start(uint32_t now)
 {
-    if (van_tvshot && van_ci >= 2u) {    /* the drawl is done: the hiss fades and the room comes back */
-        van_tvshot = 0;
-        eo_noise_on = 0;
-        eo_noise_dark = 0;
-        eo_tv_hum = 0;
-    }
     van_cut++;                           /* every card is a cut: wide on the first, then medium and close, flipping sides */
     {
         uint32_t cam, last = (van_cn > 1u && (uint32_t)van_ci + 1u == van_cn);
@@ -146,6 +141,15 @@ static void van_say(uint32_t pose, uint32_t after, const char *a, const char *b,
 {
     const char *l[4] = {a, b, c, d};
     uint32_t i;
+    if (van_tv_arm) {
+        van_tv_arm = 0;
+        van_tvshot = 1;
+    } else if (van_tvshot) {             /* the static gag's cards are done: the hiss fades and the room comes back */
+        van_tvshot = 0;
+        eo_noise_on = 0;
+        eo_noise_dark = 0;
+        eo_tv_hum = 0;
+    }
     van_cn = 0;
     for (i = 0; i < 4u; i++)
         if (l[i] && l[i][0])
@@ -1231,7 +1235,7 @@ static void van_tick(uint32_t now)
     }
     if (van_mode == VM_HUM && now - van_hum_t0 > VAN_HUM_MS) {
         eo_drone_set(-1, 0.0f);          /* the drone goes; the static's picture and hiss stay under the next two cards (\"...\" and the drawl) */
-        van_tvshot = 1;
+        van_tv_arm = 1;
         van_say(P_IDLE, VN_BEAT, van_hum_after[0], van_hum_after[1], van_hum_after[2], 0);
     }
 }
