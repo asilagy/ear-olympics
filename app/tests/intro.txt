@@ -62,8 +62,12 @@ expect sel 0
 shot select.png
 wait 100
 expect smp 0
-# the select's pulse is a plucked G2 bass (MIDI 43) on its own channel, not the melody sequencer
-expect bass 43
+# the select's pulse is a plucked bass on its own channel, not the melody sequencer: G1 (MIDI 31) eight eighths, D#1 (27) four, F1 (29) four
+expect bass 31
+wait 3000
+expect bass 27
+wait 1000
+expect bass 29
 # the cursor: PRESETS move it; the empty tiles do not start anything
 turn PRESET 1
 wait 30

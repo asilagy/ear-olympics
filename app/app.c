@@ -105,6 +105,7 @@ static volatile uint32_t eo_gong_trig;  /* Simone's success: a low gong (MIDI no
 static volatile int32_t eo_gong_note;
 static volatile uint32_t eo_bass_trig;  /* the select's bass: a plucked synth note (MIDI note, and how hard), one per trigger */
 static volatile int32_t eo_bass_note;
+static uint8_t eo_sel_in;               /* in the select: its bass pattern has started this visit */
 static volatile float eo_bass_vel = 1.0f;
 #define BASS_GAIN 0.28f
 #define GONG_GAIN 0.20f
@@ -5304,16 +5305,24 @@ void app_frame(void)
         sim_tick(now);
     if (ui.state == ST_VAN)
         van_tick(now);
+    if (ui.state != ST_SELECT)
+        eo_sel_in = 0;                       /* the select's bass pattern starts over on each visit */
     if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE || ui.state == ST_VAN) {   /* the movie, the select and Simone's show: a frame about every 33 ms */
         static uint32_t last_mv;
         if (ui.state == ST_MOVIE) {
             movie_tick(now);
-        } else if (ui.state == ST_SELECT) {              /* the select's pulse: a plucked G2 bass on each eighth note at 94 bpm */
-            static uint32_t last_bt = 0xFFFFFFFFu;
-            uint32_t bt = now * SEL_BPM8 / 60000u;
+        } else if (ui.state == ST_SELECT) {              /* the select's pulse: a plucked bass on each eighth note at 94 bpm, two bars: G1 x8, D#1 x4, F1 x4 */
+            static uint32_t last_bt = 0xFFFFFFFFu, bt0;
+            uint32_t bt = now * SEL_BPM8 / 60000u, bi;
+            if (!eo_sel_in) {                               /* each visit starts the pattern on its first G */
+                eo_sel_in = 1;
+                bt0 = bt;
+                last_bt = 0xFFFFFFFFu;
+            }
+            bi = (bt - bt0) & 15u;
             if (bt != last_bt) {
                 last_bt = bt;
-                eo_bass_note = 43;
+                eo_bass_note = bi < 8u ? 31 : bi < 12u ? 27 : 29;     /* G1 eight times, D#1 four, F1 four */
                 eo_bass_vel = (bt & 1u) ? 0.75f : 1.0f;      /* the downbeat a little harder */
                 eo_bass_trig++;
             }
