@@ -14,6 +14,7 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH };                         /*
 #define VAN_FISH_MS 8000u                                            /* the long look at the fish: a quiet moment, not skippable */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
+static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live */
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
 static const char *van_cd[VAN_CARDS];
 static uint32_t van_fish_t0, van_fish_bub;
@@ -21,7 +22,7 @@ static uint32_t van_t0, van_typed_last, van_hum_t0, van_ask_t0, van_ev_at;
 static uint8_t van_ev;                                               /* 1: play the interval again at van_ev_at */
 static uint8_t van_since, van_snacked, van_first_q, van_cur, van_first_beat;         /* beats since a question; the beat now; ... */
 static uint8_t van_recent[6];
-static uint8_t van_th = 0xFFu, van_tp, van_th_recent[3], van_resume, van_cmp, van_q_semi2, van_dir;   /* the thread now and where in it; a link back after a question; the compare question */
+static uint8_t van_missed, van_th = 0xFFu, van_tp, van_th_recent[3], van_resume, van_cmp, van_q_semi2, van_dir;   /* the thread now and where in it; a link back after a question; the compare question */
 static uint8_t van_ls[VAN_LINES], van_ll[VAN_LINES], van_ln;         /* the card, wrapped */
 static uint8_t van_q_semi, van_q_n, van_q_right, van_q_pick, van_last_semi;
 static uint8_t van_q_semis[VAN_MAX_KEYS];
@@ -29,6 +30,16 @@ static const char *van_lbl[VAN_MAX_KEYS];                            /* the chip
 static char van_nbuf[3][44];
 static uint8_t van_maxlines;
 
+static uint32_t van_rnd(uint32_t n);
+static uint8_t van_lastpick[6];
+static uint32_t van_pick(uint32_t slot, uint32_t n)      /* a random line, never the one just used from this pool */
+{
+    uint32_t r = van_rnd(n);
+    if (n > 1u && r == van_lastpick[slot])
+        r = (r + 1u + van_rnd(n - 1u)) % n;
+    van_lastpick[slot] = (uint8_t)r;
+    return r;
+}
 static uint32_t van_rnd(uint32_t n)
 {
     eo_seed_once();
@@ -80,6 +91,18 @@ static uint32_t van_wrap_into(const char *s, uint8_t *ls, uint8_t *ll)   /* retu
 }
 static void van_card_start(uint32_t now)
 {
+    van_cut++;                           /* every card is a cut: wide on the first, then medium and close, flipping sides */
+    {
+        uint32_t cam, last = (van_cn > 1u && (uint32_t)van_ci + 1u == van_cn);
+        if (van_pose == P_FISH || van_ci == 0u)
+            cam = 0u;
+        else if (last)
+            cam = 2u;                    /* the last line of a bit gets the close-up */
+        else
+            cam = (van_cut & 1u) ? 1u : 2u;
+        van_cam = (uint8_t)cam;
+        van_flip = (uint8_t)((van_cut >> 1) & 1u);
+    }
     van_ln = (uint8_t)van_wrap_into(van_text(van_cd[van_ci]), van_ls, van_ll);
     van_t0 = now;
     van_typed_last = 0;
@@ -165,6 +188,8 @@ static void van_key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim)
         *dim = van_mask(van_q_n);
     if (van_mode == VM_CHOICE)
         *dim = van_mask(van_q_n);
+    if (van_chips == 3u && van_q_pick < van_q_n)
+        *mid |= 1u << van_answer_key[van_q_pick];
     if (van_chips == 2u) {
         *bright |= 1u << van_answer_key[van_q_right];
         if (van_q_pick != van_q_right && van_q_pick < van_q_n)
@@ -180,6 +205,7 @@ static void van_question(void)
     uint8_t cand[12], cn = 0, t;
     uint32_t correct;
     van_cmp = lv->cmp;
+    van_missed = 0;
     if (van_cmp) {                       /* no names yet: two gaps, which is bigger (or smaller)? */
         uint32_t i1 = 0, i2 = 0, tr;
         for (tr = 0; tr < 40u; tr++) {
@@ -201,7 +227,7 @@ static void van_question(void)
         van_snacked = 0;
         van_nbuf[2][0] = 0;
         text_cat(van_nbuf[2], van_dir ? "Which gap is smaller?" : "Which gap is bigger?");
-        van_say(P_TAPE, VN_ASK, van_first_q ? van_lead[0] : van_lead[1u + van_rnd(2u)], van_first_q ? van_lead[1] : van_nbuf[2], van_first_q ? van_nbuf[2] : 0, 0);
+        van_say(P_TAPE, VN_ASK, van_first_q ? van_lead[0] : van_lead[1u + van_pick(0u, 7u)], van_first_q ? van_lead[1] : van_nbuf[2], van_first_q ? van_nbuf[2] : 0, 0);
         van_first_q = 0;
         (void)root;
         return;
@@ -252,7 +278,7 @@ static void van_question(void)
     van_q_pick = 0xFFu;
     van_snacked = 0;
     (void)root;
-    van_say(P_TAPE, VN_ASK, van_first_q ? van_lead[0] : van_lead[1u + van_rnd(3u)], van_first_q ? van_lead[3] : 0, 0, 0);
+    van_say(P_TAPE, VN_ASK, van_first_q ? van_lead[0] : van_lead[1u + van_pick(0u, 7u)], van_first_q ? van_lead[3] : 0, 0, 0);
     van_first_q = 0;
 }
 
@@ -303,7 +329,7 @@ static const char *van_pick_link(const char *const *pool, uint32_t n) { return p
 static void van_next_beat(void)
 {
     const van_beat_t *b;
-    const char *cards[6];
+    const char *cards[6] = {0, 0, 0, 0, 0, 0};
     uint32_t i, tries, nc = 0, fresh = 0;
     if (set_dirty && !seq_on)
         (void)store_now();
@@ -392,28 +418,24 @@ static void van_done_cards(void)
 
 static void van_answer(uint32_t ix)
 {
-    uint32_t i, right = ix == van_q_right, rt = set.root;
+    uint32_t i, right = ix == van_q_right, rt = set.root, count = right && !van_missed;   /* only a first try counts toward the level */
     char *p;
     van_q_pick = (uint8_t)ix;
-    van_chips = 2;
     seq_on = 0;
-    if (right) {
-        mv_sfx(0, 0, 300, rt + 24u, V_PING);
-        seq_n = 1;
-        seq_end = 420;
-        eo_seq_start(0, 0);
-        if (set.van_prog < VAN_ROUNDS)
-            set.van_prog++;
-        set_dirty = 1;
-    } else {
-        mv_sfx(0, 0, 220, rt + 7u, V_TRI);
-        mv_sfx(1, 240, 420, rt + 3u, V_TRI);
-        seq_n = 2;
-        seq_end = 700;
-        eo_seq_start(0, 0);
-        van_ev = 1;                      /* then the pair again, so you hear what it was */
-        van_ev_at = plat_ms() + 1300u;
+    if (!right) {                        /* a wrong answer: nothing lost, nothing shown; Van says something and you try again */
+        van_missed = 1;
+        eo_blub_soft = 1;                /* a low, sliding alien "hm": his own voice, no buzzer */
+        eo_blub_glide = -0.7f;
+        eo_blub_note = 57;
+        eo_blub_trig++;
+        van_say(P_COOKED, VN_ASK, van_wrong[van_pick(1u, 10u)], van_retry[van_pick(2u, 8u)], 0, 0);
+        van_chips = 3;
+        return;
     }
+    eo_blub_soft = 1;                    /* a happy upward alien chirp: his own voice, no bell */
+    eo_blub_glide = 0.9f;
+    eo_blub_note = 69;
+    eo_blub_trig++;
     p = van_nbuf[0];
     p[0] = 0;
     if (van_cmp) {
@@ -423,7 +445,12 @@ static void van_answer(uint32_t ix)
         text_cat(p, van_iv[van_q_semi - 1u].name);
         text_cat(p, ".");
     }
-    if (right && set.van_prog >= VAN_ROUNDS && set.van_lvl < VAN_LEVELS) {    /* the level is done */
+    if (count) {
+        if (set.van_prog < VAN_ROUNDS)
+            set.van_prog++;
+        set_dirty = 1;
+    }
+    if (count && set.van_prog >= VAN_ROUNDS && set.van_lvl < VAN_LEVELS) {    /* the level is done */
         const van_level_t *ol = van_level(set.van_lvl), *nl = van_level(set.van_lvl + 1u);
         if (set.van_top < set.van_lvl)
             set.van_top = set.van_lvl;
@@ -440,16 +467,17 @@ static void van_answer(uint32_t ix)
             text_cat(van_nbuf[1], van_iv[nl->pool[i] - 1u].name);
             text_cat(van_nbuf[1], i + 1u < nl->pn ? ", " : ".");
         }
-        van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_rnd(5u)], van_up[van_rnd(2u)], van_nbuf[1]);
-    } else if (right && set.van_prog >= VAN_ROUNDS) {
+        van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_pick(3u, 12u)], van_up[van_rnd(2u)], van_nbuf[1]);
+    } else if (count && set.van_prog >= VAN_ROUNDS) {
         if (set.van_top < set.van_lvl) {
             set.van_top = set.van_lvl;
             set_dirty = 1;
         }
-        van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_rnd(5u)], van_cmp ? 0 : van_iv[van_q_semi - 1u].joke, 0);
+        van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_pick(3u, 12u)], van_cmp ? 0 : van_iv[van_q_semi - 1u].joke, 0);
+    } else if (!count) {                 /* got there on a retry: it does not count toward the level, and Van says so, kindly */
+        van_say(P_TALK, VN_BEAT, van_nbuf[0], van_retry_ok[van_pick(4u, 4u)], 0, 0);
     } else {
-        van_say(right ? P_LAUGH : P_COOKED, VN_BEAT, van_nbuf[0], right ? van_right[van_rnd(5u)] : van_wrong[van_rnd(5u)],
-                van_cmp ? 0 : van_iv[van_q_semi - 1u].joke, 0);
+        van_say(P_LAUGH, VN_BEAT, van_nbuf[0], van_right[van_pick(3u, 12u)], van_cmp ? 0 : van_iv[van_q_semi - 1u].joke, 0);
     }
     van_chips = 2;
     van_resume = van_th != 0xFFu && van_tp > 0u && van_thread[van_th][van_tp < 6u ? van_tp : 5u] != 255u && van_tp < 6u;
@@ -458,7 +486,24 @@ static void van_answer(uint32_t ix)
 static void van_choose(uint32_t ix)      /* an ask beat: your pick, Van's reply */
 {
     const van_beat_t *b = &van_beat[van_cur];
-    van_say(P_TALK, VN_BEAT, b->re[ix], 0, 0, 0);
+    {
+        static char rb[2][112];
+        const char *r = b->re[ix], *bar = r;
+        uint32_t k = 0;
+        while (*bar && *bar != '|')
+            bar++;
+        if (*bar == '|') {              /* two cards: before the bar, then after it */
+            for (; r + k < bar && k < 110u; k++)
+                rb[0][k] = r[k];
+            rb[0][k] = 0;
+            for (k = 0; bar[1u + k] && k < 110u; k++)
+                rb[1][k] = bar[1u + k];
+            rb[1][k] = 0;
+            van_say(P_TALK, VN_BEAT, rb[0], rb[1], 0, 0);
+        } else {
+            van_say(P_TALK, VN_BEAT, r, 0, 0, 0);
+        }
+    }
     seq_on = 0;
     mv_sfx(0, 0, 180, 12u + ix * 2u, V_TRI);
     seq_n = 1;
@@ -646,21 +691,30 @@ static void van_paint(uint32_t pose, int32_t ox, int32_t oy, int32_t num, int32_
     else
         spr_paint(cast_px, EO_VAN[pose - P_TALK], EO_CAST_W, EO_CAST_H, ox, oy, num, den);
 }
-static void van_room(void)
+static void van_room(int32_t num, int32_t den, int32_t px, int32_t py)   /* the room, punched in: scale num/den, window starts at px,py */
 {
     int32_t y;
     const uint8_t *rle = EO_ROOM_RLE;
     const uint16_t *row = EO_ROOM_ROW, *pal = EO_ROOM_PAL;
     if (!eo_res_ok())
         return;
-    for (y = 0; y < (int32_t)EO_ROOM_ROWS; y++) {
-        int32_t py = y - mv_oy, x = 0;
-        const uint8_t *p = rle + row[y], *e = rle + row[y + 1];
-        if (py < 0 || py >= mv_h)
+    for (y = 0; y < 144; y++) {
+        int32_t sy = (y + py) * den / num, dy = y - mv_oy, x = 0;
+        const uint8_t *p, *e;
+        if (dy < 0 || dy >= mv_h || sy < 0 || sy >= (int32_t)EO_ROOM_ROWS)
             continue;
+        p = rle + row[sy];
+        e = rle + row[sy + 1];
         while (p < e) {
-            if (p[0])
-                cv_rect(x, py, p[1], 1, pal[p[0]]);
+            if (p[0]) {
+                int32_t x0 = x * num / den - px, x1 = (x + p[1]) * num / den - px;
+                if (x1 > 240)
+                    x1 = 240;
+                if (x0 < 0)
+                    x0 = 0;
+                if (x1 > x0)
+                    cv_rect(x0, dy, x1 - x0, 1, pal[p[0]]);
+            }
             x += p[1];
             p += 2;
         }
@@ -673,7 +727,12 @@ static void van_chip_row(uint32_t now)
     for (i = 0; i < n; i++) {
         int32_t x = 4 + (int32_t)i * (w + 4), tw;
         uint16_t bg = EO_RGB(30, 30, 50), fg = C_WHITE, ed = EO_RGB(120, 120, 160);
-        if (van_chips == 2u) {
+        if (van_chips == 3u) {
+            if (i == van_q_pick) {
+                bg = EO_RGB(100, 40, 40);
+                ed = EO_RGB(220, 120, 120);
+            }
+        } else if (van_chips == 2u) {
             if (i == van_q_right) {
                 bg = EO_RGB(30, 110, 60);
                 ed = EO_RGB(120, 230, 150);
@@ -807,9 +866,20 @@ static void van_scene(uint32_t now)
     }
     {
         int32_t big = van_chips || van_mode == VM_CHOICE;
-        van_room();
-        van_paint(van_pose, big ? 56 : 48, big ? 12 : 4, big ? 4 : 3, big ? 3 : 2, now,
-                  van_mode == VM_CARDS && van_typed(now) < van_len());
+        uint32_t talk = van_mode == VM_CARDS && van_typed(now) < van_len();
+        uint32_t cam = (van_chips || van_mode == VM_CHOICE) ? 0u : van_cam;   /* the chips need the wide shot */
+        spr_flip = cam && van_flip && van_pose != P_FISH;
+        if (cam == 1u) {                 /* medium: the room punched in 1.5x, Van from the chest up at 2x */
+            van_room(3, 2, van_flip ? 90 : 30, 40);
+            van_paint(van_pose, van_flip ? 20 : 32, -34, 2, 1, now, talk);
+        } else if (cam == 2u) {          /* close-up: the wall 2x behind, his face 3x */
+            van_room(2, 1, van_flip ? 200 : 40, 60);
+            van_paint(van_pose, -24 + (van_flip ? 12 : 0), 6, 3, 1, now, talk);
+        } else {                         /* wide: the whole room, Van on the couch */
+            van_room(1, 1, 0, 0);
+            van_paint(van_pose, big ? 56 : 48, big ? 12 : 4, big ? 4 : 3, big ? 3 : 2, now, talk);
+        }
+        spr_flip = 0;
         if (van_pose == P_FISH) {        /* Simone, in her bowl, on the sill (her sprite from her own game) */
             mrect(176, 84, 60, 50, EO_RGB(150, 200, 230));
             mrect(178, 86, 56, 46, EO_RGB(40, 90, 150));

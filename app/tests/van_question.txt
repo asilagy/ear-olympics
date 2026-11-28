@@ -21,10 +21,21 @@ wait 3500
 shot van_ask.png
 expect vanmiss 0
 wait 100
-expect vanchips 2
+expect vanchips 3
 expect vanprog 0
 shot van_wrong.png
-wait 3000
+wait 1000
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+wait 100
+expect vanmode 1
+expect vanwin 0
 tap PLAY
 wait 40
 tap PLAY
@@ -50,5 +61,4 @@ wait 40
 tap PLAY
 wait 40
 wait 100
-expect vansince 1
-expect vantp 1
+expect state 13

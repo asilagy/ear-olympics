@@ -101,6 +101,56 @@ static const van_beat_t van_beat[] = {
     VAN_SAY(P_FISH, "She does that. Just looks. Like she knows something.", "She doesn't. But she looks."),
     VAN_SAY(P_FISH, "I asked her what's coming. She said snacks.", "...She's never been wrong."),
     VAN_SAY(P_FISH, "They say a goldfish remembers three seconds. Is that true?", "...Or is that just something people tell fish?"),
+    /* more of him: neighbours, clothes, sleep, music, time, the kitchen, names, a pigeon */
+    VAN_SAY(P_TALK, "There's a guy upstairs who walks the same eight steps every night. I think it's a song."),
+    VAN_SAY(P_TALK, "I've started counting them. Eight. Then a pause. Then eight."),
+    VAN_SAY(P_TALK, "I think he's a drummer. Or lost. Either way, we get along."),
+    VAN_SAY(P_SNACK, "I left a snack outside his door once. It was gone by morning. No note. Perfect."),
+    VAN_SAY(P_TALK, "Humans put a second skin on their feet. Then another over that. For the floor."),
+    VAN_SAY(P_COOKED, "I tried socks. They don't fit my feet. I have, like, extra foot."),
+    VAN_SAY(P_TALK, "So now I wear one sock. On the antenna. It's cozy."),
+    VAN_SAY(P_TALK, "Don't tell Mom. She'll say that's a hat."),
+    VAN_SAY(P_TALK, "You lie down, close your eyes, and just leave for eight hours. Every night. Brave."),
+    VAN_SAY(P_TALK, "I sleep standing up. It's less to explain."),
+    VAN_SAY(P_ASLEEP, "I had a dream I was awake. Then I woke up and was also awake. Confusing day."),
+    VAN_SAY(P_TALK, "Meow sleeps like he's been told to. Respect."),
+    VAN_SAY(P_TALK, "Music is just air being shaken in a polite order."),
+    VAN_SAY(P_TALK, "Back home we shake the air all the time. We just don't have an order."),
+    VAN_SAY(P_TALK, "You guys have an order. And it makes people cry. In a good way. I asked."),
+    VAN_SAY(P_TAPE, "The tape measure doesn't hear it. I'm working on that."),
+    VAN_SAY(P_TALK, "Humans have a thing called later. You can keep stuff there. For a long time."),
+    VAN_SAY(P_SNACK, "I put my assignment in later. It's doing great."),
+    VAN_SAY(P_TALK, "Soon is like later, but nervous."),
+    VAN_SAY(P_TALK, "I like now. Fewer moving parts."),
+    VAN_SAY(P_TALK, "The fridge makes cold. On purpose. For free. Nobody thanks it."),
+    VAN_SAY(P_TALK, "I thanked it. It hummed. I'm counting that."),
+    VAN_SAY(P_TALK, "Then I opened it to say thanks again and the light came on. We're good."),
+    VAN_SAY(P_TALK, "There's a drawer with only spoons. I respect that level of commitment."),
+    VAN_SAY(P_TALK, "Everyone here has two names. One for friends, one for forms."),
+    VAN_SAY(P_TALK, "I'm Van for friends. Ivan for forms. Terval for the cousins."),
+    VAN_SAY(P_TALK, "There's an Ivan down the hall. Different Ivan. We nod. It's weird. It's nice."),
+    VAN_SAY(P_TALK, "Mom says a name is just a sound that got lucky. ...She's good at lunches."),
+    VAN_SAY(P_TALK, "The pigeon outside has opinions. I've asked it nothing. It tells me anyway."),
+    VAN_SAY(P_TALK, "It does the walk-and-nod. That's the whole plan. I admire it."),
+    VAN_SAY(P_SNACK, "I offered it a chip. It looked at me like I'd offered it a lease."),
+    VAN_SAY(P_TALK, "We're not close. But we're aware of each other."),
+    /* Van asks about you: your pick, and he answers (two cards where he has more to say; | splits them) */
+    {{"Okay, I have to ask. What do you do all day?", 0, 0, 0}, K_ASK, P_TALK, {"Music.", "Not much.", "This."},
+     {"Music. On purpose? ...Respect. That's basically my job, but with feelings.|Mine's measuring. Yours sounds better.", "Not much. That's a real answer. I'm going to think about it for a week.", "This? Hanging out with me? ...Best job I've heard."}},
+    {{"What do you do when nobody's around?", 0, 0, 0}, K_ASK, P_TALK, {"Sing.", "Nap.", "Talk to myself."},
+     {"Sing. Sure. I'd listen. ...From another room.", "A nap. Good. Great. Honestly the dream.", "Talking to yourself. I do it too. ...I'm in the room when I do it, so it counts."}},
+    {{"I like sounds that come before you notice them. Like a fridge.", "Do you have a favorite sound?", 0, 0}, K_ASK, P_TALK, {"Rain.", "A chord.", "Silence."},
+     {"Rain. Water falling on purpose. Classic.", "A chord. Of course. That's why you're here.|It's why I'm here too. Kind of. Mostly the snacks.", "Silence. I keep that one in the drawer with the spoons."}},
+    {{"Are you more of a morning person or a night person?", 0, 0, 0}, K_ASK, P_ASLEEP, {"Morning.", "Night.", "Neither."},
+     {"Morning. Wow. So you're up when it's bright. That sounds loud.", "Night. Same. The dark has better light.", "Neither. A third thing. A secret afternoon person. I see you."}},
+    {{"If I learned one human thing, what should it be?", 0, 0, 0}, K_ASK, P_TALK, {"Whistling.", "Small talk.", "Napping."},
+     {"Whistling. You make air go in a shape. I've been practicing. It's just air.", "Small talk. Like, 'so, weather.' ...Weather's great. We do it already.", "Napping. I'll be bad at it. I'll do it on purpose."}},
+    {{"What's the weirdest thing about being human?", 0, 0, 0}, K_ASK, P_TALK, {"Feet.", "Alarms.", "Lunch."},
+     {"Feet. Yeah. Two of them, in the dark, in shoes. Every day.", "Alarms. You choose a time to be woken up and then get mad at it. I love that.", "Needing lunch. Every day. Like, it keeps coming back. Honestly? Relatable."}},
+    {{"Be honest. Do I talk too much about the measuring?", 0, 0, 0}, K_ASK, P_TAPE, {"Not at all.", "A little.", "Love it."},
+     {"Good. That's my job. I'm here to measure stuff. It's the whole deal.", "Fair. I'll keep it short. ...No promises. Mom says I rehearse.", "Same. It's the best part of my day. Don't tell the couch."}},
+    {{"Do you like snacks?", 0, 0, 0}, K_ASK, P_SNACK, {"Yes.", "Always.", "Define snack."},
+     {"Yes. We're going to be good friends.", "Always. See? Aligned.", "Define snack. ...Mom does that too. We could be a family."}},
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
@@ -109,14 +159,17 @@ static const char *const van_intro[4] = {"#", "...Hold on. Decoder was off.", "S
 static const char *const van_again = "Oh. Hey. You're back. Cool.";
 static const char *const van_hum_after[2] = {"...", "...Yeah."};
 static const char *const van_snack = "Wait, was that your snack break? ...Oh. Cool. Cool cool cool.";
-static const char *const van_lead[4] = {"*Van pulls out the tape measure.", "Hold on. Gotta measure something.", "Okay, tape measure time.", "Two notes. How far apart?"};
-static const char *const van_right[5] = {"Sick.", "Nice ears, dude.", "That's the one.", "No cap, that was bussin.", "Third? Fifth? Bro. You ate."};
-static const char *const van_wrong[5] = {"Eh, close-ish.", "Not that one. No worries.", "Huh. Okay.", "Ooh. Cooked. Lowkey cooked.", "Sus. But I respect the confidence."};
+static const char *const van_lead[8] = {"*Van pulls out the tape measure.", "Hold on. Gotta measure something.", "Okay, tape measure time.", "Two notes. How far apart?",
+                                         "Yep. Still my job. Measuring stuff.", "Don't mind me. I'm just here to measure stuff.", "That's what I'm here for. Gaps.", "Okay. Back to work. Sort of."};
+static const char *const van_right[12] = {"Sick.", "Nice ears, dude.", "That's the one.", "That one landed.", "Okay, you've done this before.", "Yep.", "Ears: confirmed.",
+                                           "Mm. That's it.", "You're better at this than my tape measure.", "Cool. Cool cool.", "Boom. That's a note.", "Correct. I think. I checked the tape."};
+static const char *const van_wrong[10] = {"Eh, close-ish.", "Not that one. No worries.", "Huh. Okay.", "Ooh. That was a different one.", "Hm. Bold. I respect the confidence.",
+                                           "Nope. But a good nope.", "Close. Or far. I wasn't measuring.", "That one was a different one.", "Interesting choice.", "Mm. Not quite."};
 static const char *const van_up[2] = {"New level, bro. Bigger gaps.", "You got better at distances. I'm not sure how I feel. Proud? Proud, probably."};
 
 /* ---- conversation: beats come in threads (a few that follow from one another), with a link between threads, so it talks
  * like a person who wanders but does not just list facts. Each number is an index into van_beat[]; 255 ends a thread. */
-#define VAN_THREADS 12u
+#define VAN_THREADS 24u
 static const uint8_t van_thread[VAN_THREADS][6] = {
     {0, 7, 1, 8, 3, 9},                  /* humans, and their habits */
     {5, 6, 19, 255, 0, 0},               /* the window: rain, moon, space */
@@ -130,9 +183,24 @@ static const uint8_t van_thread[VAN_THREADS][6] = {
     {30, 31, 32, 255, 0, 0},             /* feet, meters, approximately */
     {13, 14, 20, 255, 0, 0},             /* small odd things in the room */
     {37, 255, 0, 0, 0, 0},               /* the TV (once, ever) */
+    {41, 42, 43, 44, 255, 0},            /* the guy upstairs */
+    {45, 46, 47, 48, 255, 0},            /* socks */
+    {49, 50, 51, 52, 255, 0},            /* sleep */
+    {53, 54, 55, 56, 255, 0},            /* music, from outside */
+    {57, 58, 59, 60, 255, 0},            /* later, and soon, and now */
+    {61, 62, 63, 64, 255, 0},            /* the fridge, the drawer */
+    {65, 66, 67, 68, 255, 0},            /* names */
+    {73, 74, 255, 0, 0, 0},              /* you: your days */
+    {75, 76, 255, 0, 0, 0},              /* you: sounds and sleep */
+    {77, 78, 255, 0, 0, 0},              /* you: being human */
+    {79, 80, 255, 0, 0, 0},              /* you: the measuring, and snacks */
+    {69, 70, 71, 72, 255, 0},            /* the pigeon */
 };
 static const char *const van_link_new[8] = {"Anyway.", "Okay, different thing.", "Oh. Unrelated.", "Hm. Random.", "So. Update.",
                                             "Wait. Thought of something.", "Where was I? ...Doesn't matter.", "Okay. New topic. Same couch."};
 static const char *const van_link_in[6] = {"Also.", "Speaking of.", "Related.", "Oh, and.", "Same energy.", "One more."};
 static const char *const van_link_back[4] = {"Anyway. Where was I?", "Right. So.", "Okay. Back to it.", "Sorry. You were saying nothing. Where was I?"};
 static const char *const van_fish_ack[4] = {"...right.", "...yeah.", "...cool.", "...that's Simon~."};
+static const char *const van_retry[8] = {"Go again. I'll wait.", "Again. Nobody's timing you.", "Try another. I've got snacks.", "Listen again. No rush.",
+                                           "Take your time. I live here.", "Same notes. Fresh ears.", "One more time. It's a good one.", "Shake it off. Go again."};
+static const char *const van_retry_ok[4] = {"There it is.", "That one doesn't count toward the level. But it counts to me.", "Got there. Scenic route.", "Doesn't count for the level. Still nice, though."};

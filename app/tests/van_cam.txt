@@ -1,0 +1,31 @@
+# The multicam: a wide shot opens a bit, then the camera cuts to medium and close-up. Screenshots of each shot.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+shot van_cam_wide.png
+wait 4500
+tap PLAY
+wait 50
+tap PLAY
+wait 50
+wait 1800
+shot van_cam_b.png
+tap PLAY
+wait 50
+tap PLAY
+wait 50
+wait 1800
+shot van_cam_c.png
+tap PLAY
+wait 50
+wait 1800
+shot van_cam_d.png
+# an ask's reply can be two cards (the bar splits them)
+expect vanbranch 2
+wait 200
+shot van_branch.png

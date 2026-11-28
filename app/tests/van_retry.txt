@@ -1,0 +1,47 @@
+# A wrong answer loses nothing and shows nothing: Van says something, replays the notes, and you try again until you get it. A
+# right answer on a retry does not count toward the level; a right answer on the first try does.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vanask 0
+wait 300
+expect vanmiss 0
+expect vanchips 3
+expect vanprog 0
+expect vancards 2
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 100
+expect vanmode 1
+expect vanchips 1
+expect vanprog 0
+expect vanmiss 0
+expect vanchips 3
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 100
+expect vanwin 0
+expect vanprog 0
+expect vanchips 2
+tap HOME
+wait 50
+tap PLAY
+wait 100
+expect vanask 0
+expect vanwin 0
+expect vanprog 1

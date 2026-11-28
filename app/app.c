@@ -5507,7 +5507,7 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "blubtrig"))
         *got = (int)eo_blub_trig;
     else if (!strcmp(what, "vancover")) {  /* every beat is in exactly one thread, and no thread names a beat that is not there */
-        uint32_t cnt[64] = {0}, th, k, ok = 1;
+        uint32_t cnt[128] = {0}, th, k, ok = 1;
         for (th = 0; th < VAN_THREADS; th++)
             for (k = 0; k < 6u && van_thread[th][k] != 255u; k++) {
                 if (van_thread[th][k] >= VAN_NBEATS)
@@ -5525,6 +5525,11 @@ int app_expect(const char *what, int *got)
         *got = van_tp;
     else if (!strcmp(what, "vancmp"))
         *got = van_cmp;
+    else if (!strcmp(what, "vanbranch")) {  /* a test hook: your first pick on the "what do you do all day" ask; its reply is two cards */
+        van_cur = 73;
+        van_choose(0);
+        *got = van_cn;
+    }
     else if (!strcmp(what, "vanfish")) {  /* a test hook: the long look at the fish now */
         van_fish_start();
         *got = 0;
