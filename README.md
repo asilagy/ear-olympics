@@ -22,10 +22,6 @@ stings: you hear the right one, the key lights, and someone makes a face. Nobody
 The world is bright, a little weird and very sure of itself. Underneath, the root is the one thing you can trust.
 Mostly. (Play long enough and you may hear something drift.)
 
-**Status: three games on one shell, no arcade mode yet.** Everything so far has been checked in the simulator and in
-screenshots only; the FM-1 itself is the next test. Installing on a real device is not open yet, but you can play it
-in the browser tour above.
-
 ## Meet the cast
 
 | Game | You | Host | In their own words |
