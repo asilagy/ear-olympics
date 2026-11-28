@@ -19,9 +19,9 @@ wait 50
 key 12 down
 wait 30
 key 12 up
-wait 4000
+wait 6000
 expect vanmode 3
 shot van_hum2.png
-wait 6500
+wait 10000
 expect vanmode 0
 expect vanseen 3

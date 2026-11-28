@@ -10,7 +10,7 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN, VN_LISTEN,
 #define VAN_CARDS 24u
 #define VAN_LINES 10u
 #define VAN_CPS 18u                                                  /* the typing speed: letters a second */
-#define VAN_HUM_MS 10000u
+#define VAN_HUM_MS 15000u
 #define VAN_FISH_MS 8000u                                            /* the long look at the fish: a quiet moment, not skippable */
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
@@ -106,8 +106,8 @@ static void van_card_start(uint32_t now)
         uint32_t cam, last = (van_cn > 1u && (uint32_t)van_ci + 1u == van_cn);
         if (van_pose == P_FISH)
             cam = 0u;
-        else if (pg_on)                  /* with the game on: the TV shot opens a bit and every other line goes back to it; Van's lines cut away */
-            cam = last ? 2u : (van_ci & 1u) ? ((van_cut & 1u) ? 1u : 2u) : 3u;
+        else if (pg_on)                  /* with the game on: the talk stays on the TV, the game running under it */
+            cam = (van_cut % 5u == 0u) ? ((van_cut & 1u) ? 1u : 2u) : 3u;   /* mostly the TV, the talk carries on over the game; a cutaway on Van only now and then */
         else if (van_ci == 0u)
             cam = 0u;
         else if (last)
@@ -320,7 +320,8 @@ static void van_hum_start(void)
     set.van_seen |= 2u;
     set_dirty = 1;
     eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.12f);
-    eo_noise_vol = 0.09f;
+    eo_noise_vol = 0.06f;
+    eo_noise_dark = 1;                   /* muffled, not a hiss in the ears */
     eo_noise_on = 1;
     ui.redraw = 1;
 }
@@ -663,6 +664,7 @@ static void van_pong_step(uint32_t now)
 static void van_hum_stop(void)
 {
     eo_noise_on = 0;
+    eo_noise_dark = 0;
     eo_drone_set(-1, 0.0f);
 }
 
@@ -1041,6 +1043,7 @@ static void van_enter(void)
     }
     ui.state = ST_VAN;
     ui.text = TX_READY;
+    eo_voice_trim = 0.3f;                /* the interval notes sit under his voice (about 10 dB down) */
     van_mode = VM_TITLE;                 /* the title: Van, a line about the game, and the level (K1). PLAY starts the chat */
     van_cn = 0;
     ui.redraw = 1;
@@ -1062,6 +1065,7 @@ static void van_end(void)
     eo_blub_soft = 0;
     eo_noise_on = 0;
     eo_radio_on = 0;
+    eo_voice_trim = 1.0f;
     van_cr_q = 0;
     van_cr_once = 0;
     eo_rd_bend = 1.0f;
@@ -1335,7 +1339,7 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
     }
     mrect(0, 0, 240, 240, EO_RGB(18, 24, 36));
     if (eo_res_ok())                     /* a close-up: three times his size, his face filling the glass */
-        spr_paint(van_tint_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, -24, 6, 3, 1);
+        spr_paint(van_tint_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, -125, -75, 5, 1);
     for (by = 0; by < 48; by++) {        /* the noise: blocks, a different pattern every frame, many see-through (so you see both) */
         int32_t y = by * 5;
         if (y + 5 <= mv_oy || y >= mv_oy + mv_h)
@@ -1343,13 +1347,13 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
         for (bx = 0; bx < 48; bx++) {
             uint32_t h = (((uint32_t)bx * 73856093u) ^ ((uint32_t)by * 19349663u) ^ ((uint32_t)f * 83492791u)) * 2654435761u;
             uint32_t g = (h >> 24) & 255u;
-            if ((h >> 8) % 100u < 62u)
+            if ((h >> 8) % 100u < 80u)
                 continue;
-            g = 60u + g * 150u / 255u;
+            g = 40u + g * 80u / 255u;
             mrect(bx * 5, y, 5, 5, EO_RGB(g, g, g));
         }
     }
-    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(200, 210, 230));    /* a slow roll bar */
+    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(70, 80, 100));    /* a slow roll bar */
 }
 
 static int32_t van_ghost_px(const void *s, int32_t x, int32_t y)    /* Van's face as a see-through reflection: every other pixel, washed pale */

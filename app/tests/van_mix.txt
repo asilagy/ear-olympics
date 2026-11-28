@@ -1,0 +1,19 @@
+# Balance: the interval notes of a question sit under his voice. Measured at master 4096.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+master 4096
+tap PLAY
+wait 100
+tap PLAY
+wait 100
+expect vanask 0
+wait 5000
+peakreset
+tap PLAY
+wait 2300
+expect peak_db_max -15
+expect peak_db_min -26

@@ -23,7 +23,7 @@ wait 3000
 tap PLAY
 wait 200
 expect vanmode 3
-wait 10500
+wait 15500
 expect vanmode 0
 wait 1200
 tap PLAY
