@@ -19,9 +19,7 @@
 #include "eo_simon.h"
 #include "eo_cat.h"
 #include "eo_dogtor.h"
-#include "eo_intro.h"
-#include "eo_cast.h"
-#include "eo_title.h"
+#include "eo_res.h"                 /* the cast, the title art, Dogtor and the intro music: in the resource region (app/res/eo_*.h) */
 
 enum { GAME_SIMON, GAME_COPYCAT, GAME_DOGTOR, GAMES };
 static const char *const eo_game_name[GAMES] = {"SIMONE SAYS", "COPYCAT", "CHORD DOGTOR"};
@@ -91,7 +89,7 @@ static uint32_t eo_rv_i[3];
 static const uint16_t eo_rv_len[3] = {1087, 1423, 1877};
 static volatile uint8_t eo_water;        /* the crystal ball: the sound goes under water (low-pass, delay, reverb) */
 static volatile uint32_t eo_smp_trig, eo_smp_halt;   /* the intro music: the main loop counts a start / a stop up */
-static volatile uint8_t eo_smp_run;
+static volatile uint8_t eo_smp_run, eo_smp_kill;   /* (eo_smp_kill: app_panic stops the sample at once: it reads the resource region, which an update erases) */
 static float eo_ulaw[256];               /* mu-law bytes to floats, once */
 #define SMP_GAIN 1.1f
 static volatile uint32_t eo_rec_stop, eo_rec_go, eo_rec_up;   /* Simone's intro: the music slows to a stop like a record (stop), or is whole again (go) */
@@ -266,6 +264,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
     static uint8_t smp_run, smp_stop;
+    const uint8_t *rb = eo_res_base, *intro = rb ? rb + EO_RES_OFF_INTRO : 0;   /* (one look per block: the region could be gone the next moment) */
     static float beep_age = 1.0f, beep_ph;
     float cinc[CHORD_VOICES], ctgt[CHORD_VOICES];
     for (i = 0; i < CHORD_VOICES; i++) {
@@ -279,6 +278,10 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         smp_g = 1.0f;
         smp_run = 1;
         smp_stop = 0;
+    }
+    if (eo_smp_kill || !eo_res_ok()) {   /* silence now (app_panic), or the resource region is not there to read */
+        eo_smp_kill = 0;
+        smp_run = 0;
     }
     if (smp_hseen != eo_smp_halt) {      /* and stops, fading out over a few ms */
         smp_hseen = eo_smp_halt;
@@ -542,11 +545,11 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         }
         if (smp_run) {                   /* 8 kHz to 44.1 kHz: a straight line between two neighbours */
             uint32_t k = (uint32_t)smp_pos;
-            if (k + 1u >= EO_INTRO_LEN) {
+            if (!intro || k + 1u >= EO_INTRO_LEN) {
                 smp_run = 0;
             } else {
-                float a0 = eo_ulaw[EO_INTRO[k]];
-                v += (a0 + (eo_ulaw[EO_INTRO[k + 1u]] - a0) * (smp_pos - (float)k)) * SMP_GAIN * smp_g;
+                float a0 = eo_ulaw[intro[k]];
+                v += (a0 + (eo_ulaw[intro[k + 1u]] - a0) * (smp_pos - (float)k)) * SMP_GAIN * smp_g;
                 smp_pos += EO_INTRO_RATE / 44100.0f;
                 if (smp_stop) {
                     smp_g -= 0.002f;
@@ -642,6 +645,7 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
     voice_note = -1;
     eo_drone_note = -1;
     eo_water = 0;
+    eo_smp_kill = 1;                     /* the intro music reads the resource region: stop it before an update writes the flash */
     voice_level = 0.0f;
     eo_drone_level = 0.0f;
     { uint32_t j; for (j = 0; j < CHORD_VOICES; j++) { eo_chord_note[j] = -1; eo_clev[j] = 0.0f; } }
@@ -1053,8 +1057,11 @@ static void lights(void)
     plat_lights_mid(0, mid);
 }
 
+static volatile uint8_t bu_held;         /* a backup is streaming the saved settings out: no save meanwhile (app_backup_hold) */
 static int store_now(void)               /* the settings to flash; not while a melody is sounding (a write holds the sound) */
 {
+    if (bu_held)
+        return -1;
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) != 0)
         return -1;
     set_dirty = 0;
@@ -2289,6 +2296,7 @@ static void settings_load(void)          /* the saved settings, or the defaults 
 void app_init(void)                      /* boot: the settings, and a quiet start (the simulator's reboot keeps RAM) */
 {
     settings_load();
+    eo_res_refresh();                    /* the art and music: in the resource region, if this FM-1 holds this build's */
     eo_tones_init();
     {
         uint32_t i;
@@ -2324,6 +2332,28 @@ void app_init(void)                      /* boot: the settings, and a quiet star
 #else
     eo_seed = 0;
 #endif
+    if (!eo_res_ok())                    /* no art or music to show (the resource region is not written): straight to the game select */
+        sel_enter();
+}
+
+/* backup and restore over USB (fm1.toml backup = true; the base's resource transfer is the restore's): the saved settings, all or
+ * nothing. Writing the resource region is refused while this says "playing", and app_panic has stopped the intro music by then */
+int app_backup_playing(void)
+{
+    uint32_t j, chord = 0;
+    for (j = 0; j < CHORD_VOICES; j++)
+        chord |= eo_chord_note[j] >= 0;
+    return seq_on || eo_smp_run || ui.state == ST_MOVIE || voice_note >= 0 || eo_drone_note >= 0 || chord;
+}
+void app_backup_flush(void)              /* stopped: what is not saved yet, saved */
+{
+    if (set_dirty)
+        store_now();
+}
+void app_backup_hold(int on) { bu_held = (uint8_t)on; }
+void app_backup_restored(void)           /* everything from the flash again, as at power-on */
+{
+    app_init();
 }
 
 static void eo_debug_tap(uint32_t new_btn, uint32_t now)   /* GLO three times in a row: debug mode, every level open */
@@ -2519,8 +2549,6 @@ static void key_cell(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, uin
 /* an original orange tabby with headphones (eo_cat.h, from tests/gen_cat.py). The head is a bitmap; the face is drawn
  * here so it can change. Poses: IDLE (blinks), DANCE (while the melody plays), SING (while you play), WIN, FAIL, and
  * LEVELUP (the celebration). The cat's picture is 100 x 90 pixels, drawn at three times the bitmap's size. */
-#define EO_RGB(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
-#include "eo_dog.h"
 #define CAT_X 0
 #define CAT_Y 4                          /* in the middle band; the screen's y is 36 more */
 #define CAT_W 100
@@ -2988,6 +3016,8 @@ static void vol_overlay(int32_t y, uint32_t now, uint32_t pct);
 static void dog_paint(int32_t ox, int32_t oy, uint32_t pose)
 {
     int32_t x, y;
+    if (!eo_res_ok())                    /* the art is in the resource region: none there, none drawn */
+        return;
     for (y = 0; y < EO_DOG_H; y++) {
         if (oy + y * 3 > 150 || oy + y * 3 + 3 < -4)    /* not in this band: skip the row */
             continue;
@@ -3570,11 +3600,15 @@ static void spr_paint(spr_px_t px, const void *s, int32_t w, int32_t h, int32_t 
 }
 static void cast_paint(uint32_t who, uint32_t pose, int32_t ox, int32_t oy, int32_t num, int32_t den)
 {
+    if (!eo_res_ok())
+        return;
     spr_pal = EO_CAST_PAL[who];
     spr_paint(cast_px, EO_CAST[who][pose], EO_CAST_W, EO_CAST_H, ox, oy, num, den);
 }
 static void dog_paint_sc(uint32_t pose, int32_t ox, int32_t oy, int32_t num, int32_t den)
 {
+    if (!eo_res_ok())
+        return;
     spr_paint(dog_px, (const void *)(uintptr_t)pose, EO_DOG_W, EO_DOG_H, ox, oy, num, den);
 }
 
@@ -3616,6 +3650,8 @@ static void mv_montage(uint32_t tm)
 static void art_paint(const uint8_t *rle, const uint16_t *row, const uint16_t *pal, int32_t ox, int32_t oy, uint32_t fade)
 {
     int32_t y;
+    if (!eo_res_ok())
+        return;
     for (y = 0; y < 240; y++) {          /* a 240 x 240 picture in colour runs; black (0) is the background already */
         int32_t py = oy + y - mv_oy, x = 0;
         const uint8_t *p = rle + row[y], *e = rle + row[y + 1];
@@ -4169,6 +4205,11 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
         cast_paint(0u, 0u, 24, 30 + bob, 2, 1);
     else
         mctext(70 + bob, &FONT_L, "?", C_WHITE);
+    if (!eo_res_ok() && cur >= 0) {                      /* the art is in the resource region and this FM-1 does not hold it */
+        mrect(20, 64, 200, 56, C_BLACK);
+        mctext(74, &FONT_S, "ART NOT INSTALLED", C_WHITE);
+        mctext(94, &FONT_XS, "Run the install tool again", C_GRAY);
+    }
     mrect(0, 0, 240, 28, C_BLACK);                       /* the header: the game */
     mgame(5, &FONT_B, cur >= 0 ? c->game : "COMING SOON", a);
     if (set.pad & 1u)
@@ -5072,6 +5113,7 @@ void app_frame(void)
 {
     static uint32_t last_pct, last_bright, last_tx;
     uint32_t now = plat_ms(), pct = plat_master() * 100u / 4096u, bright, mid, dim, tx;
+    eo_res_refresh();                    /* (a resource transfer can finish while the game runs) */
     input();
     if (ui.state == ST_SIMONE)
         sim_tick(now);
@@ -5328,6 +5370,8 @@ int app_expect(const char *what, int *got)
         *got = ui.state;
     else if (!strcmp(what, "smp"))
         *got = eo_smp_run;
+    else if (!strcmp(what, "res"))       /* the resource region (art and music) is there: 1 or 0 */
+        *got = eo_res_ok();
     else if (!strcmp(what, "bass"))
         *got = eo_bass_note;
     else if (!strcmp(what, "simcard"))

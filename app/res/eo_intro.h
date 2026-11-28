@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
+/* RESOURCE SOURCE: not compiled into the app; app/gen_res.py packs it into the resource region (see app/eo_res.h). */
 /* The intro music: 8 kHz mono G.711 mu-law (Ear_olympics.wav, data chunk), played by app_render. */
 #define EO_INTRO_LEN 71279u
 #define EO_INTRO_RATE 8000.0f

@@ -1,0 +1,83 @@
+# The resource region in the host simulator: the cast, the title art, Dogtor and the intro music are kept OUTSIDE the app's image (fm1.toml
+# resources, app.h APP_RES_BASE), read through plat_res. The simulator has them compiled in; "res 0" is an FM-1 that does not hold them.
+#   1. with the region: the movie plays, and a backup and restore of the saved settings round-trips (the resource write is the restore's transfer)
+#   2. without it (a flash that was not given the resources): no movie, no music, no art, a plain notice; nothing crashes; the games still play
+#   3. with it again: the art is back at once
+# States: 0 ready, 9 movie, 10 select.
+wait 600
+expect res 1
+expect state 9
+expect smp 0
+# a restore is refused while the movie plays (STOP FIRST), as the resource write would be
+tap HOME
+wait 50
+tap PLAY
+wait 550
+tap HOME
+wait 50
+expect game 1
+expect state 0
+turn SELECT 2
+wait 30
+expect root 9
+tap SAVE
+wait 30
+expect dirty 0
+backup out:eo_res.bak
+turn SELECT 3
+wait 30
+expect root 12
+tap SAVE
+wait 30
+restore out:eo_res.bak
+wait 100
+expect root 9
+expect dirty 0
+# everything reloaded as at power-on: the movie again, with its art and music
+expect state 9
+expect res 1
+shot res_restored_movie.png
+# ---- 2. no resource region
+res 0
+reboot
+wait 300
+expect res 0
+expect smp 0
+expect state 10
+shot res_missing_select.png
+turn PRESET 1
+wait 30
+shot res_missing_select_dogtor.png
+# the music never starts, and any key does nothing odd
+wait 3000
+expect smp 0
+# a game still plays without its pictures: Dogtor's round runs, HOME goes back
+tap PLAY
+wait 600
+expect game 2
+tap HOME
+wait 100
+turn PRESET -1
+wait 30
+turn PRESET -1
+wait 30
+tap PLAY
+wait 600
+tap HOME
+wait 100
+tap HOME
+wait 100
+expect state 10
+# ---- 3. the region is there again: the art is back at once, and a restart plays the movie
+res 1
+wait 100
+expect res 1
+turn PRESET 1
+wait 30
+shot res_back_select_dogtor.png
+reboot
+wait 300
+expect res 1
+expect state 9
+wait 2200
+expect smp 1

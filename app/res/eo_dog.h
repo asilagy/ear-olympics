@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 asilagy */
-/* Chord Dogtor: six poses, one char per pixel (48 x 64), from the concept sprite sheet. Shared palette below. */
-#pragma once
+/* Chord Dogtor: seven poses, one char per pixel (48 x 64), from the concept sprite sheet.
+ * RESOURCE SOURCE: this file is no longer compiled into the app. app/gen_res.py (a build step: fm1.toml gen) reads it
+ * and packs the pixels into the resource region; the pose names (DOG_IDLE ...) and the colour of each letter
+ * (eo_dog_col) live in app/eo_res.h. The poses, in order: IDLE, THINK, WIN, WORRY, YAWN, SHOCK, LISTEN. */
 #define EO_DOG_W 48
 #define EO_DOG_H 64
-enum { DOG_IDLE, DOG_THINK, DOG_WIN, DOG_WORRY, DOG_YAWN, DOG_SHOCK, DOG_LISTEN, DOG_POSES };
-static const char EO_DOG[DOG_POSES][EO_DOG_H][EO_DOG_W + 1] = {
+static const char EO_DOG[7][EO_DOG_H][EO_DOG_W + 1] = {
   { /* IDLE */
     "................................................",
     "......................................AA........",
@@ -469,19 +470,3 @@ static const char EO_DOG[DOG_POSES][EO_DOG_H][EO_DOG_W + 1] = {
     ".BDEEHDHHHEEHHHHHHHHHBHEEEEEEEEEEHHBHEEEEEDBHHHB",
   },
 };
-static inline uint16_t eo_dog_col(char c)
-{
-    switch (c) {
-    case 'A': return EO_RGB(11, 11, 11);
-    case 'B': return EO_RGB(46, 46, 46);
-    case 'C': return EO_RGB(90, 90, 90);
-    case 'D': return EO_RGB(184, 184, 184);
-    case 'E': return EO_RGB(255, 255, 255);
-    case 'F': return EO_RGB(44, 62, 153);
-    case 'G': return EO_RGB(143, 180, 255);
-    case 'H': return EO_RGB(214, 214, 214);
-    case 'I': return EO_RGB(244, 162, 89);
-    case 'J': return EO_RGB(139, 76, 50);
-    default: return EO_RGB(0, 0, 0);
-    }
-}

@@ -4,6 +4,9 @@
 # Ear Olympics' tests, from the repo root: tests/run_tests.sh
 #   1. the music, natively: tests/host/*.c (the melody generator, many seeds), built with the system C compiler
 #   2. the whole app in fm1-base's host simulator: app/tests/*.txt scripts, with screenshots in app/build/host/
+#   3. the resource region (the art and sound kept outside the app's image): the packed file against the source headers,
+#      byte for byte (tests/res/res_layout.c), and its set-up and flash-layout rules (tests/res_test.py). The flash itself
+#      can only be checked on the device: docs/RESOURCE-REGION.md
 # Needs the build tools for the second part (BUILDING.md).
 set -u
 cd "$(dirname "$0")/.."
@@ -31,10 +34,27 @@ for t in app/tests/*.txt; do
         FAIL=1
     fi
 done
+# the resource region: the packed file against the source headers (C's own reading of them), then the set-up and layout rules
+if cc -std=c99 -Wall -Wextra -Werror -Iapp/build/gen -o app/build/host/res_layout tests/res/res_layout.c 2> app/build/host/res_layout.cc.log &&
+   app/build/host/res_layout app/build/gen/eo_res.bin > app/build/host/res_layout.log 2>&1; then
+    echo "  ok   res_layout"
+else
+    echo "  FAIL res_layout (see app/build/host/res_layout.cc.log and res_layout.log)"
+    cat app/build/host/res_layout.cc.log app/build/host/res_layout.log | head -10 | sed 's/^/       /'
+    FAIL=1
+fi
+if python3 tests/res_test.py > app/build/host/res_test.log 2>&1; then
+    echo "  ok   res_test"
+else
+    echo "  FAIL res_test (see app/build/host/res_test.log)"
+    grep FAIL app/build/host/res_test.log | head -10 | sed 's/^/       /'
+    FAIL=1
+fi
 # the flash budget: a summary, never a failure (tools/budget.py has the table and the plans)
 if command -v python3 > /dev/null; then
     python3 tools/budget.py > app/build/budget.txt 2>&1 || true
     echo "  info budget: $(grep 'DATA TOTAL' app/build/budget.txt | sed 's/  */ /g')"
-    grep -E "OVER|near its ceiling|over 85%|DOES NOT FIT" app/build/budget.txt | sed 's/^/       WARN /'
+    echo "  info budget: $(grep 'RESOURCE REGION: payload' app/build/budget.txt | sed 's/  */ /g')"
+    grep -E "OVER|near its ceiling|over 85%|DOES NOT FIT|LAYOUT" app/build/budget.txt | sed 's/^/       WARN /'
 fi
 exit $FAIL

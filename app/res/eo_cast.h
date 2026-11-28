@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
+/* RESOURCE SOURCE: not compiled into the app; app/gen_res.py packs it into the resource region (see app/eo_res.h). */
 /* The cast of the power-on movie: eleven characters, two poses each (idle, then its intro action), 96 x 72 pixels,
  * 4 bits a pixel (0 is clear), a 15-colour palette each. Generated from the character sheets. */
 #define EO_CAST_N 11

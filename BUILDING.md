@@ -60,3 +60,10 @@ If the FM-1 is not found while it runs M-VAVE's own firmware, switch it off, hol
 
 Open https://thefirmwarehub.com/ in Chrome or Edge and use **Back to official V15**. If an FM-1 will not start,
 see the Firmware Hub's Rescue page.
+
+## The resource region (0.23.0 on)
+
+The art and the intro music are not in the app image; they live in a region of the FM-1's flash that the update package writes
+after the app. `./build.sh` also writes `app/build/earolympics-res.bin`. If the screen says ART NOT INSTALLED after an install,
+write it by hand: `base/.venv/bin/python base/tools/fm1_resources.py app/build/earolympics-res.bin`. Details and the device
+checklist: docs/RESOURCE-REGION.md. `python3 tools/budget.py` shows how full each place is.

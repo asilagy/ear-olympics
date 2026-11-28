@@ -1,26 +1,64 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (C) 2026 asilagy
-"""Flash budget for Ear Olympics: what the art, fonts and music cost, what the planned content would add, and what to watch.
+"""Flash budget for Ear Olympics: what the code's data and the resource region hold, what the planned content would add, and what to watch.
 
     python3 tools/budget.py            # from the repo root
 
-The app slot on the FM-1 is 0x8DFBC bytes (581,564). This tool counts the DATA in the app's headers (sprites, fonts, music,
-tables); it cannot see the compiled code, which only the device build knows. If app/build/earolympics.fwsc exists (after
-./build.sh) its size is shown beside the slot as a rough check on the whole image. Exit status is 1 when something is flagged,
-so a script may fail on it; tests/run_tests.sh only prints the summary."""
+Two places in the FM-1's flash hold our data:
+  the app slot (0x8DFBC = 581,564 bytes): the code, the fonts, the cat head and the game tables: what the app needs to start;
+  the resource region (app.h APP_RES_BASE, APP_RES_SECTORS; fm1.toml resources; fm1-base device/res.c): 0x97000..0xDBFFF, 282,592
+  bytes after a 32-byte header, holding the read-only art and sound. app/gen_res.py packs it from app/res/*.h and this tool asks it
+  for the real sizes, so what is printed is what is built. The panel-calibration object sits at 0xDC000, where the region stops.
+
+This tool counts the DATA in the app's headers; it cannot see the compiled code, which only the device build knows. After
+./build.sh the image app/build/earolympics.bin and the package are measured too. Exit status is 1 when something is flagged, so a
+script may fail on it; tests/run_tests.sh only prints the summary."""
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "app"))
+import gen_res                                   # noqa: E402  (the packer: the sizes below are the ones it builds)
+
 SLOT = 0x8DFBC                                  # the app slot: the code, and what the app needs to start
-# The resource region (fm1.toml resources, device/res.c, plat_res): read-only data kept OUT of the image in the flash's data
-# area (0x97000..0xDFFFF), written from the package by the update loader and read in place. Our panel-calibration object sits
-# at 0xDC000, so the region is 0x97000..0xDBFFF. Needs backup = true and APP_RES_BASE / APP_RES_SECTORS in app.h (not set up yet).
-RES_LO, RES_HI = 0x97000, 0xDC000
-RES = RES_HI - RES_LO - 32                        # 282,592 bytes (276 KB) after the 32-byte header
+DATA_LO, DATA_HI = 0x97000, 0xE0000             # fm1-base plat.h PLAT_DATA_LO / PLAT_DATA_HI: where data may live (no app_end here)
+SECTOR, HEAD = 0x1000, 32                       # a flash sector; the region's header (res.c RES_HEAD)
 SIZES = {"uint8_t": 1, "int8_t": 1, "uint16_t": 2, "int16_t": 2, "uint32_t": 4, "int32_t": 4}
+
+
+def app_h_number(name):
+    """a number #defined in app/app.h, or None"""
+    m = re.search(rf"^\s*#\s*define\s+{name}\s+(0[xX][0-9A-Fa-f]+|\d+)[uU]?\b", (ROOT / "app/app.h").read_text(), re.M)
+    return int(m[1], 0) if m else None
+
+
+def store_map():
+    """the store's objects (app.h APP_STORE_MAP): each is an A/B pair of two 4 KiB sectors"""
+    m = re.search(r"#\s*define\s+APP_STORE_MAP\s*\{([^}]*)\}", (ROOT / "app/app.h").read_text())
+    return [int(v, 0) for v in re.findall(r"0[xX][0-9A-Fa-f]+", m[1])] if m else []
+
+
+RES_BASE, RES_SECTORS = app_h_number("APP_RES_BASE"), app_h_number("APP_RES_SECTORS")
+RES_LO = RES_BASE or 0
+RES_HI = RES_LO + (RES_SECTORS or 0) * SECTOR      # the region's end (exclusive): 0xDC000, where the panel's object starts
+RES = (RES_SECTORS or 0) * SECTOR - HEAD            # 282,592 bytes (276 KB) after the 32-byte header
+
+
+def layout_errors():
+    """the region's place in the flash, checked as device/res.c and tools/build.py check it (they only run on the device build)"""
+    if RES_BASE is None or RES_SECTORS is None:
+        return ["app.h has no APP_RES_BASE / APP_RES_SECTORS (the resource region is not set up)"]
+    errors = []
+    if RES_BASE % SECTOR:
+        errors.append(f"APP_RES_BASE {RES_BASE:#x} is not on a 4 KiB sector")
+    if RES_BASE < DATA_LO or RES_HI > DATA_HI:
+        errors.append(f"the region {RES_BASE:#x}..{RES_HI:#x} is outside the data area {DATA_LO:#x}..{DATA_HI:#x}")
+    for at in store_map():                       # (each object keeps a pair of sectors)
+        if at < RES_HI and RES_BASE < at + 2 * SECTOR:
+            errors.append(f"the region {RES_BASE:#x}..{RES_HI:#x} overlaps the store object at {at:#x}")
+    return errors
 
 
 def arrays(path):
@@ -47,27 +85,27 @@ def total(path):
     return sum(b for _, b in arrays(path))
 
 
-# category -> (files, a ceiling in bytes: what it may grow to before it is a problem)
-# where: "slot" (in the app image: needed to start) or "res" (could move to the resource region: read-only art and sound)
+# category -> (files or packed items, a ceiling in bytes: what it may grow to before it is a problem, where)
+# where: "slot" (in the app image: counted from the header) or "res" (in the resource region: the size gen_res.py packs, by item name)
 CATS = [
     ("Fonts (6 sizes, ASCII)", ["app/build/gen/felucca_font.h"], 80_000, "slot"),
-    ("Cast sprites (11 characters x 2 poses, 96x72, 4-bit)", ["app/eo_cast.h"], 160_000, "res"),
-    ("Intro music (the movie's sample)", ["app/eo_intro.h"], 90_000, "res"),
-    ("Title and presents art", ["app/eo_title.h"], 50_000, "res"),
-    ("Dogtor sprites (1 byte per pixel, unpacked)", ["app/eo_dog.h"], 30_000, "res"),
+    ("Cast sprites (11 characters x 2 poses, 96x72, 4-bit)", ["CAST_PAL", "CAST"], 160_000, "res"),
+    ("Intro music (the movie's sample)", ["INTRO"], 90_000, "res"),
+    ("Title and presents art", ["PRES_PAL", "PRES_ROW", "PRES_RLE", "TITLE_PAL", "TITLE_ROW", "TITLE_RLE"], 50_000, "res"),
+    ("Dogtor sprites (1 byte per pixel, unpacked, 7 poses)", ["DOG"], 30_000, "res"),
     ("Cat head", ["app/eo_cat.h"], 5_000, "slot"),
     ("Game tables (Copycat, Dogtor, Simon)", ["app/eo_copycat.h", "app/eo_dogtor.h", "app/eo_simon.h"], 10_000, "slot"),
 ]
 
-# what the plans would add: (what, bytes). A pose is 96x72 at 4 bits = 3,456 bytes.
+# what the plans would add: (what, bytes, where). A pose is 96x72 at 4 bits = 3,456 bytes.
 POSE = 96 * 72 // 2
 PLANNED = [
-    ("Simone: 6 more poses (worried, blank, smug, sunk, thinking, forgetful)", 6 * POSE),
-    ("Every character: 4 more poses each (11 x 4)", 11 * 4 * POSE),
-    ("One custom font per character at body size, trimmed (6 x ~6 KB)", 6 * 6_000),
-    ("One custom font at body size, full ASCII (~9 KB)", 9_000),
-    ("A second music sample as long as the intro's", 71_279),
-    ("Cutscene stills, 240x240 at 4-bit RLE (each, ~9 KB like the presents card)", 9_196),
+    ("Simone: 6 more poses (worried, blank, smug, sunk, thinking, forgetful)", 6 * POSE, "res"),
+    ("Every character: 4 more poses each (11 x 4)", 11 * 4 * POSE, "res"),
+    ("One custom font per character at body size, trimmed (6 x ~6 KB)", 6 * 6_000, "slot"),
+    ("One custom font at body size, full ASCII (~9 KB)", 9_000, "slot"),
+    ("A second music sample as long as the intro's", 71_279, "res"),
+    ("Cutscene stills, 240x240 at 4-bit RLE (each, ~9 KB like the presents card)", 9_196, "res"),
 ]
 
 
@@ -83,55 +121,76 @@ RESERVES = [
 
 def main():
     flagged = 0
+    errors = layout_errors()
+    try:
+        packed = gen_res.build()
+    except gen_res.ResError as e:
+        errors.append(f"gen_res: {e}")
+        packed = None
     rows = []
     for name, files, cap, where in CATS:
-        b = sum(total(ROOT / f) for f in files)
+        if where == "res":
+            b = sum(packed["sizes"][f] for f in files) if packed else 0
+        else:
+            b = sum(total(ROOT / f) for f in files)
         rows.append((name, b, cap, where))
-    data = sum(b for _, b, _, _ in rows)
-    in_res = sum(b for _, b, _, w in rows if w == "res")
-    print(f"App slot: {SLOT:,} bytes ({SLOT // 1024} KB)\n")
-    print(f"{'what':56} {'bytes':>9} {'% slot':>7} {'ceiling':>9}")
+    in_slot = sum(b for _, b, _, w in rows if w == "slot")
+    in_res = packed["payload"].__len__() if packed else 0          # (the arrays and the padding between them)
+    print(f"App slot: {SLOT:,} bytes ({SLOT // 1024} KB).  Resource region: {RES:,} bytes ({RES / 1024:.0f} KB) after its {HEAD}-byte header"
+          f" at {RES_LO:#x}..{RES_HI - 1:#x}\n")
+    print(f"{'what':56} {'bytes':>9} {'% place':>8} {'ceiling':>9}")
     for name, b, cap, where in rows:
+        room = SLOT if where == "slot" else RES
         flag = "  <-- OVER ITS CEILING" if b > cap else ("  <-- near its ceiling" if b > cap * 0.85 else "")
         flagged += b > cap
-        print(f"{name:56} {b:9,} {b * 100 / SLOT:6.1f}% {cap:9,}{flag}   [{where}]")
-    print(f"{'DATA TOTAL':56} {data:9,} {data * 100 / SLOT:6.1f}%")
-    print(f"\nTwo places to keep it: the app slot ({SLOT:,} B: code and what is needed to start) and, once set up, the resource region\n"
-          f"({RES:,} B: read-only art and sound). Today everything is in the slot. Moving the [res] items there frees {in_res:,} B of the slot.")
+        print(f"{name:56} {b:9,} {b * 100 / room:7.1f}% {cap:9,}{flag}   [{where}]")
+    print(f"{'DATA TOTAL IN THE APP SLOT':56} {in_slot:9,} {in_slot * 100 / SLOT:7.1f}%")
+    print(f"{'RESOURCE REGION: payload (with 4-byte alignment)':56} {in_res:9,} {in_res * 100 / RES:7.1f}%   room left {RES - in_res:,} B")
+    for e in errors:
+        print(f"  <-- LAYOUT: {e}")
+        flagged += 1
+    if not errors:
+        print(f"  layout ok: whole sectors of the data area, below the panel object at {RES_HI:#x}, clear of the store; "
+              f"the payload and its header fit in {RES_SECTORS} sectors")
+    if in_res > RES:
+        print(f"  <-- THE ART AND SOUND DO NOT FIT THE REGION by {in_res - RES:,} bytes")
+        flagged += 1
+    elif in_res > RES * 0.85:
+        print("  <-- the region is over 85% full")
+    img = ROOT / "app/build/earolympics.bin"
     fw = ROOT / "app/build/earolympics.fwsc"
-    if fw.exists():
-        s = fw.stat().st_size
-        print(f"\nFirmware package app/build/earolympics.fwsc: {s:,} bytes = {s * 100 / SLOT:.1f}% of the slot (rough: the whole image)")
+    if img.exists():
+        s = img.stat().st_size
+        print(f"\nApp image app/build/earolympics.bin: {s:,} bytes = {s * 100 / SLOT:.1f}% of the slot (the whole image: code and data)")
         if s > SLOT * 0.85:
             print("  <-- the image is over 85% of the slot: stop adding data until something is packed or cut")
             flagged += 1
     else:
         print("\nCode size: unknown here (only the device build has it). After ./build.sh, run this again, or check\n"
-              "  ls -l app/build/earolympics.fwsc")
+              "  ls -l app/build/earolympics.bin")
+    if fw.exists():
+        print(f"Package app/build/earolympics.fwsc: {fw.stat().st_size:,} bytes (it carries the region's file too, so it is bigger than the image)")
+    room_slot, room_res = SLOT * 0.85 - in_slot, RES - in_res
     print("\nWhat the plans would add:")
-    room = SLOT * 0.5 - data     # a working rule: keep the DATA under half the slot until the code size is known
-    for what, b in PLANNED:
-        over = b > room
-        print(f"  {what:76} +{b:8,}  {'(would cross 50% of the slot with the data now)' if over else ''}")
+    for what, b, where in PLANNED:
+        over = b > (room_slot if where == "slot" else room_res)
+        print(f"  {what:76} +{b:8,}  {'(would not fit its place now)' if over else ''}   [{where}]")
     reserved = sum(b for _, b in RESERVES)
-    print("\nReserved for what is planned (proposed allowances):")
+    print("\nReserved for what is planned (proposed allowances; all art and sound, so all for the region):")
     for what, b in RESERVES:
         print(f"  {what:100} {b:8,}")
-    full = data + reserved
-    res_total = in_res + reserved                       # the reserves are all art and sound: they could live in the region
-    print(f"  {'IF EVERYTHING PLANNED SHIPS (data now + reserves)':100} {full:8,}")
-    print(f"  of which art and sound for the resource region: {res_total:,} B against {RES:,} B of room"
-          f" ({res_total * 100 / RES:.0f}%)")
+    res_total = in_res + reserved
+    print(f"  {'IF EVERYTHING PLANNED SHIPS (region now + reserves)':100} {res_total:8,}")
+    print(f"  against {RES:,} B of region ({res_total * 100 / RES:.0f}%)")
     if res_total > RES:
-        print(f"  <-- THE PLAN DOES NOT FIT even with a resource region, by {res_total - RES:,} bytes. Compress, shorten the music, "
+        print(f"  <-- THE PLAN DOES NOT FIT even in the resource region, by {res_total - RES:,} bytes. Compress, shorten the music, "
               "use letterbox or 2-bit stills, draw scenes live, share art between games.")
         flagged += 1
     else:
         print("  the plan fits in the resource region.")
-    print("  (Without a resource region it would be " f"{full * 100 / SLOT:.0f}% of the app slot before any code.)")
-    print(f"\nWorking rule until the resource region exists: keep the DATA in the slot under 50% of it ({SLOT // 2:,} bytes);"
-          f" {room:,.0f} bytes of room now.")
-    print("Anything that every game would use (fonts, shared sprites, music) is the first to flag.")
+    print(f"\nWorking rules: keep the image (code and data) under 85% of the slot ({int(SLOT * 0.85):,} bytes; the device build measures it);"
+          f" keep the region under 85% ({int(RES * 0.85):,} bytes) until the plan is settled; {room_res:,} bytes of region room now.")
+    print("Art and sound that only gets read goes in app/res/ (gen_res.py packs it); what the game needs to start stays in the slot.")
     return 1 if flagged else 0
 
 
