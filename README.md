@@ -57,7 +57,7 @@ earlier versions are reset by this update.
 
 Van asks what you do all day, then asks which of two notes is higher, then (later) which interval it was. In between
 he shows you things: a long look at Simoné the goldfish in her bowl with his reflection on the glass, the fridge hum, a
-cricket, the TV static (he gets very close to the glass), and **10-ISH**, a game of Pong on his TV that you play with
+cricket, the TV static (he gets very close to the glass), and **10-ISH**, a familiar retro videogame on his TV that you play with
 knob 4 while the conversation carries on over it. Under it all, a radio plays a bossa nova that wanders through keys.
 You pick a level on a title screen and after that it rises by itself. He talks in plain mixed-case text, five lines at a
 time, and takes the occasional drawl very slowly.

@@ -801,7 +801,7 @@ static void sim_key(uint32_t now);
 static void sim_enter_up(void);
 static void van_key(uint32_t new_keys, uint32_t new_btn);
 static void van_level_step(int32_t d);
-static void van_pong_turn(int32_t d);
+static void van_tenish_turn(int32_t d);
 static void van_enter(void);
 static void van_tick(uint32_t now);
 static void van_scene(uint32_t now);
@@ -2571,7 +2571,7 @@ static void input(void)
             if (e && k == EN_K1)
                 van_level_step(e > 0 ? 1 : -1);
             else if (e && k == EN_K4)
-                van_pong_turn(e > 0 ? 1 : -1);
+                van_tenish_turn(e > 0 ? 1 : -1);
         }
         ui.keys = keys;
         ui.btn = btn;

@@ -1,4 +1,4 @@
-# 10-ISH: Pong on the TV, the wallpaper of the chat, shot like a multicam show. The TV shot has the game running (and can carry the
+# 10-ISH: a retro videogame on the TV, the wallpaper of the chat, shot like a multicam show. The TV shot has the game running (and can carry the
 # talk and the answer chips); a cutaway on Van makes the game wait. Knob 4 is the only thing that moves your paddle.
 wait 600
 tap HOME
@@ -14,11 +14,11 @@ expect vanten 0
 wait 400
 # the bit opens on the TV: the game runs while Van talks
 expect vanontv 1
-shot van_pong_tv0.png
+shot van_tenish_tv0.png
 wait 6500
 expect vanprun 1
 expect vanradio 30
-shot van_pong_tv.png
+shot van_tenish_tv.png
 # other knobs and keys do not move your paddle
 turn K3 1
 expect vanpp 48
@@ -29,7 +29,7 @@ expect vanontv 0
 wait 800
 expect vanpcut 1
 expect vanradio 100
-shot van_pong_cut.png
+shot van_tenish_cut.png
 # cut back to the TV: the game runs again, the radio ducks
 expect vancuttv 3
 wait 200
@@ -39,7 +39,7 @@ expect vanradio 30
 expect vannext 0
 wait 100
 expect vanphint 1
-shot van_pong_hint.png
+shot van_tenish_hint.png
 # knob 4 moves your paddle, one nudge at a time
 turn K4 1
 turn K4 1
@@ -53,4 +53,4 @@ expect vanpp 57
 expect vanask 0
 wait 3500
 expect vanontv 1
-shot van_pong_ask.png
+shot van_tenish_ask.png
