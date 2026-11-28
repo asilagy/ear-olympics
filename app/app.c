@@ -1284,6 +1284,7 @@ static uint8_t sim_angry;                /* the next round is the angry one: pla
 static uint8_t sim_back;                 /* this round is to be played backwards (last note first) */
 static uint8_t sim_angry_pre;            /* this round's pre-roll is the spirits' anger */
 static uint16_t sim_seen;
+static uint32_t sim_miss_t0;              /* when the wrong note was played */
 static uint8_t sim_cool, sim_pre_first;   /* the tricks shown this game (a bit each); the last round had one; the pre-roll is the first one */
 static uint8_t sim_hint;                 /* the next sequence is a wish: everything lit, no tricks */
 static uint8_t sim_wish_peek;            /* the wish being granted is a peek in your turn (not a second try) */
@@ -1618,11 +1619,12 @@ static void simon_miss(void)             /* the key you should have played sound
     eo_score = ans_len - 1u;
     sim_good = 0;
     sim_angry = 0;
-    seq_at[0] = 0;
+    sim_miss_t0 = plat_ms();                 /* a falling "wah wah wah" first (the bass), then the key you should have played */
+    seq_at[0] = 650;
     seq_len[0] = 700;
     seq_key[0] = sim_expect();
     seq_n = 1;
-    seq_end = 800;
+    seq_end = 1450;
     eo_drone_set(-1, 0.0f);
     eo_seq_start(0, 1);
     ui.state = ST_MISS;
@@ -4170,6 +4172,20 @@ static uint32_t sim_gap_n(uint32_t now)                  /* the letters of her p
 static void sim_game_tick(uint32_t now)                  /* a frame about every 33 ms, for the goldfish's bob */
 {
     static uint32_t last_fr;
+    {
+        static uint8_t mi;                   /* the wrong-note sound: three falling bass plucks */
+        static const int8_t fall[3] = {52, 48, 43};
+        if (ui.state == ST_MISS && set.game == GAME_SIMON) {
+            if (mi < 3u && now - sim_miss_t0 >= mi * 210u) {
+                eo_bass_note = fall[mi];
+                eo_bass_vel = 1.0f;
+                eo_bass_trig++;
+                mi++;
+            }
+        } else {
+            mi = 0;
+        }
+    }
     if (now / 33u != last_fr) {
         last_fr = now / 33u;
         ui.redraw = 1;
@@ -4537,6 +4553,8 @@ static void sim_sprite(uint32_t now, int32_t band_top, int32_t band_h)   /* her,
         sway = (20 - num) / 3;
         hop = (20 - num) * 2;                /* up toward the horizon as she shrinks */
     }
+    if (ui.state == ST_MISS && set.game == GAME_SIMON && now - sim_miss_t0 < 650u)
+        sway = ((now - sim_miss_t0) / 60u) & 1u ? 7 : -7;     /* a wrong note: she shakes */
     ox = 80 - 6 * num;                       /* the bowl stays centred on the same spot as she swells */
     oy = 76 - (9 * num) / 2;
     mv_oy = band_top;                        /* the sprite painter clips to the band, in the middle band's coordinates */
@@ -4678,6 +4696,14 @@ static void sim_band(uint32_t now)
     sim_sprite(now, 0, 144);
     if (sim_mute && ui.state == ST_LISTEN && seq_on && seq_pos >= sim_pre)
         return;                              /* use your eyes: she is gone, and only the words show */
+    if (ui.state == ST_MISS) {               /* a wrong note: a red card, so it is clear (the fates, not anger) */
+        uint32_t t = now - sim_miss_t0;
+        uint16_t bc = (t / 120u) & 1u ? EO_RGB(255, 60, 60) : EO_RGB(255, 140, 60);
+        cv_rect(30, 8, 180, 44, bc);
+        cv_rect(34, 12, 172, 36, C_BLACK);
+        ctext(16, &FONT_L, "WRONG NOTE", C_WHITE);
+        return;
+    }
     if (ui.state == ST_WIN)
         return;                              /* the win lasts a moment: the big NICE! says it, and her line comes in typed, so no line flashes by first */
     q = sim_quip(tx);

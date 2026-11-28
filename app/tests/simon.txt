@@ -73,11 +73,12 @@ wait 50
 expect state 4
 expect text 6
 expect score 2
+wait 700
 expect note 76
 expect bright 2048
 shot miss.png
 key 26 up
-wait 900
+wait 1800
 # you have angered the spirits: a wish is offered (state 12); PLAY gives up
 expect state 12
 tap PLAY
@@ -109,7 +110,7 @@ key 26 down
 wait 50
 expect score 0
 key 26 up
-wait 900
+wait 1900
 expect state 12
 tap PLAY
 wait 50

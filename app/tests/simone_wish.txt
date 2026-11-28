@@ -19,7 +19,7 @@ expect state 2
 key 26 down
 wait 50
 key 26 up
-wait 1200
+wait 1900
 expect state 12
 expect wishes 3
 shot wish_card.png
