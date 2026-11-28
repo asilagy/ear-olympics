@@ -5577,10 +5577,14 @@ int app_expect(const char *what, int *got)
         van_blink_start();
         *got = 0;
     }
-    else if (!strcmp(what, "vanten")) {     /* a test hook: ten-ish now; the count comes back */
+    else if (!strcmp(what, "vanten")) {     /* a test hook: 10-ISH on now (Van's next beat plays over it) */
         van_ten_start();
         *got = 0;
     }
+    else if (!strcmp(what, "vanontv"))      /* 1 when the shot is the TV with the game running, 0 on a cutaway */
+        *got = (int)van_on_tv(plat_ms());
+    else if (!strcmp(what, "vanprun"))      /* 10-ISH: 0 until the game has run for a second (it waits on every cutaway) */
+        *got = pg_run > 1000u ? 1 : 0;
     else if (!strcmp(what, "vanpp"))        /* 10-ISH: your paddle's place, in pixels */
         *got = pg_pp / 16;
     else if (!strcmp(what, "vanpv"))        /* ... Van's */

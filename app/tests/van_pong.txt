@@ -1,4 +1,5 @@
-# 10-ISH: Pong on the TV. The paddle moves only with knob 4, Van tells you how after a while, the radio ducks, it ends by itself.
+# 10-ISH: Pong on the TV, the wallpaper of the chat. A line being typed is a cutaway on Van and the game waits; a finished line
+# cuts back to the TV and the game runs. Knob 4 is the only thing that moves your paddle; Van says how if you never turn it.
 wait 600
 tap HOME
 turn PRESET 1
@@ -8,20 +9,44 @@ wait 30
 tap PLAY
 wait 600
 expect vanten 0
-expect vanmode 6
-wait 100
+wait 400
+# the first line is being typed: a cutaway, the game has not run
+expect vanontv 0
+expect vanprun 0
+expect vanradio 100
+shot van_pong_cut.png
+# the line finishes: back to the TV, game resumed
+wait 6000
+expect vanontv 1
+wait 1500
+expect vanprun 1
 expect vanradio 30
-shot van_pong0.png
-# keys and the other knobs do nothing to the paddle
-tap PLAY
-turn K1 1
-wait 300
-expect vanmode 6
+shot van_pong_tv.png
+# other knobs and keys do not move your paddle
+turn K3 1
 expect vanpp 48
-# he tells you how, after a while (you have not turned knob 4)
-wait 6500
+# seven seconds on the TV without turning knob 4, then a beat boundary: he tells you how
+wait 7000
+tap PLAY
+wait 150
+tap PLAY
+wait 150
+tap PLAY
+wait 150
+tap PLAY
+wait 150
+tap PLAY
+wait 150
+tap PLAY
+wait 150
+tap PLAY
+wait 150
+tap PLAY
+wait 150
+tap PLAY
+wait 150
 expect vanphint 1
-shot van_pong1.png
+shot van_pong_hint.png
 # knob 4 moves your paddle, one nudge at a time
 turn K4 1
 turn K4 1
@@ -31,12 +56,3 @@ expect vanpp 61
 turn K4 -1
 wait 30
 expect vanpp 57
-# once you have turned it he stops explaining
-wait 9000
-expect vanphint 1
-shot van_pong2.png
-# it ends on its own, no win, Van talks
-wait 32000
-expect vanmode 0
-expect vanradio 100
-shot van_pong3.png

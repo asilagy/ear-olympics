@@ -336,9 +336,9 @@ static void van_blink_stop(void)
 #define PG_W 176                                                     /* the field, in pixels (positions are in 1/16 px) */
 #define PG_H 96
 #define PG_PH 24                                                     /* paddle height */
-#define PG_END_MS 45000u                                             /* 10-ISH is over after this long */
 static int32_t pg_bx, pg_by, pg_vx, pg_vy, pg_pp, pg_vp, pg_aim;
-static uint32_t pg_ms, pg_t0, pg_turn_ms, pg_sp, pg_sv, pg_hint, pg_turned;
+static uint32_t pg_ms, pg_run, pg_turn_ms, pg_sp, pg_sv, pg_hint, pg_turned;
+static uint8_t pg_on;                                                /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
 static void pg_serve(int32_t dir)
 {
     pg_bx = PG_W * 8;
@@ -347,34 +347,23 @@ static void pg_serve(int32_t dir)
     pg_vy = ((int32_t)van_rnd(2) ? 1 : -1) * (160 + (int32_t)van_rnd(260));
     pg_aim = ((int32_t)van_rnd(21) - 10) * 16;
 }
-static void van_pong_say(const char *c)   /* a line of Van's over the game: the box changes, the game goes on */
+static void van_next_beat(void);
+static void van_ten_start(void)          /* the TV goes on and stays on; the chat goes on around it */
 {
-    van_cd[0] = c;
-    van_cn = 1;
-    van_ci = 0;
-    van_card_start(plat_ms());
-}
-static void van_ten_start(void)
-{
-    van_mode = VM_TEN;
-    van_chips = 0;
-    pg_sp = pg_sv = pg_hint = pg_turned = 0;
+    pg_on = 1;
+    pg_sp = pg_sv = pg_hint = pg_turned = pg_run = 0;
     pg_pp = pg_vp = PG_H * 8;
-    pg_ms = pg_t0 = pg_turn_ms = plat_ms();
+    pg_ms = pg_turn_ms = plat_ms();
     pg_serve(-1);
-    ui.redraw = 1;
+    van_next_beat();
 }
 static void van_pong_turn(int32_t d)     /* knob 4: the right paddle; nothing else moves it */
 {
-    if (van_mode != VM_TEN)
+    if (!pg_on)
         return;
     pg_pp = clamp(pg_pp + d * 72, PG_PH * 8, (PG_H - PG_PH / 2) * 16);
     pg_turned = 1;
     pg_turn_ms = plat_ms();
-}
-static void van_ten_stop(void)
-{
-    van_say(P_LOUNGE, VN_BEAT, van_ten_after[pg_sp > pg_sv ? 0u : pg_sp < pg_sv ? 1u : 2u], van_ten_end, 0, 0);
 }
 static void pg_blip(int32_t note)
 {
@@ -383,19 +372,17 @@ static void pg_blip(int32_t note)
     eo_blub_note = note;
     eo_blub_trig++;
 }
+static uint32_t van_on_tv(uint32_t now);   /* is the shot the TV now (the game running), or a cutaway on Van (it waits)? */
 static void van_pong_step(uint32_t now)
 {
     uint32_t dt = now - pg_ms;
     int32_t half = PG_PH * 8, tgt, d;
     pg_ms = now;
+    if (!van_on_tv(now))                 /* a cutaway: the game waits, frozen, until the cut back */
+        return;
     if (dt > 50u)
         dt = 50u;
-    if (!pg_turned && now - pg_t0 > 6000u + pg_hint * 8000u && pg_hint < 3u)   /* he tells you how, after a while */
-        van_pong_say(van_pong_hint[pg_hint++]);
-    if (now - pg_t0 > PG_END_MS) {
-        van_ten_stop();
-        return;
-    }
+    pg_run += dt;
     pg_bx += pg_vx * (int32_t)dt / 1000;
     pg_by += pg_vy * (int32_t)dt / 1000;
     if (pg_by < 48) {
@@ -448,6 +435,10 @@ static void van_next_beat(void)
     uint32_t i, tries, nc = 0, fresh = 0;
     if (set_dirty && !seq_on)
         (void)store_now();
+    if (pg_on && !pg_turned && pg_hint < 3u && pg_run > 6000u + pg_hint * 8000u) {   /* he tells you how, after a while, between two beats */
+        van_say(P_LOUNGE, VN_BEAT, van_pong_hint[pg_hint++], 0, 0, 0);
+        return;
+    }
     if (van_since >= VAN_BEATS) {
         van_since = 0;
         van_question();
@@ -502,7 +493,7 @@ static void van_next_beat(void)
         eo_blub_note = 88;
         eo_blub_trig++;
     }
-    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : b->kind == K_FISH ? VN_FISH : b->kind == K_BLINK ? VN_BLINK : b->kind == K_TEN ? VN_TEN : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
+    van_say(b->pose, b->kind == K_ASK ? VN_CHOICE : b->kind == K_HUM ? VN_HUM : b->kind == K_FISH ? VN_FISH : b->kind == K_BLINK ? VN_BLINK : (b->kind == K_TEN && !pg_on) ? VN_TEN : VN_BEAT, cards[0], cards[1], nc > 2u ? cards[2] : 0, nc > 3u ? cards[3] : 0);
     for (i = 4; i < nc; i++)
         van_cd[van_cn++] = cards[i];
 }
@@ -670,6 +661,7 @@ static void van_enter(void)
             van_th_recent[k] = 0xFFu;
     }
     van_snacked = 0;
+    pg_on = 0;
     van_ev = 0;
     van_chips = 0;
     van_q_n = 0;
@@ -737,8 +729,6 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
             }
     } else if (van_mode == VM_BLINK) {
         (void)new_keys;                  /* a staring contest: you cannot skip it (HOME leaves) */
-    } else if (van_mode == VM_TEN) {
-        (void)new_keys;                  /* the keys do nothing in 10-ISH: it is the knob (HOME leaves) */
     } else if (van_mode == VM_FISH) {
         (void)new_keys;                  /* a long look: no skipping (HOME leaves) */
     } else if (van_mode == VM_HUM) {
@@ -772,7 +762,7 @@ static void van_tick(uint32_t now)
     {   /* the radio plays in the next room: quiet, and turned down before every question and for the long gags */
         uint32_t quiet = van_mode == VM_ASK || van_mode == VM_HUM || van_mode == VM_FISH || van_mode == VM_BLINK || van_chips ||
                          (van_mode == VM_CARDS && van_after == VN_ASK);
-        eo_radio_vol = quiet ? 0.0f : van_mode == VM_TEN ? 0.3f : 1.0f;   /* ducked under Pong, not gone */
+        eo_radio_vol = quiet ? 0.0f : (pg_on && van_on_tv(now)) ? 0.3f : 1.0f;   /* ducked under Pong while it plays, not gone */
         eo_radio_on = 1;
     }
     if (van_mode == VM_BLINK) {
@@ -785,7 +775,7 @@ static void van_tick(uint32_t now)
             eo_blub_trig++;
         }
     }
-    if (van_mode == VM_TEN)
+    if (pg_on)
         van_pong_step(now);
     if (van_mode == VM_CARDS) {
         uint32_t n = van_typed(now);
@@ -1039,6 +1029,10 @@ static void van_bands(uint32_t now)      /* the room and the box under it (no he
     }
 }
 
+static uint32_t van_on_tv(uint32_t now)   /* the TV shot: the game is on, Van is not mid-line, and nothing else has the screen */
+{
+    return pg_on && van_mode == VM_CARDS && !van_chips && van_typed(now) >= van_len();
+}
 static void van_pong_draw(uint32_t now)   /* the TV in close-up: the field, two paddles, a ball, Van's face faint on the glass */
 {
     const int32_t fx = 32, fy = 22;
@@ -1086,7 +1080,7 @@ static void van_scene(uint32_t now)
             mrect(0, 0, 240, 240, C_BLACK);
         return;
     }
-    if (van_mode == VM_TEN)
+    if (van_on_tv(now))
         van_pong_draw(now);
     else {
         int32_t big = van_chips || van_mode == VM_CHOICE;
