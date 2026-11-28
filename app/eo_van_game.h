@@ -15,7 +15,7 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };         
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
-static uint8_t van_drop_force, van_drops;    /* name-drops after higher/lower answers (the force is a test hook) */
+static uint8_t van_hum_seen, van_drop_force, van_drops;   /* the TV static gag this visit; name-drops (the force is a test hook) */    /* name-drops after higher/lower answers (the force is a test hook) */
 static uint8_t pg_offers, van_qs;            /* 10-ISH invitations made, and questions answered this visit */
 static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
 static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live (3 is the TV) */   /* the multicam: which camera is live */
@@ -304,6 +304,7 @@ static void van_ask_now(void)            /* the cards are done: the question sta
 static void van_hum_start(void)
 {
     van_mode = VM_HUM;
+    van_hum_seen = 1;
     van_chips = 0;
     van_hum_t0 = plat_ms();
     set.van_seen |= 2u;
@@ -449,6 +450,16 @@ static void van_next_beat(void)
         return;
     }
     if (!pg_on && pg_offers < 3u && van_qs >= 2u + 2u * pg_offers) {   /* two questions in: "wanna play 10-ISH?" (asked again after two more if he is turned down) */
+        if (!van_hum_seen) {             /* the TV acts up first: ten seconds of static, and then he has it working */
+            uint32_t h;
+            for (h = 0; h < VAN_NBEATS && van_beat[h].kind != K_HUM; h++) {
+            }
+            if (h < VAN_NBEATS) {
+                van_cur = (uint8_t)h;
+                van_say(van_beat[h].pose, VN_HUM, van_beat[h].c[0], van_beat[h].c[1], van_beat[h].c[2], 0);
+                return;
+            }
+        }
         pg_offers++;
         van_cur = 85;
         van_say(P_LOUNGE, VN_CHOICE, van_beat[85].c[0], van_beat[85].c[1], van_beat[85].c[2], 0);
@@ -710,7 +721,7 @@ static void van_enter(void)
     }
     van_snacked = 0;
     pg_on = 0;
-    pg_offers = van_qs = 0;
+    pg_offers = van_qs = van_hum_seen = 0;
     van_ev = 0;
     van_chips = 0;
     van_q_n = 0;

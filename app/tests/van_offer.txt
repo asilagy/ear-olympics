@@ -11,6 +11,25 @@ expect vanoffers 0
 expect vanqsset 2
 expect vannext 0
 wait 300
+# the TV acts up first: the static gag, ten seconds, then he has it working
+expect vanoffers 0
+wait 3000
+tap PLAY
+wait 3000
+tap PLAY
+wait 3000
+tap PLAY
+wait 200
+expect vanmode 3
+wait 10500
+expect vanmode 0
+wait 1200
+tap PLAY
+wait 1200
+tap PLAY
+wait 1200
+tap PLAY
+wait 600
 expect vancur 85
 expect vanoffers 1
 # the cards, then the two choices
