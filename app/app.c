@@ -611,7 +611,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                         rd_e[k] *= k == 4u ? 0.99985f : 0.99991f;
                     }
                     rd_lp += 0.16f * (sum - rd_lp);
-                    rd = rd_lp * rd_lev * 0.026f;
+                    rd = rd_lp * rd_lev * 0.058f;
                 }
                 v = vo * bend + cs * bend + bv + bl + bs + nz + rd + wet * 0.45f;
             }

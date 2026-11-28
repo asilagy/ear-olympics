@@ -7,8 +7,10 @@ turn PRESET 1
 wait 30
 master 4096
 tap PLAY
+wait 100
+tap PLAY
 wait 9000
 peakreset
 wait 4000
 expect peak_db_min -60
-expect peak_db_max -26
+expect peak_db_max -18

@@ -7,6 +7,8 @@ turn PRESET 1
 wait 30
 tap PLAY
 wait 100
+tap PLAY
+wait 100
 expect vansong 1682
 wait 300
 shot van_song0.png

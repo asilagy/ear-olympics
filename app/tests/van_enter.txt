@@ -10,6 +10,16 @@ expect sel 3
 tap PLAY
 wait 100
 expect state 13
+# the title first: Van, what the game is, and the level (K1). Only here.
+expect vanmode 7
+expect vanlvl 1
+shot van_title.png
+turn K1 1
+expect vanlvl 2
+turn K1 -1
+expect vanlvl 1
+tap PLAY
+wait 100
 expect vanmode 0
 expect vancards 4
 expect vancard 0

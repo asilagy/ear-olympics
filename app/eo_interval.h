@@ -37,6 +37,7 @@ static const van_level_t van_level_tab[VAN_LEVELS] = {
     {4, 10, 1, 0, 0, {12, 7, 4, 3, 5, 2, 9, 10, 1, 6}},
     {4, 12, 1, 0, 0, {12, 7, 4, 3, 5, 2, 9, 10, 1, 6, 8, 11}},
 };
+static const char *const van_level_name[VAN_LEVELS] = {"HIGHER OR LOWER, WIDE", "HIGHER OR LOWER, CLOSE", "NAMES: OCTAVE, FIFTH", "+ THIRDS", "+ FOURTH, SECOND", "+ SIXTHS, SEVENTH", "+ HALF STEP, TRITONE", "ALL TWELVE"};
 static const van_level_t *van_level(uint32_t l) { return &van_level_tab[(l >= 1u && l <= VAN_LEVELS ? l : 1u) - 1u]; }
 
 /* ---- the lines */

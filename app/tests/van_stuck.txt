@@ -8,6 +8,8 @@ wait 30
 master 4096
 tap PLAY
 wait 100
+tap PLAY
+wait 100
 expect vanask 0
 wait 1300
 expect vanmiss 0

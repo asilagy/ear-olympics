@@ -7,6 +7,8 @@ turn PRESET 1
 wait 30
 tap PLAY
 wait 100
+tap PLAY
+wait 100
 shot van_cam_wide.png
 wait 4500
 tap PLAY

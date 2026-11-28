@@ -8,6 +8,8 @@ turn PRESET 1
 wait 30
 tap PLAY
 wait 100
+tap PLAY
+wait 100
 expect vanfish 0
 expect vanmode 4
 wait 1500

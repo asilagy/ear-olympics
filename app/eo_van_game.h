@@ -5,7 +5,7 @@
  * they are on the lit answer keys. Nothing is ever lost: a wrong answer is a shrug and the right key lights. */
 #include "eo_interval.h"
 
-enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH, VM_BLINK, VM_TEN };                        /* what the keys do now */
+enum { VM_CARDS, VM_ASK, VM_CHOICE, VM_HUM, VM_FISH, VM_BLINK, VM_TEN, VM_TITLE };   /* VM_TITLE: before the chat, where the level is picked */                        /* what the keys do now */
 enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };                         /* what comes when the cards run out */
 #define VAN_CARDS 24u
 #define VAN_LINES 10u
@@ -750,7 +750,6 @@ static void van_choose(uint32_t ix)      /* an ask beat: your pick, Van's reply 
 
 static void van_enter(void)
 {
-    uint32_t seen = set.van_seen & 1u;
     van_stop_sound();
     van_since = 0;
     van_th = 0xFFu;
@@ -777,6 +776,13 @@ static void van_enter(void)
     }
     ui.state = ST_VAN;
     ui.text = TX_READY;
+    van_mode = VM_TITLE;                 /* the title: Van, a line about the game, and the level (K1). PLAY starts the chat */
+    van_cn = 0;
+    ui.redraw = 1;
+}
+static void van_begin(void)              /* PLAY on the title: the chat starts, and the level is never shown again */
+{
+    uint32_t seen = set.van_seen & 1u;
     if (seen) {
         van_say(P_TALK, VN_BEAT, van_again, 0, 0, 0);
     } else {
@@ -804,6 +810,11 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
     uint32_t now = plat_ms(), i;
     if (new_btn & (1u << B_HOME)) {
         van_end();
+        return;
+    }
+    if (van_mode == VM_TITLE) {
+        if (new_btn & (1u << B_PLAY))
+            van_begin();
         return;
     }
     if (van_mode == VM_CARDS) {
@@ -841,9 +852,11 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
     }
 }
 
-static void van_level_step(int32_t d)    /* K1: another level, up to three above the highest you have completed */
+static void van_level_step(int32_t d)    /* K1, on the title only: another level, up to three above the highest you have completed */
 {
     int32_t m = (int32_t)set.van_top + (int32_t)EO_UNLOCK, l;
+    if (van_mode != VM_TITLE)
+        return;
     if (set.pad & 1u)
         m = VAN_LEVELS;
     if (m > (int32_t)VAN_LEVELS)
@@ -854,12 +867,7 @@ static void van_level_step(int32_t d)    /* K1: another level, up to three above
     set.van_lvl = (uint8_t)l;
     set.van_prog = 0;
     set_dirty = 1;
-    if (van_mode == VM_ASK || van_mode == VM_CARDS) {
-        van_stop_sound();
-        van_ev = 0;
-        van_since = VAN_BEATS;           /* a fresh question at the new level, right after the next card */
-        van_question();
-    }
+    ui.redraw = 1;
 }
 
 static void van_tick(uint32_t now)
@@ -1119,7 +1127,7 @@ static void van_bands(uint32_t now)      /* the room and the box under it (no he
 {
     static const uint8_t HY[3] = {0, 80, 160}, NY[2] = {0, 144}, NH[2] = {144, 96};
     uint32_t i;
-    if (van_mode == VM_HUM || van_mode == VM_FISH || van_mode == VM_BLINK) {
+    if (van_mode == VM_HUM || van_mode == VM_FISH || van_mode == VM_BLINK || van_mode == VM_TITLE) {
         for (i = 0; i < 3u; i++) {
             mv_oy = HY[i];
             mv_h = 80;
@@ -1182,11 +1190,42 @@ static void van_pong_draw(uint32_t now)   /* the TV in close-up: the glass with 
     mtext(fx + PG_W / 2 + 14, fy - 2, &FONT_XS, sc, dim);
 }
 
+static void van_title_scene(uint32_t now)   /* before the chat: Van on his couch, what the game is, and the level to start at (K1) */
+{
+    char lv[48];
+    const char *nm = van_level_name[(set.van_lvl >= 1u && set.van_lvl <= VAN_LEVELS ? set.van_lvl : 1u) - 1u];
+    mrect(0, 0, 240, 240, C_BLACK);
+    van_room(1, 1, 0, 0);
+    van_paint(P_LOUNGE, 48, 4, 3, 2, now, 0);
+    mrect(0, 0, 240, 16, EO_RGB(10, 16, 24));
+    mtext(8, 0, &FONT_S, "NAME THAT INTERVAL", EO_RGB(110, 200, 90));
+    mrect(0, 144, 240, 96, C_BLACK);
+    mrect(0, 144, 240, 2, EO_RGB(110, 200, 90));
+    mtext(8, 148, &FONT_S, "A game about nothing...", C_WHITE);
+    mtext(8, 164, &FONT_S, "besides intervals...", C_WHITE);
+    mtext(8, 180, &FONT_S, "and maybe life...", C_WHITE);
+    mtext(8, 196, &FONT_S, "and snacks.", C_WHITE);
+    lv[0] = 0;
+    text_cat(lv, "LEVEL ");
+    {
+        char d[2] = {(char)('0' + set.van_lvl), 0};
+        text_cat(lv, d);
+    }
+    text_cat(lv, "  ");
+    text_cat(lv, nm);
+    mtext(8, 216, &FONT_XS, lv, C_AMB);
+    mtext(8, 228, &FONT_XS, "K1 LEVEL      PLAY START", C_GRAY);
+}
+
 static void van_scene(uint32_t now)
 {
     uint32_t i;
     const char *c = van_cd[van_ci];
     int32_t bob = ((now / 600u) & 1u) ? 1 : 0;
+    if (van_mode == VM_TITLE) {
+        van_title_scene(now);
+        return;
+    }
     if (van_mode == VM_HUM) {
         van_hum_scene(now);
         return;

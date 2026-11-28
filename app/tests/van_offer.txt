@@ -6,6 +6,8 @@ turn PRESET 1
 turn PRESET 1
 wait 30
 tap PLAY
+wait 100
+tap PLAY
 wait 600
 expect vanoffers 0
 expect vanqsset 2
