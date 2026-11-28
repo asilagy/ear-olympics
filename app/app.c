@@ -19,6 +19,7 @@
 #include "eo_simon.h"
 #include "eo_cat.h"
 #include "eo_dogtor.h"
+#include "eo_interval.h"             /* Name That Interval (Van): the intervals, the levels, his lines */
 #include "eo_res.h"                 /* the cast, the title art, Dogtor and the intro music: in the resource region (app/res/eo_*.h) */
 
 enum { GAME_SIMON, GAME_COPYCAT, GAME_DOGTOR, GAMES };
@@ -41,7 +42,14 @@ typedef struct {
     uint8_t mode;                        /* 0 challenge, 1 practice */
     uint8_t pad;
     uint16_t best[GAMES];                /* Simon: the longest sequence; Copycat: the longest streak */
+    uint8_t van_gap[2];                  /* (the old record's padding: its bytes are whatever they were; Van's fields start after it) */
+    uint8_t van_lvl;                     /* Name That Interval (Van): the level, from 1 */
+    uint8_t van_prog;                    /* intervals named right at this level */
+    uint8_t van_top;                     /* the highest level completed */
+    uint8_t van_seen;                    /* bit 0: Van has introduced himself; bit 1: the TV hum has played */
 } settings_t;
+_Static_assert(__builtin_offsetof(settings_t, van_lvl) == 28, "Van's fields start after the old record");
+#define SET_OLD_SIZE 28u                 /* the record before Van's fields: its saved length (a shorter one still loads) */
 static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
 
@@ -652,7 +660,7 @@ void app_panic(void)                     /* silence now: a sequence stopped, bot
 }
 
 /* ----------------------------------------------------------------- the game --- */
-enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT, ST_SIMONE, ST_WISH };
+enum { ST_READY, ST_LISTEN, ST_TURN, ST_WIN, ST_MISS, ST_GAP, ST_LEVELUP, ST_INTRO, ST_CONTROLS, ST_MOVIE, ST_SELECT, ST_SIMONE, ST_WISH, ST_VAN };
 #define MV_PRES_MS 1700u                 /* the movie: ASilagy presents (up 0.5 s, still 0.9 s, a block dissolve 0.3 s) */
 #define MV_MUSIC_MS 1800u                /* then a beat of black, and the music starts: the montage */
 #define MV_ROSTER 5600u                  /* (in the music) the montage ends and the whole cast builds up, one by one */
@@ -665,8 +673,14 @@ static void sel_blip(uint32_t key, uint8_t vo);
 static void sim_end(void);
 static void sim_key(uint32_t now);
 static void sim_enter_up(void);
+static void van_key(uint32_t new_keys, uint32_t new_btn);
+static void van_level_step(int32_t d);
+static void van_enter(void);
+static void van_tick(uint32_t now);
+static void van_scene(uint32_t now);
 static void sel_go(void);
 static void sel_enter(void);
+static void van_key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim);
 enum { TX_READY, TX_ROOT, TX_LISTEN, TX_WATCH, TX_TURN, TX_NICE, TX_MISS, TX_OVER, TX_GOOD };
 static const char *const TX[9] = {"READY", "ROOT", "LISTEN", "WATCH", "YOUR TURN", "NICE!", "MISS", "GAME OVER",
                                   "GOOD JOB!"};
@@ -970,6 +984,10 @@ static void speak(void)
 static void key_levels(uint32_t *bright, uint32_t *mid, uint32_t *dim)
 {
     uint32_t b = seq_on ? seq_lit : ui.keys;
+    if (ui.state == ST_VAN) {
+        van_key_levels(bright, mid, dim);
+        return;
+    }
     if (set.game == GAME_DOGTOR) {                  /* the answer keys: dim while you choose; the right one bright after */
         *mid = 0u;
         *dim = ui.state == ST_READY || ui.state == ST_LEVELUP ? 0u : dogtor_key_mask(eo_level());
@@ -1049,7 +1067,7 @@ static void lights(void)
         sim_dazzle_leds(&bright, &mid, &dim);
     if (set_dirty)
         btn |= 1u << B_SAVE;
-    if (ui.state == ST_SELECT || ui.state == ST_SIMONE)
+    if (ui.state == ST_SELECT || ui.state == ST_SIMONE || ui.state == ST_VAN)
         btn |= 1u << B_PLAY;             /* steady: press it (not following the sequencer's notes) */
     else if (seq_on || (set.game == GAME_SIMON && ui.state == ST_READY))
         btn |= 1u << B_PLAY;             /* (Simone's game over: PLAY glows, she says it too) */
@@ -2263,7 +2281,11 @@ static void eo_game_step(int32_t d)
 static void settings_load(void)          /* the saved settings, or the defaults when there are none or they are wrong */
 {
     uint32_t g, ok;
-    ok = plat_store_load(OBJ_SETTINGS, &set, sizeof set) == (int)sizeof set && set.magic == SET_MAGIC &&
+    int32_t n;
+    for (g = 0; g < sizeof set; g++)
+        ((uint8_t *)&set)[g] = 0;
+    n = plat_store_load(OBJ_SETTINGS, &set, sizeof set);   /* (the record from before Van is shorter: its Van fields stay zero) */
+    ok = (n == (int)sizeof set || n == (int)SET_OLD_SIZE) && set.magic == SET_MAGIC &&
          set.game < GAMES && set.root >= ROOT_MIN && set.root <= ROOT_MAX;
     for (g = 0; ok && g < GAMES; g++)
         if (set.level[g] < 1u || set.level[g] > eo_levels[g] || set.prog[g] > (g == GAME_COPYCAT ? copycat_level(set.level[g])->rounds : g == GAME_DOGTOR ? DOGTOR_ROUNDS : EO_ROUNDS_UP) || set.top[g] > eo_levels[g] ||
@@ -2285,6 +2307,12 @@ static void settings_load(void)          /* the saved settings, or the defaults 
         set.speed = SPEED_DEF;
         set.mode = 0;
         set.pad = 0;
+    }
+    if (set.van_lvl < 1u || set.van_lvl > VAN_LEVELS || set.van_prog > VAN_ROUNDS || set.van_top > VAN_LEVELS) {   /* Van's start, or a bad record */
+        set.van_lvl = 1;
+        set.van_prog = 0;
+        set.van_top = 0;
+        set.van_seen &= 3u;
     }
     if (set.speed < SPEED_MIN || set.speed > SPEED_MAX)
         set.speed = SPEED_DEF;
@@ -2405,6 +2433,19 @@ static void input(void)
         }
         ui.keys = keys;
         ui.btn = btn;
+        lights();
+        return;
+    }
+    if (ui.state == ST_VAN) {                /* Van's hangout: a key goes on or answers; K1 is the level; HOME goes back to the select */
+        uint32_t new_keys = keys & ~ui.keys, new_btn = btn & ~ui.btn;
+        for (k = 0; k < NE; k++) {
+            int32_t e = plat_enc((int)k);
+            if (e && k == EN_K1)
+                van_level_step(e > 0 ? 1 : -1);
+        }
+        ui.keys = keys;
+        ui.btn = btn;
+        van_key(new_keys, new_btn);
         lights();
         return;
     }
@@ -3506,7 +3547,9 @@ static const eo_char_t eo_chars[12] = {      /* in the order of the montage */
 };
 static const uint16_t MV_B[13] = {0, 820, 1650, 2070, 2380, 2800, 3310, 3730, 3940, 4560, 4980, 5390, 5600};   /* the music's hits */
 static int32_t mv_oy, mv_h;
-static const int8_t sel_game[6] = {GAME_COPYCAT, GAME_DOGTOR, GAME_SIMON, -1, -1, -1};
+#define SEL_VAN 100                      /* a select slot that is not one of the three games: Van's hangout */
+static const int8_t sel_game[6] = {GAME_COPYCAT, GAME_DOGTOR, GAME_SIMON, SEL_VAN, -1, -1};
+static const uint8_t sel_ch[6] = {0, 1, 2, 4, 3, 5};     /* the slot's character (eo_chars is in the montage's order) */
 
 static void mrect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c) { cv_rect(x, y - mv_oy, w, h, c); }
 static void mtext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c) { cv_text(x, y - mv_oy, f, s, c); }
@@ -4126,6 +4169,8 @@ static void sim_scene(uint32_t now)
     }
 }
 
+#include "eo_van_game.h"
+
 static void sel_go(void)
 {
     int32_t g = sel_game[sel_cur];
@@ -4145,6 +4190,10 @@ static void sel_go(void)
     seq_n = 2;
     seq_end = 470;
     eo_seq_start(0, 0);
+    if (g == SEL_VAN) {                                  /* Van's hangout is not one of the three games: its own state */
+        van_enter();
+        return;
+    }
     if (g != (int32_t)set.game) {
         set.game = (uint8_t)g;
         set_dirty = 1;
@@ -4174,7 +4223,7 @@ static const char *const sel_desc[6][2] = {
     {"Meow sings a melody. You play it back.", "Be careful, he's judgmental!"},
     {"Help Dr. Diggie Diagnose the Chord", "Major, minor, or something worse?"},
     {"Simon~ says. You play it back.", "She's a goldfish. She forgot already."},
-    {"Still warming up.", "A new game is on the way."},
+    {"Van's place. Hang out a while.", "Name the notes. Eventually."},
     {"Still warming up.", "A new game is on the way."},
     {"Still warming up.", "A new game is on the way."},
 };
@@ -4193,7 +4242,7 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
     uint32_t i;
     uint32_t qph = now % 638u;                           /* a quarter note at 94 bpm: the bounce, eased, no frame flips */
     int32_t k, sh = (int32_t)(now / 5u % 48u), bob = (int32_t)((638u - qph) * (638u - qph) * 5u / (638u * 638u)), cur = sel_game[sel_cur];
-    const eo_char_t *c = &eo_chars[sel_cur];
+    const eo_char_t *c = &eo_chars[sel_ch[sel_cur]];
     uint16_t a = cur >= 0 ? EO_RGB(c->r, c->g, c->b) : EO_RGB(120, 120, 150);
     for (k = -2; k < 11; k++)                            /* the pinstripes, in the game's colour */
         mrect(k * 24 + sh, 0, 24, 240, (k & 1) ? mv_scale(a, 3u) : mv_scale(a, 2u));
@@ -4203,6 +4252,8 @@ static void sel_scene(uint32_t now)                      /* one game at a time, 
         dog_paint_sc(DOG_LISTEN, 72, 30 + bob, 2, 1);
     else if (cur == GAME_SIMON)                          /* Simone is the goldfish */
         cast_paint(0u, 0u, 24, 30 + bob, 2, 1);
+    else if (cur == SEL_VAN)                             /* Van, here for the snacks */
+        cast_paint(2u, 0u, 24, 30 + bob, 2, 1);
     else
         mctext(70 + bob, &FONT_L, "?", C_WHITE);
     if (!eo_res_ok() && cur >= 0) {                      /* the art is in the resource region and this FM-1 does not hold it */
@@ -4882,6 +4933,10 @@ static void draw(void)
         mv_bands(sim_scene, now);
         return;
     }
+    if (ui.state == ST_VAN) {
+        mv_bands(van_scene, now);
+        return;
+    }
     if (ui.state == ST_SELECT) {
         mv_bands(sel_scene, now);
         return;
@@ -5117,7 +5172,9 @@ void app_frame(void)
     input();
     if (ui.state == ST_SIMONE)
         sim_tick(now);
-    if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE) {   /* the movie, the select and Simone's show: a frame about every 33 ms */
+    if (ui.state == ST_VAN)
+        van_tick(now);
+    if (ui.state == ST_MOVIE || ui.state == ST_SELECT || ui.state == ST_SIMONE || ui.state == ST_VAN) {   /* the movie, the select and Simone's show: a frame about every 33 ms */
         static uint32_t last_mv;
         if (ui.state == ST_MOVIE) {
             movie_tick(now);
@@ -5284,7 +5341,7 @@ void app_frame(void)
             ui.redraw = 1;
         }
     }
-    if (set.game == GAME_COPYCAT && ui.state != ST_INTRO && ui.state != ST_CONTROLS && ui.state != ST_MOVIE && ui.state != ST_SELECT) {   /* the cat's animation */
+    if (set.game == GAME_COPYCAT && ui.state != ST_INTRO && ui.state != ST_CONTROLS && ui.state != ST_MOVIE && ui.state != ST_SELECT && ui.state != ST_VAN) {   /* the cat's animation */
         static uint32_t last_pose = 99u, last_frame;
         uint32_t pose = eo_pose(now), fr = eo_frame(now, pose);
         if (copycat_level(eo_level())->contour) {    /* the contour: a note comes out, or the sounding one changes */
@@ -5384,6 +5441,56 @@ int app_expect(const char *what, int *got)
         *got = (int)(eo_bend_v * 100.0f);
     else if (!strcmp(what, "sel"))
         *got = sel_cur;
+    else if (!strcmp(what, "vanmode"))
+        *got = van_mode;
+    else if (!strcmp(what, "vanchips"))
+        *got = van_chips;
+    else if (!strcmp(what, "vanprog"))
+        *got = set.van_prog;
+    else if (!strcmp(what, "vanlvl"))
+        *got = set.van_lvl;
+    else if (!strcmp(what, "vantop"))
+        *got = set.van_top;
+    else if (!strcmp(what, "vanseen"))
+        *got = set.van_seen;
+    else if (!strcmp(what, "vancard"))
+        *got = van_ci;
+    else if (!strcmp(what, "vancards"))
+        *got = van_cn;
+    else if (!strcmp(what, "vanright"))   /* the key of the right answer, so a test can play it */
+        *got = van_answer_key[van_q_right];
+    else if (!strcmp(what, "vanwrong"))   /* the key of a wrong answer */
+        *got = van_answer_key[van_q_right ? 0u : 1u];
+    else if (!strcmp(what, "vankeys"))
+        *got = van_q_n;
+    else if (!strcmp(what, "vansemi"))
+        *got = van_q_semi;
+    else if (!strcmp(what, "vanlines"))
+        *got = (int)van_check_lines();
+    else if (!strcmp(what, "vansince"))
+        *got = van_since;
+    else if (!strcmp(what, "vanbeat"))
+        *got = van_cur;
+    else if (!strcmp(what, "vantyped"))
+        *got = (int)van_typed(plat_ms());
+    else if (!strcmp(what, "vanask")) {   /* a test hook: a question now, the notes sounding; the right key */
+        van_since = VAN_BEATS;
+        van_question();
+        van_done_cards();
+        *got = 0;
+    } else if (!strcmp(what, "vanwin")) { /* a test hook: the right answer, as if pressed */
+        van_answer(van_q_right);
+        *got = 0;
+    } else if (!strcmp(what, "vanmiss")) {   /* a test hook: a wrong answer, as if pressed */
+        van_answer(van_q_right ? 0u : 1u);
+        *got = 0;
+    } else if (!strcmp(what, "vanold")) { /* a test hook: the settings saved as the record from before Van's fields */
+        *got = plat_store_save(OBJ_SETTINGS, &set, SET_OLD_SIZE);
+    } else if (!strcmp(what, "vanhum")) { /* a test hook: the TV hum beat now */
+        van_hum_start();
+        *got = 0;
+    } else if (!strcmp(what, "vanlen"))
+        *got = (int)van_len();
     else if (!strcmp(what, "mvstage"))
         *got = mv_stage;
     else if (!strcmp(what, "text"))

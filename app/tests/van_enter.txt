@@ -1,0 +1,48 @@
+# Van's hangout: from the select, turn to his slot (the fourth) and press PLAY. He introduces himself, a card at a time.
+wait 600
+tap HOME
+wait 50
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+expect sel 3
+tap PLAY
+wait 100
+expect state 13
+expect vanmode 0
+expect vancards 4
+expect vancard 0
+expect vanseen 1
+shot van_intro0.png
+wait 1200
+shot van_intro0b.png
+tap PLAY
+wait 50
+tap PLAY
+wait 50
+expect vancard 1
+shot van_intro1.png
+wait 2500
+tap PLAY
+wait 50
+expect vancard 2
+wait 4000
+shot van_intro2.png
+tap PLAY
+wait 50
+tap PLAY
+wait 50
+expect vancard 3
+wait 3000
+shot van_intro3.png
+tap PLAY
+wait 50
+tap PLAY
+wait 100
+expect vansince 1
+shot van_beat1.png
+tap HOME
+wait 50
+expect state 10
+expect sel 3

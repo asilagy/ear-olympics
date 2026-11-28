@@ -1,0 +1,88 @@
+# Van's questions. Seeded rounds are the same every run: this one is an octave (key 14 is right, 12 is the fifth).
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+wait 300
+expect vanmode 1
+expect vanchips 1
+expect vankeys 2
+expect vansemi 12
+expect vanright 14
+expect vanprog 0
+expect dim 20480
+wait 2200
+shot van_ask.png
+# a wrong answer: nothing is lost, the right key lights, and Van shrugs
+key 12 down
+wait 30
+key 12 up
+wait 100
+expect vanchips 2
+expect vanprog 0
+expect bright 16384
+expect mid 4096
+shot van_wrong.png
+wait 2500
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+wait 100
+expect vansince 1

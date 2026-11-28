@@ -1,0 +1,88 @@
+# Van: six intervals named right graduate level 1 to level 2 (with his "new on the tape" card). Nothing is ever lost: a wrong
+# answer keeps your progress. The record is kept: a reboot comes back at level 2.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vanlvl 1
+expect vanprog 0
+expect vanask 0
+wait 100
+expect vanwin 0
+expect vanprog 1
+expect vanask 0
+wait 100
+expect vanmiss 0
+wait 100
+expect vanprog 1
+expect vanlvl 1
+expect vanask 0
+wait 100
+expect vanwin 0
+expect vanask 0
+wait 100
+expect vanwin 0
+expect vanask 0
+wait 100
+expect vanwin 0
+expect vanask 0
+wait 100
+expect vanwin 0
+expect vanprog 5
+expect vanlvl 1
+expect vanask 0
+wait 100
+expect vanwin 0
+expect vanlvl 2
+expect vanprog 0
+expect vantop 1
+expect vancards 4
+wait 200
+shot van_levelup0.png
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+tap PLAY
+wait 40
+wait 3000
+shot van_levelup1.png
+tap HOME
+wait 100
+expect state 10
+reboot
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vanlvl 2
+expect vantop 1
+expect vanseen 1
+tap HOME
+wait 50
+expect vanold 0
+reboot
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+expect vanlvl 1
+expect vancards 4
