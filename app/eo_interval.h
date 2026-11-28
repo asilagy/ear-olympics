@@ -15,7 +15,7 @@ static const uint8_t van_answer_key[VAN_MAX_KEYS] = {12, 14, 16, 18};   /* A F4,
 
 typedef struct { uint8_t semi; const char *name; const char *joke; } van_iv_t;   /* index = semitones - 1 */
 static const van_iv_t van_iv[12] = {
-    {1, "MINOR 2ND", 0}, {2, "MAJOR 2ND", 0}, {3, "MINOR 3RD", 0}, {4, "MAJOR 3RD", 0}, {5, "FOURTH", 0},
+    {1, "MINOR 2ND", "A second. Tiny. Goldfish-memory tiny. Three of those and she's forgotten the first."}, {2, "MAJOR 2ND", "A second. Like the time kind. ...Both go by before I'm ready."}, {3, "MINOR 3RD", 0}, {4, "MAJOR 3RD", 0}, {5, "FOURTH", 0},
     {6, "TRITONE", "Tritone? That's the one giving sus."}, {7, "FIFTH", "A fifth's the chill one."}, {8, "MINOR 6TH", 0},
     {9, "MAJOR 6TH", 0}, {10, "MINOR 7TH", 0}, {11, "MAJOR 7TH", 0}, {12, "OCTAVE", "Octave. Same note, bigger vibes."}};
 
