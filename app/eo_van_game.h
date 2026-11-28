@@ -15,6 +15,7 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };         
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
+static uint8_t pg_offers, van_qs;            /* 10-ISH invitations made, and questions answered this visit */
 static uint8_t pg_on;                        /* 10-ISH is on the TV: the wallpaper of the rest of the chat */
 static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live (3 is the TV) */   /* the multicam: which camera is live */
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
@@ -446,6 +447,12 @@ static void van_next_beat(void)
         van_say(P_LOUNGE, VN_BEAT, van_pong_hint[pg_hint++], 0, 0, 0);
         return;
     }
+    if (!pg_on && pg_offers < 3u && van_qs >= 2u + 2u * pg_offers) {   /* two questions in: "wanna play 10-ISH?" (asked again after two more if he is turned down) */
+        pg_offers++;
+        van_cur = 85;
+        van_say(P_LOUNGE, VN_CHOICE, van_beat[85].c[0], van_beat[85].c[1], van_beat[85].c[2], 0);
+        return;
+    }
     if (van_since >= VAN_BEATS) {
         van_since = 0;
         van_question();
@@ -555,6 +562,8 @@ static void van_answer(uint32_t ix)
         van_chips = 3;
         return;
     }
+    if (van_qs < 255u)
+        van_qs++;
     eo_blub_soft = 1;                    /* a happy upward alien chirp: his own voice, no bell */
     eo_blub_glide = 0.9f;
     eo_blub_note = 69;
@@ -609,6 +618,21 @@ static void van_answer(uint32_t ix)
 static void van_choose(uint32_t ix)      /* an ask beat: your pick, Van's reply */
 {
     const van_beat_t *b = &van_beat[van_cur];
+    if (van_cur == 85u && ix == 0u) {   /* yes: two lines, and the TV goes on */
+        static char rb[2][80];
+        const char *r = b->re[0], *bar = r;
+        uint32_t k = 0;
+        while (*bar && *bar != '|')
+            bar++;
+        for (; r + k < bar && k < 78u; k++)
+            rb[0][k] = r[k];
+        rb[0][k] = 0;
+        for (k = 0; bar[1u + k] && k < 78u; k++)
+            rb[1][k] = bar[1u + k];
+        rb[1][k] = 0;
+        van_say(P_LOUNGE, VN_TEN, rb[0], rb[1], 0, 0);
+        return;
+    }
     if (van_cur == 81u) {               /* the song: any answer, then the whole song, then "what do you think?" */
         static char rb[112];
         const char *r = b->re[ix];
@@ -669,6 +693,7 @@ static void van_enter(void)
     }
     van_snacked = 0;
     pg_on = 0;
+    pg_offers = van_qs = 0;
     van_ev = 0;
     van_chips = 0;
     van_q_n = 0;

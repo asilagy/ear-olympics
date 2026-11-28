@@ -1,0 +1,56 @@
+# After two interval questions Van asks "wanna play 10-ISH?" (Yes / Later). Yes puts the TV on; Later asks again after two more.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 600
+expect vanoffers 0
+expect vanqsset 2
+expect vannext 0
+wait 300
+expect vancur 85
+expect vanoffers 1
+# the cards, then the two choices
+wait 9000
+shot van_offer0.png
+# turn him down: "Later", and he does not put the TV on
+tap PLAY
+wait 3000
+tap PLAY
+wait 3000
+tap PLAY
+wait 300
+expect vanmode 2
+shot van_offer1.png
+expect vanpick1 0
+wait 300
+expect vanpon 0
+expect vanmode 0
+# two more questions answered, and he asks again
+expect vanqsset4 4
+expect vannext 0
+wait 300
+expect vancur 85
+expect vanoffers 2
+wait 9000
+tap PLAY
+wait 3000
+tap PLAY
+wait 3000
+tap PLAY
+wait 300
+expect vanmode 2
+# Yes: two lines, then the TV is on and the game runs
+expect vanpick0 0
+wait 300
+expect vanpon 0
+wait 9000
+tap PLAY
+wait 3500
+tap PLAY
+wait 300
+expect vanpon 1
+shot van_offer2.png

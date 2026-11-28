@@ -34,22 +34,8 @@ wait 200
 expect vanontv 1
 expect vanradio 30
 # the game has run 6 s with knob 4 untouched: at the next beat boundary he tells you how
-tap PLAY
-wait 150
-tap PLAY
-wait 150
-tap PLAY
-wait 150
-tap PLAY
-wait 150
-tap PLAY
-wait 150
-tap PLAY
-wait 150
-tap PLAY
-wait 150
-tap PLAY
-wait 150
+expect vannext 0
+wait 100
 expect vanphint 1
 shot van_pong_hint.png
 # knob 4 moves your paddle, one nudge at a time

@@ -160,8 +160,9 @@ static const van_beat_t van_beat[] = {
     VAN_SAY(P_TALK, "Meow lets me pet him. That reminds me. I petted a human once.", "I asked first. He said, 'Dude, I'm a person.'", "I felt really bad. Then he gave me a pretzel, so it worked out."),
     /* 84: the staring contest (he loses, on purpose or not) */
     {{"*Van stares at you. He is not blinking.", "Staring contest. Go. Don't blink.", 0, 0}, K_BLINK, P_TALK, {0, 0, 0}, {0, 0, 0}},
-    /* 85: ten-ish, where nothing is at stake */
-    {{"Oh. The TV is on. This is my favorite.", "It's called 10-ISH. Two paddles, one ball.", "*You're the right paddle. Turn knob four.", 0}, K_TEN, P_LOUNGE, {0, 0, 0}, {0, 0, 0}},
+    /* 85: the invitation to 10-ISH (inner: Van offers it after two interval questions, it is in no thread) */
+    {{"Hey. Wanna see something cool?", "I got this console.", "Wanna play 10-ISH? Two paddles, one ball.", 0}, K_ASK, P_LOUNGE, {"Yes", "Later", 0},
+     {"Sweet. You're the right paddle.|Just twist knob four. I'll go easy on you.", "No stress. It's not going anywhere. It's a TV.", 0}},
     /* 86: Mom calls */
     {{"*A tiny phone buzzes. Van picks it up.", "Hey, Mom. ...No, I'm at work. ...Measuring. ...Yes, things.", "...Yes, I ate. A snack is a meal if you're brave. ...Love you too. Bye. Bye. Bye.", "*Van hangs up. ...Mom says hi. And to wear a hat."}, K_PHONE, P_PHONE, {0, 0, 0}, {0, 0, 0}},
 };
@@ -202,7 +203,7 @@ static const char *const van_up[2] = {"New level, bro. Bigger gaps.", "You got b
 
 /* ---- conversation: beats come in threads (a few that follow from one another), with a link between threads, so it talks
  * like a person who wanders but does not just list facts. Each number is an index into van_beat[]; 255 ends a thread. */
-#define VAN_THREADS 28u
+#define VAN_THREADS 27u
 #define VAN_FIRST_INNER 82u                  /* beat 82 is only reached from the song, not from a thread */
 static const uint8_t van_thread[VAN_THREADS][6] = {
     {0, 7, 1, 8, 3, 9},                  /* humans, and their habits */
@@ -230,7 +231,6 @@ static const uint8_t van_thread[VAN_THREADS][6] = {
     {79, 80, 255, 0, 0, 0},              /* you: the measuring, and snacks */
     {81, 255, 0, 0, 0, 0},               /* the song */
     {84, 255, 0, 0, 0, 0},               /* the staring contest */
-    {85, 255, 0, 0, 0, 0},               /* ten-ish */
     {86, 255, 0, 0, 0, 0},               /* Mom */
     {69, 70, 71, 72, 255, 0},            /* the pigeon */
 };

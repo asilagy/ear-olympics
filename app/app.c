@@ -5552,7 +5552,7 @@ int app_expect(const char *what, int *got)
                     cnt[van_thread[th][k]]++;
             }
         for (k = 0; k < VAN_NBEATS; k++)
-            if (k != 82u && cnt[k] != 1u)
+            if (k != 82u && k != 85u && cnt[k] != 1u)
                 ok = 0;
         *got = (int)ok;
     } else if (!strcmp(what, "vanth"))
@@ -5583,6 +5583,30 @@ int app_expect(const char *what, int *got)
     }
     else if (!strcmp(what, "vanontv"))      /* 1 when the shot is the TV with the game running, 0 on a cutaway */
         *got = (int)van_on_tv(plat_ms());
+    else if (!strcmp(what, "vanpick0") || !strcmp(what, "vanpick1")) {   /* a test hook: pick the first (or second) choice of the ask now */
+        van_choose(what[7] == '1' ? 1u : 0u);
+        *got = 0;
+    }
+    else if (!strcmp(what, "vanpon"))       /* 1 when 10-ISH is on the TV */
+        *got = pg_on;
+    else if (!strcmp(what, "vanqsset4")) {  /* a test hook: pretend four questions are done */
+        van_qs = 4;
+        *got = 4;
+    }
+    else if (!strcmp(what, "vannext")) {    /* a test hook: on to the next beat now */
+        van_next_beat();
+        *got = 0;
+    }
+    else if (!strcmp(what, "vanqs"))        /* questions answered right this visit */
+        *got = van_qs;
+    else if (!strcmp(what, "vanoffers"))    /* 10-ISH invitations made this visit */
+        *got = pg_offers;
+    else if (!strcmp(what, "vancur"))       /* the beat now */
+        *got = van_cur;
+    else if (!strcmp(what, "vanqsset")) {   /* a test hook: pretend two questions are done */
+        van_qs = 2;
+        *got = 2;
+    }
     else if (!strcmp(what, "vancut")) {     /* a test hook: cut to Van (medium shot) */
         van_cam = 1;
         *got = 1;
