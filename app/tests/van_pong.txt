@@ -1,0 +1,42 @@
+# 10-ISH: Pong on the TV. The paddle moves only with knob 4, Van tells you how after a while, the radio ducks, it ends by itself.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 600
+expect vanten 0
+expect vanmode 6
+wait 100
+expect vanradio 30
+shot van_pong0.png
+# keys and the other knobs do nothing to the paddle
+tap PLAY
+turn K1 1
+wait 300
+expect vanmode 6
+expect vanpp 48
+# he tells you how, after a while (you have not turned knob 4)
+wait 6500
+expect vanphint 1
+shot van_pong1.png
+# knob 4 moves your paddle, one nudge at a time
+turn K4 1
+turn K4 1
+turn K4 1
+wait 30
+expect vanpp 61
+turn K4 -1
+wait 30
+expect vanpp 57
+# once you have turned it he stops explaining
+wait 9000
+expect vanphint 1
+shot van_pong2.png
+# it ends on its own, no win, Van talks
+wait 32000
+expect vanmode 0
+expect vanradio 100
+shot van_pong3.png

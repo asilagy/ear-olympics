@@ -161,7 +161,7 @@ static const van_beat_t van_beat[] = {
     /* 84: the staring contest (he loses, on purpose or not) */
     {{"*Van stares at you. He is not blinking.", "Staring contest. Go. Don't blink.", 0, 0}, K_BLINK, P_TALK, {0, 0, 0}, {0, 0, 0}},
     /* 85: ten-ish, where nothing is at stake */
-    {{"Okay, weird one. Can you do something ten times?", "Like, press anything. Ten-ish. I'll count.", "*Press anything. Ten-ish.", 0}, K_TEN, P_LOUNGE, {0, 0, 0}, {0, 0, 0}},
+    {{"Oh. The TV is on. This is my favorite.", "It's called 10-ISH. Two paddles, one ball.", "*You're the right paddle. Turn knob four.", 0}, K_TEN, P_LOUNGE, {0, 0, 0}, {0, 0, 0}},
     /* 86: Mom calls */
     {{"*A tiny phone buzzes. Van picks it up.", "Hey, Mom. ...No, I'm at work. ...Measuring. ...Yes, things.", "...Yes, I ate. A snack is a meal if you're brave. ...Love you too. Bye. Bye. Bye.", "*Van hangs up. ...Mom says hi. And to wear a hat."}, K_PHONE, P_PHONE, {0, 0, 0}, {0, 0, 0}},
 };
@@ -191,7 +191,8 @@ static const char *const van_song[] = {
 #define VAN_NSONG ((uint32_t)(sizeof van_song / sizeof van_song[0]))
 static const char *const van_radio_down = "*Van turns the radio down.";
 static const char *const van_blink_after[3] = {"*Van blinked.", "...You win.", "I wasn't even trying. ...Okay, I was a little."};
-static const char *const van_ten_after[4] = {"Zero. Bold. Ten-ish? No. But bold.", "That's... not ten. Ten-ish, if you squint.", "Ten-ish! That's ten-ish. I can't explain it. I just know.", "That's a lot of ten. Like, several tens."};
+static const char *const van_ten_after[3] = {"You're ahead. I let you. ...Mostly.", "I'm ahead. Don't worry. It doesn't count.", "Tied. Ten-ish. That's the whole sport."};
+static const char *const van_pong_hint[3] = {"Knob four. The paddle sits still until you turn it.", "Knob four. It's shy. Give it a nudge.", "No pressure. I'll just play both sides."};
 static const char *const van_ten_end = "No points. Nothing happens. ...That's the best part.";
 static const char *const van_lead[8] = {"*Van pulls out the tape measure.", "Hold on. Gotta measure something.", "Okay, tape measure time.", "Two notes. How far apart?",
                                          "Yep. Still my job. Measuring stuff.", "Don't mind me. I'm just here to measure stuff.", "That's what I'm here for. Gaps.", "Okay. Back to work. Sort of."};

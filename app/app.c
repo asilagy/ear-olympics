@@ -740,6 +740,7 @@ static void sim_key(uint32_t now);
 static void sim_enter_up(void);
 static void van_key(uint32_t new_keys, uint32_t new_btn);
 static void van_level_step(int32_t d);
+static void van_pong_turn(int32_t d);
 static void van_enter(void);
 static void van_tick(uint32_t now);
 static void van_scene(uint32_t now);
@@ -2508,6 +2509,8 @@ static void input(void)
             int32_t e = plat_enc((int)k);
             if (e && k == EN_K1)
                 van_level_step(e > 0 ? 1 : -1);
+            else if (e && k == EN_K4)
+                van_pong_turn(e > 0 ? 1 : -1);
         }
         ui.keys = keys;
         ui.btn = btn;
@@ -5578,8 +5581,16 @@ int app_expect(const char *what, int *got)
         van_ten_start();
         *got = 0;
     }
-    else if (!strcmp(what, "vantens"))
-        *got = van_tens;
+    else if (!strcmp(what, "vanpp"))        /* 10-ISH: your paddle's place, in pixels */
+        *got = pg_pp / 16;
+    else if (!strcmp(what, "vanpv"))        /* ... Van's */
+        *got = pg_vp / 16;
+    else if (!strcmp(what, "vanpscore"))    /* ... the points: yours */
+        *got = (int)pg_sp;
+    else if (!strcmp(what, "vanpvscore"))   /* ... Van's */
+        *got = (int)pg_sv;
+    else if (!strcmp(what, "vanphint"))     /* ... how many times he has told you how to play */
+        *got = (int)pg_hint;
     else if (!strcmp(what, "vanfish")) {  /* a test hook: the long look at the fish now */
         van_fish_start();
         *got = 0;

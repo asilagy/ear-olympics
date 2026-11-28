@@ -25,32 +25,3 @@ wait 600
 expect vanmode 0
 expect vancards 3
 shot van_blink2.png
-# ten-ish
-expect vanten 0
-expect vanmode 6
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-tap PLAY
-wait 200
-shot van_ten0.png
-expect vantens 10
-wait 3400
-expect vanmode 0
-expect vancards 2
-shot van_ten1.png

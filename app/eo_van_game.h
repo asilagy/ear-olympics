@@ -13,13 +13,12 @@ enum { VN_BEAT, VN_ASK, VN_CHOICE, VN_HUM, VN_FISH, VN_BLINK, VN_TEN };         
 #define VAN_HUM_MS 10000u
 #define VAN_FISH_MS 8000u                                            /* the long look at the fish: a quiet moment, not skippable */
 #define VAN_BLINK_MS 7000u                                           /* the staring contest: he loses at the end, unskippably */
-#define VAN_TEN_IDLE_MS 3000u                                        /* ten-ish is over when you pause this long */
 #define VAN_SNACK_MS 40000u                                          /* this long on a question: Van wonders if it is a snack break */
 
 static uint8_t van_cam, van_flip, van_cut;   /* the multicam: which camera is live */
 static uint8_t van_mode, van_after, van_chips, van_cn, van_ci, van_pose;
 static const char *van_cd[VAN_CARDS];
-static uint32_t van_fish_t0, van_fish_bub, van_blink_t0, van_blink_tk, van_ten_t0, van_ten_last, van_tens;
+static uint32_t van_fish_t0, van_fish_bub, van_blink_t0, van_blink_tk;
 static uint32_t van_t0, van_typed_last, van_hum_t0, van_ask_t0, van_ev_at;
 static uint8_t van_ev;                                               /* 1: play the interval again at van_ev_at */
 static uint8_t van_since, van_snacked, van_first_q, van_cur, van_first_beat;         /* beats since a question; the beat now; ... */
@@ -333,18 +332,107 @@ static void van_blink_stop(void)
 {
     van_say(P_TALK, VN_BEAT, van_blink_after[0], van_blink_after[1], van_blink_after[2], 0);
 }
+/* ---- 10-ISH: Pong on the TV. Van is the left paddle and is okay at it, you are the right one on knob 4. No stakes, no win. */
+#define PG_W 176                                                     /* the field, in pixels (positions are in 1/16 px) */
+#define PG_H 96
+#define PG_PH 24                                                     /* paddle height */
+#define PG_END_MS 45000u                                             /* 10-ISH is over after this long */
+static int32_t pg_bx, pg_by, pg_vx, pg_vy, pg_pp, pg_vp, pg_aim;
+static uint32_t pg_ms, pg_t0, pg_turn_ms, pg_sp, pg_sv, pg_hint, pg_turned;
+static void pg_serve(int32_t dir)
+{
+    pg_bx = PG_W * 8;
+    pg_by = PG_H * 8;
+    pg_vx = dir * 1000;
+    pg_vy = ((int32_t)van_rnd(2) ? 1 : -1) * (160 + (int32_t)van_rnd(260));
+    pg_aim = ((int32_t)van_rnd(21) - 10) * 16;
+}
+static void van_pong_say(const char *c)   /* a line of Van's over the game: the box changes, the game goes on */
+{
+    van_cd[0] = c;
+    van_cn = 1;
+    van_ci = 0;
+    van_card_start(plat_ms());
+}
 static void van_ten_start(void)
 {
     van_mode = VM_TEN;
     van_chips = 0;
-    van_tens = 0;
-    van_ten_t0 = van_ten_last = plat_ms();
+    pg_sp = pg_sv = pg_hint = pg_turned = 0;
+    pg_pp = pg_vp = PG_H * 8;
+    pg_ms = pg_t0 = pg_turn_ms = plat_ms();
+    pg_serve(-1);
     ui.redraw = 1;
+}
+static void van_pong_turn(int32_t d)     /* knob 4: the right paddle; nothing else moves it */
+{
+    if (van_mode != VM_TEN)
+        return;
+    pg_pp = clamp(pg_pp + d * 72, PG_PH * 8, (PG_H - PG_PH / 2) * 16);
+    pg_turned = 1;
+    pg_turn_ms = plat_ms();
 }
 static void van_ten_stop(void)
 {
-    uint32_t n = van_tens;
-    van_say(P_LOUNGE, VN_BEAT, van_ten_after[n == 0u ? 0u : n < 7u ? 1u : n < 14u ? 2u : 3u], van_ten_end, 0, 0);
+    van_say(P_LOUNGE, VN_BEAT, van_ten_after[pg_sp > pg_sv ? 0u : pg_sp < pg_sv ? 1u : 2u], van_ten_end, 0, 0);
+}
+static void pg_blip(int32_t note)
+{
+    eo_blub_soft = 1;
+    eo_blub_glide = 0.3f;
+    eo_blub_note = note;
+    eo_blub_trig++;
+}
+static void van_pong_step(uint32_t now)
+{
+    uint32_t dt = now - pg_ms;
+    int32_t half = PG_PH * 8, tgt, d;
+    pg_ms = now;
+    if (dt > 50u)
+        dt = 50u;
+    if (!pg_turned && now - pg_t0 > 6000u + pg_hint * 8000u && pg_hint < 3u)   /* he tells you how, after a while */
+        van_pong_say(van_pong_hint[pg_hint++]);
+    if (now - pg_t0 > PG_END_MS) {
+        van_ten_stop();
+        return;
+    }
+    pg_bx += pg_vx * (int32_t)dt / 1000;
+    pg_by += pg_vy * (int32_t)dt / 1000;
+    if (pg_by < 48) {
+        pg_by = 48;
+        pg_vy = -pg_vy;
+    } else if (pg_by > PG_H * 16 - 48) {
+        pg_by = PG_H * 16 - 48;
+        pg_vy = -pg_vy;
+    }
+    tgt = (pg_vx < 0 ? pg_by + pg_aim : PG_H * 8);          /* Van watches the ball coming, and drifts back to the middle otherwise */
+    d = clamp(tgt - pg_vp, -(int32_t)dt * 800 / 1000, (int32_t)dt * 800 / 1000);
+    pg_vp = clamp(pg_vp + d, half, PG_H * 16 - half);
+    if (pg_vx < 0 && pg_bx <= 14 * 16) {                     /* the left paddle */
+        if (pg_by >= pg_vp - half - 40 && pg_by <= pg_vp + half + 40) {
+            pg_vx = -pg_vx;
+            pg_vy += (pg_by - pg_vp) * 4;
+            pg_vy = clamp(pg_vy, -520, 520);
+            pg_aim = ((int32_t)van_rnd(31) - 15) * 16;       /* "okay": sometimes he is off */
+            pg_blip(55);
+        } else if (pg_bx <= 0) {
+            pg_sp++;
+            pg_blip(43);
+            pg_serve(1);
+        }
+    } else if (pg_vx > 0 && pg_bx >= (PG_W - 14) * 16) {      /* the right paddle: yours */
+        if (pg_by >= pg_pp - half - 40 && pg_by <= pg_pp + half + 40) {
+            pg_vx = -pg_vx;
+            pg_vy += (pg_by - pg_pp) * 4;
+            pg_vy = clamp(pg_vy, -520, 520);
+            pg_blip(62);
+        } else if (pg_bx >= PG_W * 16) {
+            pg_sv++;
+            pg_blip(43);
+            pg_serve(-1);
+        }
+    }
+    ui.redraw = 1;
 }
 static void van_hum_stop(void)
 {
@@ -650,15 +738,7 @@ static void van_key(uint32_t new_keys, uint32_t new_btn)
     } else if (van_mode == VM_BLINK) {
         (void)new_keys;                  /* a staring contest: you cannot skip it (HOME leaves) */
     } else if (van_mode == VM_TEN) {
-        if ((new_keys || new_btn) && van_tens < 99u) {   /* every press is one: a soft chirp, nothing more */
-            van_tens++;
-            van_ten_last = plat_ms();
-            eo_blub_soft = 1;
-            eo_blub_glide = 0.3f;
-            eo_blub_note = 60 + (int32_t)(van_tens % 5u) * 2;
-            eo_blub_trig++;
-            ui.redraw = 1;
-        }
+        (void)new_keys;                  /* the keys do nothing in 10-ISH: it is the knob (HOME leaves) */
     } else if (van_mode == VM_FISH) {
         (void)new_keys;                  /* a long look: no skipping (HOME leaves) */
     } else if (van_mode == VM_HUM) {
@@ -692,7 +772,7 @@ static void van_tick(uint32_t now)
     {   /* the radio plays in the next room: quiet, and turned down before every question and for the long gags */
         uint32_t quiet = van_mode == VM_ASK || van_mode == VM_HUM || van_mode == VM_FISH || van_mode == VM_BLINK || van_chips ||
                          (van_mode == VM_CARDS && van_after == VN_ASK);
-        eo_radio_vol = quiet ? 0.0f : 1.0f;
+        eo_radio_vol = quiet ? 0.0f : van_mode == VM_TEN ? 0.3f : 1.0f;   /* ducked under Pong, not gone */
         eo_radio_on = 1;
     }
     if (van_mode == VM_BLINK) {
@@ -705,8 +785,8 @@ static void van_tick(uint32_t now)
             eo_blub_trig++;
         }
     }
-    if (van_mode == VM_TEN && ((van_tens && now - van_ten_last > VAN_TEN_IDLE_MS) || (!van_tens && now - van_ten_t0 > 3u * VAN_TEN_IDLE_MS)))
-        van_ten_stop();
+    if (van_mode == VM_TEN)
+        van_pong_step(now);
     if (van_mode == VM_CARDS) {
         uint32_t n = van_typed(now);
         if (n != van_typed_last) {
@@ -891,6 +971,13 @@ static int32_t van_ghost_px(const void *s, int32_t x, int32_t y)    /* Van's fac
         return -1;
     return (int32_t)(uint16_t)((((uint32_t)c >> 1) & 0x7BEFu) + 0x2104u * 3u);
 }
+static int32_t van_ghost4_px(const void *s, int32_t x, int32_t y)   /* the same, but a quarter of the pixels, and darker: a reflection that leaves the game readable */
+{
+    int32_t c = van_tint_px(s, x, y);
+    if (c < 0 || (x & 1) || (y & 1))
+        return -1;
+    return (int32_t)(uint16_t)((((uint32_t)c >> 1) & 0x7BEFu) + 0x0821u * 2u);
+}
 static void van_tint_init(void)
 {
     uint32_t i;
@@ -952,6 +1039,32 @@ static void van_bands(uint32_t now)      /* the room and the box under it (no he
     }
 }
 
+static void van_pong_draw(uint32_t now)   /* the TV in close-up: the field, two paddles, a ball, Van's face faint on the glass */
+{
+    const int32_t fx = 32, fy = 22;
+    uint16_t lit = EO_RGB(150, 230, 150), dim = EO_RGB(46, 92, 62);
+    int32_t y;
+    char sc[8];
+    (void)now;
+    mrect(0, 0, 240, 144, EO_RGB(22, 26, 38));
+    mrect(18, 8, 204, 128, EO_RGB(64, 58, 74));
+    mrect(fx - 6, fy - 6, PG_W + 12, PG_H + 12, EO_RGB(12, 26, 22));
+    for (y = 0; y < PG_H; y += 8)        /* the dashed line down the middle */
+        mrect(fx + PG_W / 2 - 1, fy + y, 2, 4, dim);
+    mrect(fx + 6, fy + pg_vp / 16 - PG_PH / 2, 4, PG_PH, lit);                 /* Van's */
+    mrect(fx + PG_W - 10, fy + pg_pp / 16 - PG_PH / 2, 4, PG_PH, lit);         /* yours */
+    mrect(fx + pg_bx / 16 - 2, fy + pg_by / 16 - 2, 5, 5, lit);
+    sc[0] = (char)('0' + (pg_sv > 9u ? 9u : pg_sv));
+    sc[1] = 0;
+    mtext(fx + PG_W / 2 - 20, fy - 2, &FONT_XS, sc, dim);                       /* the score, quiet: Van's, then yours */
+    sc[0] = (char)('0' + (pg_sp > 9u ? 9u : pg_sp));
+    mtext(fx + PG_W / 2 + 14, fy - 2, &FONT_XS, sc, dim);
+    if (eo_res_ok()) {
+        van_tint_init();
+        spr_paint(van_ghost4_px, EO_VAN[0], EO_CAST_W, EO_CAST_H, 66, 10, 3, 2);   /* Van's reflection in the glass */
+    }
+}
+
 static void van_scene(uint32_t now)
 {
     uint32_t i;
@@ -973,7 +1086,9 @@ static void van_scene(uint32_t now)
             mrect(0, 0, 240, 240, C_BLACK);
         return;
     }
-    {
+    if (van_mode == VM_TEN)
+        van_pong_draw(now);
+    else {
         int32_t big = van_chips || van_mode == VM_CHOICE;
         uint32_t talk = van_mode == VM_CARDS && van_typed(now) < van_len();
         uint32_t cam = (van_chips || van_mode == VM_CHOICE) ? 0u : van_cam;   /* the chips need the wide shot */
@@ -996,11 +1111,6 @@ static void van_scene(uint32_t now)
                 spr_pal = EO_CAST_PAL[0];
                 spr_paint(cast_px, EO_CAST[0][((now / 700u) & 1u) ? 1u : 0u], EO_CAST_W, EO_CAST_H, 186, 92 + bob * 2, 1, 2);
             }
-        }
-        if (van_mode == VM_TEN) {        /* a dot for every press: no number, no goal */
-            uint32_t d;
-            for (d = 0; d < van_tens && d < 30u; d++)
-                mdisc(14 + (int32_t)d * 7, 132, 3, C_AMB);
         }
         if (van_chips || van_mode == VM_CHOICE)
             van_chip_row(now);
