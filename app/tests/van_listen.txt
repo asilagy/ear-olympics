@@ -1,0 +1,36 @@
+# Atmosphere: the fridge really hums while he listens; the cricket ("did you hear that?"); the radio changes chords and key now and then.
+wait 600
+tap HOME
+turn PRESET 1
+turn PRESET 1
+turn PRESET 1
+wait 30
+tap PLAY
+wait 100
+tap PLAY
+wait 100
+# the fridge: unskippable, a few seconds, then he says what it was
+expect vanfridge 0
+expect vanmode 8
+wait 300
+shot van_fridge.png
+tap PLAY
+wait 100
+expect vanmode 8
+wait 5600
+expect vanmode 0
+# the cricket: a yes or no; either way it lives on for three questions
+expect vancricket 0
+wait 3800
+expect vanmode 0
+shot van_cricket0.png
+expect vancricketq 0
+# say no: a little louder; it lives on for three questions
+expect vanpick1 0
+wait 100
+expect vancricketq 3
+wait 3600
+shot van_cricket1.png
+# the radio moves on after a couple of choruses (15 to 22 s each time)
+wait 50000
+expect vanrdmoved 1

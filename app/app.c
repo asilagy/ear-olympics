@@ -115,6 +115,10 @@ static volatile uint8_t eo_noise_on;     /* the TV: white-ish noise, faded in an
 static volatile float eo_noise_vol;
 static volatile uint8_t eo_radio_on;    /* Van's radio, in the next room: a slow bossa loop, quiet, ducked before every question */
 static volatile float eo_radio_vol;
+static volatile int32_t eo_rd_tr;        /* the radio: which key it is in now (semitones from C), and how many times it has moved on (for the tests) */
+static volatile uint32_t eo_rd_changes;
+static volatile uint32_t eo_cricket_trig;   /* a cricket somewhere in the room: each trigger is one short trill (eo_cricket_vol is how faint) */
+static volatile float eo_cricket_vol;
 static volatile uint8_t eo_blub_soft;    /* Van's talk: rounder, longer bubbles with a Hann envelope, and a letter that comes while one is sounding waits (no cut, no click) */
 static volatile uint8_t eo_rev;          /* 1: the bell plays reversed: it swells in and stops, like a tape run backwards */
 static volatile float eo_bend_v = 1.0f;  /* the record's speed now (for the tests) */
@@ -274,8 +278,10 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
     static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_pm, nz_lp, nz_lev;
-    static uint32_t nz_s = 0x2545F491u, rd_t, rd_step;
-    static float rd_lev, rd_lp, rd_ph[5], rd_inc[5], rd_e[5];
+    static uint32_t nz_s = 0x2545F491u, rd_t, rd_step, rd_s = 0x9E3779B9u, rd_loops, rd_hold = 2u, rd_prog;
+    static int32_t rd_tr;
+    static float rd_lev, rd_lp, rd_ph[5], rd_inc[5], rd_e[5], cr_age = 9.0f, cr_ph;
+    static uint32_t cr_seen;
     static float blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[5], gong_e[5], gong_inc;
     static uint32_t gong_seen;
     static uint8_t stopping, rising;
@@ -527,7 +533,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                         eo_rv_i[j] = 0;
                     wet += y;
                 }
-                float bl = 0.0f, bs = 0.0f, nz = 0.0f, rd = 0.0f;
+                float bl = 0.0f, bs = 0.0f, nz = 0.0f, rd = 0.0f, cr = 0.0f;
                 if (bass_age < 0.30f) {          /* a plucked bass: a saw whose brightness closes as it decays, over a sub sine; 4 ms in, then a fall */
                     float env = (bass_age < 0.004f ? bass_age * 250.0f : 1.0f) * (1.0f - bass_age * (1.0f / 0.30f)) * (1.0f - bass_age * (1.0f / 0.30f));
                     float sw = eo_lookup(eo_wt_saw, bass_ph);
@@ -584,22 +590,49 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     nz = (0.55f * w + 0.9f * nz_lp) * nz_lev;
                 }
                 if (eo_radio_on || rd_lev > 0.0001f) {   /* the radio: Dm7, G7, Cmaj7, A7, on a bossa pattern; plucks, softened, like a wall is in the way */
-                    static const uint8_t CH[4][4] = {{50, 53, 57, 60}, {55, 59, 62, 65}, {52, 55, 59, 64}, {49, 52, 55, 57}};
-                    static const uint8_t BS[4][2] = {{38, 45}, {43, 50}, {36, 43}, {33, 40}};
+                    /* four stock jazz turnarounds (in C), and now and then it moves on: another progression, and another key, the way a standard would */
+                    static const uint8_t CH[4][4][4] = {
+                        {{50, 53, 57, 60}, {55, 59, 62, 65}, {52, 55, 59, 64}, {49, 52, 55, 57}},   /* ii V I VI7: Dm7 G7 Cmaj7 A7 */
+                        {{52, 55, 59, 62}, {49, 52, 55, 59}, {50, 53, 57, 60}, {55, 59, 62, 65}},   /* iii VI ii V: Em7 A7 Dm7 G7 */
+                        {{52, 55, 59, 64}, {49, 52, 55, 59}, {50, 53, 57, 60}, {55, 59, 62, 65}},   /* I VI ii V: Cmaj7 A7 Dm7 G7 */
+                        {{50, 53, 56, 60}, {55, 59, 62, 65}, {48, 51, 55, 58}, {53, 56, 60, 63}}};  /* minor ii V i iv: Dm7b5 G7 Cm7 Fm7 */
+                    static const uint8_t BS[4][4][2] = {
+                        {{38, 45}, {43, 50}, {36, 43}, {33, 40}}, {{40, 47}, {33, 40}, {38, 45}, {43, 50}},
+                        {{36, 43}, {33, 40}, {38, 45}, {43, 50}}, {{38, 45}, {43, 50}, {36, 43}, {41, 48}}};
                     uint32_t k;
                     float sum = 0.0f;
                     rd_lev += ((eo_radio_on ? eo_radio_vol : 0.0f) - rd_lev) * 0.00004f;
                     if (++rd_t >= 10176u) {
-                        uint32_t st = rd_step++ & 31u, bar = (st >> 3) & 3u;
+                        uint32_t stt = rd_step++, st = stt & 31u, bar = (st >> 3) & 3u;
                         rd_t = 0;
+                        if (st == 0u && stt) {           /* a whole 4-bar chorus has gone round: after two or three, a change */
+                            rd_loops++;
+                            if (rd_loops >= rd_hold) {
+                                uint32_t r;
+                                rd_s ^= rd_s << 13;
+                                rd_s ^= rd_s >> 17;
+                                rd_s ^= rd_s << 5;
+                                r = (rd_s >> 8) % 10u;
+                                rd_loops = 0;
+                                rd_hold = 2u + ((rd_s >> 4) & 1u);
+                                rd_prog = (rd_prog + 1u + ((rd_s >> 12) % 3u)) & 3u;   /* never the same twice running */
+                                rd_tr += r < 7u ? 5 : r < 9u ? 1 : -2;                   /* up a fourth (the cycle), or a half step up, or a whole step down */
+                                while (rd_tr > 9)
+                                    rd_tr -= 12;
+                                while (rd_tr < -2)
+                                    rd_tr += 12;
+                                eo_rd_tr = rd_tr;
+                                eo_rd_changes++;
+                            }
+                        }
                         st &= 7u;
                         if (st == 0u || st == 3u || st == 6u)
                             for (k = 0; k < 4u; k++) {
-                                rd_inc[k] = eo_note_inc((int32_t)CH[bar][k]);
+                                rd_inc[k] = eo_note_inc((int32_t)CH[rd_prog][bar][k] + rd_tr);
                                 rd_e[k] = 1.0f;
                             }
                         if (st == 0u || st == 4u) {
-                            rd_inc[4] = eo_note_inc((int32_t)BS[bar][st == 4u ? 1u : 0u]);
+                            rd_inc[4] = eo_note_inc((int32_t)BS[rd_prog][bar][st == 4u ? 1u : 0u] + rd_tr);
                             rd_e[4] = 1.0f;
                         }
                     }
@@ -613,7 +646,19 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     rd_lp += 0.16f * (sum - rd_lp);
                     rd = rd_lp * rd_lev * 0.058f;
                 }
-                v = vo * bend + cs * bend + bv + bl + bs + nz + rd + wet * 0.45f;
+                if (cr_seen != eo_cricket_trig) {   /* a cricket: a high trill, three or four little pulses, ducking in and out */
+                    cr_seen = eo_cricket_trig;
+                    cr_age = 0.0f;
+                }
+                if (cr_age < 0.42f) {
+                    float ph = cr_age * 11.0f, fr = ph - (float)(int32_t)ph, win = cr_age < 0.04f ? cr_age * 25.0f : cr_age > 0.36f ? (0.42f - cr_age) * 16.0f : 1.0f;
+                    cr_age += 1.0f / 44100.0f;
+                    cr_ph += 4300.0f / 44100.0f;
+                    if (cr_ph >= 1.0f)
+                        cr_ph -= 1.0f;
+                    cr = fr < 0.55f ? fm_sinf(6.2831853f * cr_ph) * fm_sinf(3.14159265f * fr / 0.55f) * win * eo_cricket_vol : 0.0f;
+                }
+                v = vo * bend + cs * bend + bv + bl + bs + nz + rd + cr + wet * 0.45f;
             }
         }
         if (smp_run) {                   /* 8 kHz to 44.1 kHz: a straight line between two neighbours */
@@ -5616,6 +5661,23 @@ int app_expect(const char *what, int *got)
         }
         *got = (int)(fish * 10u + meow);
     }
+    else if (!strcmp(what, "vanfridge")) {  /* a test hook: the fridge, listening, now */
+        van_fridge_start();
+        *got = 0;
+    }
+    else if (!strcmp(what, "vancricketq"))  /* questions the cricket has left to live */
+        *got = van_cr_q;
+    else if (!strcmp(what, "vancricket")) { /* a test hook: the "did you hear that" beat now */
+        van_cur = 87;
+        van_say(P_COOKED, VN_CHOICE, van_beat[87].c[0], van_beat[87].c[1], van_beat[87].c[2], 0);
+        van_cr_once = plat_ms() + 2600u;
+        van_cr_vol = 0.006f;
+        *got = 0;
+    }
+    else if (!strcmp(what, "vanrdmoved"))   /* the radio has changed chords or key at least twice */
+        *got = eo_rd_changes >= 2u ? 1 : 0;
+    else if (!strcmp(what, "vanrdkey"))     /* ... and the key it is in, semitones from C, plus 2 */
+        *got = eo_rd_tr + 2;
     else if (!strcmp(what, "vannext")) {    /* a test hook: on to the next beat now */
         van_next_beat();
         *got = 0;

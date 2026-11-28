@@ -42,7 +42,7 @@ static const van_level_t *van_level(uint32_t l) { return &van_level_tab[(l >= 1u
 
 /* ---- the lines */
 enum { P_IDLE, P_LOUNGE, P_TALK, P_LAUGH, P_COOKED, P_TAPE, P_SNACK, P_PHONE, P_ASLEEP, P_FISH };   /* the poses: the cast's two, then Van's seven */
-enum { K_SAY, K_ASK, K_MEOW, K_HUM, K_FISH, K_BLINK, K_TEN, K_PHONE };
+enum { K_SAY, K_ASK, K_MEOW, K_HUM, K_FISH, K_BLINK, K_TEN, K_PHONE, K_FRIDGE };
 typedef struct {
     const char *c[4];                    /* the cards, in order (the last is the question for an ask) */
     uint8_t kind, pose;
@@ -124,7 +124,7 @@ static const van_beat_t van_beat[] = {
     VAN_SAY(P_TALK, "Soon is like later, but nervous."),
     VAN_SAY(P_TALK, "I like now. Fewer moving parts."),
     VAN_SAY(P_TALK, "The fridge makes cold. On purpose. For free. Nobody thanks it."),
-    VAN_SAY(P_TALK, "I thanked it. It hummed. I'm counting that."),
+    {{"I thanked it. It hummed.", "Shh. Listen. ...Right now.", 0, 0}, K_FRIDGE, P_IDLE, {0, 0, 0}, {0, 0, 0}},   /* the fridge, really humming */
     VAN_SAY(P_TALK, "Then I opened it to say thanks again and the light came on. We're good."),
     VAN_SAY(P_TALK, "There's a drawer with only spoons. I respect that level of commitment."),
     VAN_SAY(P_TALK, "Everyone here has two names. One for friends, one for forms."),
@@ -166,12 +166,16 @@ static const van_beat_t van_beat[] = {
      {"Sweet. You're the right paddle.|Just twist knob four. I'll go easy on you.", "No stress. It's not going anywhere. It's a TV.", 0}},
     /* 86: Mom calls */
     {{"*A tiny phone buzzes. Van picks it up.", "Hey, Mom. ...No, I'm at work. ...Measuring. ...Yes, things.", "...Yes, I ate. A snack is a meal if you're brave. ...Love you too. Bye. Bye. Bye.", "*Van hangs up. ...Mom says hi. And to wear a hat."}, K_PHONE, P_PHONE, {0, 0, 0}, {0, 0, 0}},
+    /* 87: did you hear that? (a cricket, very faint; yes or no) */
+    {{"*Van stops. Tilts his head.", "...", "...Hey. Did you hear that?", 0}, K_ASK, P_COOKED, {"Yes", "No", 0},
+     {"...Are you sure?|...Huh. Okay. Yeah. I hear it too.", "Huh. Must be me.|...No. There it is. Tiny. Rude.", 0}},
 };
 #define VAN_NBEATS ((uint32_t)(sizeof van_beat / sizeof van_beat[0]))
 
 static const char *const van_intro[4] = {"#", "...Hold on. Decoder was off.", "Sup duude, the name's Ivan Terval, but my bro-bros call me Van.",
                                          "Yeah, I'm not, like, the evolved kind. Sorry."};
 static const char *const van_again = "Oh. Hey. You're back. Cool.";
+static const char *const van_fridge_after[3] = {"There. ...You hear it?", "It's a B. A little flat. Every fridge. Same B.", "I'm counting that as a thank you."};
 static const char *const van_hum_after[2] = {"...", "...Yeah."};
 static const char *const van_snack = "Wait, was that your snack break? ...Oh. Cool. Cool cool cool.";
 static const char *const van_song[] = {
@@ -211,7 +215,7 @@ static const char *const van_up[2] = {"New level, bro. Bigger gaps.", "You got b
 
 /* ---- conversation: beats come in threads (a few that follow from one another), with a link between threads, so it talks
  * like a person who wanders but does not just list facts. Each number is an index into van_beat[]; 255 ends a thread. */
-#define VAN_THREADS 27u
+#define VAN_THREADS 28u
 #define VAN_FIRST_INNER 82u                  /* beat 82 is only reached from the song, not from a thread */
 static const uint8_t van_thread[VAN_THREADS][6] = {
     {0, 7, 1, 8, 3, 9},                  /* humans, and their habits */
@@ -240,6 +244,7 @@ static const uint8_t van_thread[VAN_THREADS][6] = {
     {81, 255, 0, 0, 0, 0},               /* the song */
     {84, 255, 0, 0, 0, 0},               /* the staring contest */
     {86, 255, 0, 0, 0, 0},               /* Mom */
+    {87, 255, 0, 0, 0, 0},               /* did you hear that (the cricket) */
     {69, 70, 71, 72, 255, 0},            /* the pigeon */
 };
 static const char *const van_link_new[8] = {"Anyway.", "Okay, different thing.", "Oh. Unrelated.", "Hm. Random.", "So. Update.",
