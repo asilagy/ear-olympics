@@ -281,7 +281,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
-    static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_pm, nz_lp, nz_lp2, nz_lev, hm_lev, hm_p1, hm_p2, hm_p3;
+    static float bend = 1.0f, blub_age = 1.0f, blub_dur = 0.07f, blub_up = 0.9f, blub_pm, nz_lp, nz_lp2, nz_lp3, nz_lev, hm_lev, hm_p1, hm_p2, hm_p3;
     static uint32_t nz_s = 0x2545F491u, rd_t, rd_step, rd_s = 0x9E3779B9u, rd_loops, rd_hold = 2u, rd_prog;
     static int32_t rd_tr;
     static float rd_lev, rd_lp, rd_ph[5], rd_inc[5], rd_e[5], cr_age = 9.0f, cr_ph;
@@ -591,8 +591,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     w = (float)(nz_s >> 8) * (1.0f / 8388608.0f) - 1.0f;
                     nz_lp += 0.3f * (w - nz_lp);
                     nz_lev += ((eo_noise_on ? eo_noise_vol : 0.0f) - nz_lev) * 0.0004f;
-                    nz_lp2 += 0.05f * (nz_lp - nz_lp2);
-                    nz = eo_noise_dark ? 6.5f * nz_lp2 * nz_lev : (0.8f * w + 0.6f * nz_lp) * nz_lev;
+                    nz_lp2 += 0.03f * (nz_lp - nz_lp2);
+                    nz_lp3 += 0.03f * (nz_lp2 - nz_lp3);
+                    nz = eo_noise_dark ? 16.0f * nz_lp3 * nz_lev : (0.8f * w + 0.6f * nz_lp) * nz_lev;
                 }
                 if (eo_tv_hum || hm_lev > 0.0001f) {   /* a tube TV: mains hum and its second harmonic, and the thin line whine, faded so nothing clicks */
                     hm_lev += ((eo_tv_hum ? 1.0f : 0.0f) - hm_lev) * 0.0003f;
