@@ -96,7 +96,7 @@ A wrong note plays the right melody, lit, over its root, so you hear what it was
 - **KNOB 3, speed:** how fast the melody plays back, 25% to 200% in steps of 5% (100% is normal). Applies to both games.
 - **KNOB 4, mode:** CHALLENGE (the default) is the game as it is: a miss ends the round. PRACTICE lets you keep trying
   the same melody: a wrong note plays the cat's yowl and the right melody, then you start again from the first note
-  (Simon: the sequence plays again). Practice counts for nothing: no streak, no progress toward a level, no best,
+  (Simoné Says: the sequence plays again). Practice counts for nothing: no streak, no progress toward a level, no best,
   nothing saved but the settings.
 - **Mid-round:** KNOB 2 (voice), KNOB 3 (speed) and KNOB 4 (mode) can be turned at any time, in the middle of a round.
   During YOUR TURN, **SELECT steps through the melody one note per notch** (each note sounds for about a second; a note still sounding is cut off first, so they never overlap) (clockwise next, counter-clockwise
@@ -107,7 +107,7 @@ A wrong note plays the right melody, lit, over its root, so you hear what it was
 ### Levels graduate by themselves
 
 Play enough rounds right at a level and you move up: in Copycat, 8, 10 or 12 melodies played right (they don't have to
-be in a row, but **a miss takes a quarter of the rounds off the count**, down to 0, so guessing cannot get you through); in Simon, a sequence of ten. A **GOOD JOB!** card says the new level and what is different about it, and
+be in a row, but **a miss takes a quarter of the rounds off the count**, down to 0, so guessing cannot get you through); in Simoné Says, a sequence of ten. A **GOOD JOB!** card says the new level and what is different about it, and
 waits for PLAY. The count is shown on screen ("LEVEL UP: 3/8 RIGHT"), and kept with your settings. KNOB 1 still
 sets the level by hand. The top level has nothing to graduate to.
 
@@ -130,7 +130,7 @@ dashes (each dash a note; on the early levels the dashes sit high or low to show
 BEST. The root and LEVEL UP progress appear only in the pause between rounds; the volume shows for about a second after
 you change it. There is no on-screen keyboard: with the lights off, **after a miss it slides in with the right notes
 lit**, and the cat says so ("It was THESE. Obviously."); it hides again when the next round starts. The cat also comments
-now and then ("Purrfect." on a run, "...really?" on a miss). Simon's screen is unchanged.
+now and then ("Purrfect." on a run, "...really?" on a miss). Simoné Says' screen is unchanged.
 
 ### The ready screen, and the cat's temper
 
@@ -154,5 +154,5 @@ the keyboard showing.
   ending, or moving up a level. Nothing is written to the FM-1's flash between rounds.
 - **MIDI keyboard:** MIDI notes 53 to 79 (F3 to G5) play the 27 keys, over USB on the FM-1 and through "MIDI ports" in the browser emulator.
 - **LEDs:** in Copycat the root is mid-bright (bright while it is introduced), the level's other notes glow dimly;
-  in Simon the keys in play glow dimly. The sounding or held key is bright.
+  in Simoné Says the keys in play glow dimly. The sounding or held key is bright.
 
