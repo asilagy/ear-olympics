@@ -1,5 +1,7 @@
 # Ear Olympics
 
+![The Ear Olympics title screen: EAR OLYMPICS in rainbow letters, headphones for rings, PRESS PLAY](img/title.png "The title screen")
+
 *"It was THESE. Obviously."* Meow, a cat, after you got it wrong.
 
 A cozy ear-training arcade for the M-VAVE FM-1, hosted by a cast of animals and objects who are brilliant at music and
@@ -12,6 +14,8 @@ anything. Just watch."
 Every question is relative to a root note that sounds first, so you learn how notes sit against each other, not what
 they are called. Each game climbs one new trick at a time, the levels rise on their own, and a wrong answer never
 stings: you hear the right one, the key lights, and someone makes a face. Nobody shouts at you. The cat comes close.
+
+![The game select: Copycat, with Meow, THE CRITIC](img/select.png "Pick a game with the presets")
 
 ![Ear Olympics ready to start: the cat at left, PRESS PLAY TO START. Meow.](img/screen.png "The ready screen")
 
