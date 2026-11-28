@@ -2,12 +2,17 @@
 
 A WarioWare-style ear-training arcade game for the M-VAVE FM-1.
 
+**[The colourful tour, with screenshots and the browser version](https://asilagy.github.io/ear-olympics/)**
+
+
 The aim: short musical challenges come one after another, each a different skill (repeat a melody by ear, name the
 interval, identify the chord, the scale, the progression). Every skill has its own difficulty level that rises as you
 get things right, and a wrong answer plays the right one so every mistake teaches. Everything is relative to a root
 note that sounds first, so it trains relative pitch, never perfect pitch.
 
-**Status: two games on one shell, with automatic levels (0.7.2).** No arcade mode yet.
+**Status: several games on one shell, with automatic levels.** No arcade mode yet. The newest is **Name That Interval** (below),
+a slow hangout with an alien called Van, mostly conversation, with the interval training tucked in. Everything about it
+was checked in the simulator only; the FM-1 itself is the next test.
 
 ## Power-on movie and game select (0.9.0, new)
 
@@ -191,9 +196,17 @@ See [BUILDING.md](BUILDING.md). In short: `./build.sh --host` builds a simulator
 
 ## Licence and credits
 
-MPL-2.0, like fm1-base and Boardwalk. Built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
-felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). Its structure follows Charles Vestal's
-[Boardwalk](https://charlesvestal.github.io/fm1-boardwalk/).
+MPL-2.0, like fm1-base. Built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
+felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments).
+
+## Name That Interval: hanging out with Van (0.54)
+
+Van (Ivan Terval) is an alien surveyor who is here for the snacks. The game is about 90% chat and 10% training: he talks,
+and every so often asks which of two notes is higher, then, later, which interval it was. You pick the level on a title
+screen; after that it rises by itself. In between there are small set pieces: a long look at Simoné the goldfish in her
+bowl (with his reflection on the glass), the fridge hum, a cricket, the TV static gag, and 10-ISH, a game of Pong on
+the TV that you play with knob 4 while the conversation goes on over it. Under it all a radio plays a bossa nova that
+changes key and chords now and then.
 
 ## Chord Dogtor (0.8.1, new)
 

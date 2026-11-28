@@ -14,6 +14,19 @@ pitch arrives the lights come back for a level to introduce it, then go out agai
 
 ![The cat celebrating a level up in sunglasses](img/celebrate.png "A level up")
 
+## Name That Interval, with Van
+
+Van is an alien surveyor who is only here for the snacks. His game is mostly a conversation, with the interval training
+tucked in between the jokes: which note is higher, then which interval it was. Now and then he stops and shows you something.
+
+![Van on his couch: Okay, I have to ask. What do you do all day?](img/van_room.png "Van's room")
+
+![Simoné the goldfish, up close, with Van's reflection on the glass](img/van_fish.png "A long look at Simoné")
+
+![The TV static gag: Van, very close to the glass](img/van_static.png "The TV static gag")
+
+![10-ISH: Pong on Van's TV, playing while he talks](img/van_tenish.png "10-ISH, Pong with knob 4")
+
 This is version {{VERSION}}. Installing on a real FM-1 isn't open yet, so for now you can play it in your browser.
 
 - [Try it in the browser](emu/). Play it right here, with sound. It runs the same code as the FM-1, so you don't
