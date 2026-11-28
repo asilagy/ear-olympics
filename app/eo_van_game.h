@@ -106,6 +106,7 @@ static void van_card_start(uint32_t now)
         van_tvshot = 0;
         eo_noise_on = 0;
         eo_noise_dark = 0;
+        eo_tv_hum = 0;
     }
     van_cut++;                           /* every card is a cut: wide on the first, then medium and close, flipping sides */
     {
@@ -331,7 +332,7 @@ static void van_hum_start(void)
     eo_drone_set(KEY_NOTE0 + (int32_t)ROOT_MIN - 12, 0.12f);
     eo_noise_vol = 0.062f;
     eo_noise_dark = 1;                   /* mostly muffled static (80%) with a little bright hiss, and a tube TV's hum under it */
-    eo_tv_hum = 0;                       /* the approved preview has none: a deep rumble only (set 1 for the 60/120 Hz hum and the 15.7 kHz whine) */
+    eo_tv_hum = 1;                       /* a tube TV: 60 Hz hum, 120 Hz harmonic, 15.7 kHz whine, under the deep rumble */
     eo_noise_on = 1;
     ui.redraw = 1;
 }
