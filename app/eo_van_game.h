@@ -1342,10 +1342,71 @@ static void van_chip_row(uint32_t now)
 }
 static void van_lens(int32_t fx, int32_t fy, int32_t R, int32_t sc, int32_t blk, int32_t m, int32_t dim, int32_t dark, int32_t clip);
 static int32_t van_lens_px(int32_t fx, int32_t fy, int32_t R, int32_t sc, int32_t x, int32_t y);
+/* The TV's glass, pixel by pixel (the approved preview): the dark glass (18, 24, 36), his face in it as 55% of his own light (screen blend), his face bulged by a lens
+ * (a fisheye, strongest in the middle), a dimmer scanline on every even row, then the static (5 px blocks, 18% of them lit, grey 30 to 90, never darkening anything,
+ * so it shows on his skin too) and a roll bar. He sways a little and breathes (his size changes). Drawn as runs of one colour along each row. */
+static void van_tv_glass(uint32_t now, int32_t fy, uint32_t f)
+{
+    uint32_t tm = now - van_hum_t0;
+    int32_t fx = 120 + (int32_t)(4.0f * fm_sinf((float)(tm % 12566u) * 0.0005f)), sc = 500 + (int32_t)(15.0f * fm_sinf((float)(tm % 10472u) * 0.0006f));
+    int32_t w = 68 * sc / 100, h = 66 * sc / 100, ox = fx - w / 2, oy = fy - h * 4 / 10, R2 = 150 * 150, bar = (int32_t)((tm * 140u / 1000u) % 300u) - 30, x, y;
+    int32_t face = eo_res_ok();
+    if (face)
+        spr_pal = EO_CAST_PAL[2];
+    for (y = 0; y < 240; y++) {
+        int32_t runx = 0;
+        uint32_t runc = 0xFFFFFFFFu;
+        if (y < mv_oy || y >= mv_oy + mv_h)
+            continue;
+        for (x = 0; x <= 240; x++) {
+            uint32_t col = 0;
+            if (x < 240) {
+                uint32_t r = 18, g = 24, b = 36, h5;
+                int32_t c = -1;
+                if (face) {
+                    int32_t dx = x - fx, dy = y - fy, r2 = dx * dx + dy * dy, k = r2 < R2 ? 450 + 550 * r2 / R2 : 1000;
+                    int32_t lx = fx + dx * k / 1000 - ox, ly = fy + dy * k / 1000 - oy;
+                    if (lx >= 0 && ly >= 0 && lx * 68 / w < 68 && ly * 66 / h < 66)
+                        c = cast_px(EO_VAN[0], 95 - (14 + lx * 68 / w), ly * 66 / h);
+                }
+                if (c >= 0) {
+                    uint32_t cr = (((uint32_t)c >> 11) & 31u) * 255u / 31u * 55u / 100u, cg = (((uint32_t)c >> 5) & 63u) * 255u / 63u * 55u / 100u, cb = ((uint32_t)c & 31u) * 255u / 31u * 55u / 100u;
+                    r = 255u - (255u - 18u) * (255u - cr) / 255u;
+                    g = 255u - (255u - 24u) * (255u - cg) / 255u;
+                    b = 255u - (255u - 36u) * (255u - cb) / 255u;
+                }
+                if (!(y & 1)) {          /* the scanlines */
+                    r = r * 80u / 100u;
+                    g = g * 80u / 100u;
+                    b = b * 80u / 100u;
+                }
+                h5 = ((((uint32_t)(x / 5) * 73856093u) ^ ((uint32_t)(y / 5) * 19349663u) ^ (f * 83492791u)) * 2654435761u);
+                if ((h5 >> 8) % 100u >= 82u) {       /* a lit static block: grey, only ever lighter than what is there */
+                    uint32_t n = 30u + ((h5 >> 24) & 255u) * 60u / 255u;
+                    r = r > n ? r : n;
+                    g = g > n ? g : n;
+                    b = b > n ? b : n;
+                }
+                if (y >= bar && y < bar + 3) {      /* the roll bar */
+                    r = r > 60u ? r : 60u;
+                    g = g > 70u ? g : 70u;
+                    b = b > 90u ? b : 90u;
+                }
+                col = EO_RGB(r, g, b);
+            }
+            if (col != runc) {
+                if (runc != 0xFFFFFFFFu && x > runx)
+                    mrect(runx, y, x - runx, 1, (uint16_t)runc);
+                runx = x;
+                runc = col;
+            }
+        }
+    }
+}
 static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Van's face showing through it, like a reflection */
 {
     uint32_t i;
-    int32_t bx, by, f = (int32_t)(now / 60u), fyv = van_mode == VM_HUM ? 112 : 66;     /* under the cards the glass is only the top of the screen: his face sits higher */
+    int32_t f = (int32_t)(now / 60u), fyv = van_mode == VM_HUM ? 112 : 66;     /* under the cards the glass is only the top of the screen: his face sits higher */
     if (!van_tint[1]) {                  /* Van's colours washed toward the screen's blue, once */
         for (i = 1; i < 16u && eo_res_ok(); i++) {
             uint32_t c = EO_CAST_PAL[2][i], r = (c >> 11) & 31u, g = (c >> 5) & 63u, b = c & 31u;
@@ -1355,28 +1416,7 @@ static void van_hum_scene(uint32_t now)   /* the TV's glass: white noise with Va
             van_tint[i] = (uint16_t)((r << 11) | ((g > 63u ? 63u : g) << 5) | (b > 31u ? 31u : b));
         }
     }
-    mrect(0, 0, 240, 240, EO_RGB(18, 24, 36));
-    if (eo_res_ok())                     /* a close-up: three times his size, his face filling the glass */
-        van_lens(120, fyv, 150, 50, 4, 1, 8, 2, 0);     /* pressed to the glass: the middle of his face blown up */
-    for (by = 0; by < 48; by++) {        /* the noise: blocks, a different pattern every frame, many see-through (so you see both) */
-        int32_t y = by * 5;
-        if (y + 5 <= mv_oy || y >= mv_oy + mv_h)
-            continue;
-        for (bx = 0; bx < 48; bx++) {
-            uint32_t h = (((uint32_t)bx * 73856093u) ^ ((uint32_t)by * 19349663u) ^ ((uint32_t)f * 83492791u)) * 2654435761u;
-            uint32_t g = (h >> 24) & 255u;
-            if ((h >> 8) % 100u < 82u)
-                continue;
-            g = 30u + g * 60u / 255u;
-            {
-                int32_t fc = eo_res_ok() ? van_lens_px(120, fyv, 150, 50, bx * 5 + 2, y + 2) : -1;     /* the static never darkens his lit face */
-                if (fc >= 0 && (uint32_t)(((fc >> 5) & 63) * 4) > g)
-                    continue;
-            }
-            mrect(bx * 5, y, 5, 5, EO_RGB(g, g, g));
-        }
-    }
-    mrect(0, (int32_t)((now / 7u) % 260u) - 10, 240, 3, EO_RGB(60, 70, 90));    /* a slow roll bar */
+    van_tv_glass(now, fyv, (uint32_t)f);
     for (i = 0; i < 26u; i++) {          /* the rounded corners of the glass */
         int32_t w = 0;
         while ((26 - w) * (26 - w) + (26 - (int32_t)i) * (26 - (int32_t)i) > 26 * 26 && w < 26)
