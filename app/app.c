@@ -67,7 +67,7 @@ enum { V_MEOW, V_WARM, V_BELL, V_EPIANO, V_TRI, V_SQUARE, VOICES,   /* VOICES: t
        V_CATFX = VOICES, V_CATSAD, V_PURR, V_HOWL, V_PING, V_GONG, VOICES_ALL };            /* the cat's success meow, its sad yowl, its purr */
 static const char *const eo_voice_name[VOICES] = {"MEOW", "WARM", "BELL", "E-PIANO", "TRIANGLE", "SQUARE"};
 /* each voice's level before MASTER, to make them about equally loud (measured in the simulator) */
-static const float eo_voice_gain[VOICES_ALL] = {1.15f, 1.0f, 1.3f, 1.5f, 1.25f, 0.8f, 1.15f, 1.0f, 1.6f, 1.2f, 0.5f, 1.9f};
+static const float eo_voice_gain[VOICES_ALL] = {1.15f, 1.0f, 1.3f, 1.5f, 1.25f, 0.8f, 1.15f, 1.0f, 1.6f, 1.2f, 0.5f, 0.0f};   /* (V_GONG: silent; it only keeps the timing, the gong has its own generator) */
 /* one cycle each, normalised, first sample again at the end: warm (the old voice), the drone, triangle, square, and a
  * bright saw for the meow's resonances */
 static float eo_wt[WT_N + 1u], eo_wt_soft[WT_N + 1u], eo_wt_tri[WT_N + 1u], eo_wt_sq[WT_N + 1u], eo_wt_saw[WT_N + 1u];
@@ -95,10 +95,13 @@ static volatile uint8_t eo_smp_run;
 static float eo_ulaw[256];               /* mu-law bytes to floats, once */
 #define SMP_GAIN 1.1f
 static volatile uint32_t eo_rec_stop, eo_rec_go, eo_rec_up;   /* Simone's intro: the music slows to a stop like a record (stop), or is whole again (go) */
+static volatile uint32_t eo_gong_trig;  /* Simone's success: a low gong (MIDI note), with its own slow decay, one per trigger */
+static volatile int32_t eo_gong_note;
 static volatile uint32_t eo_bass_trig;  /* the select's bass: a plucked synth note (MIDI note, and how hard), one per trigger */
 static volatile int32_t eo_bass_note;
 static volatile float eo_bass_vel = 1.0f;
 #define BASS_GAIN 0.28f
+#define GONG_GAIN 0.20f
 static volatile uint32_t eo_blub_trig;   /* her typing: a short bubbly chirp; its MIDI note */
 static volatile int32_t eo_blub_note;
 static volatile uint8_t eo_rev;          /* 1: the bell plays reversed: it swells in and stops, like a tape run backwards */
@@ -258,7 +261,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     float f1 = 0.0f, f2 = 0.0f, mamp = 1.0f, inc_m = inc;
     static uint32_t beep_seen, smp_seen, smp_hseen, stop_seen, go_seen, up_seen, blub_seen, bass_seen;
-    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v;
+    static float bend = 1.0f, blub_age = 1.0f, blub_ph, blub_inc, bass_age = 1.0f, bass_ph, bass_inc, bass_lp, bass_v, gong_age = 9.0f, gong_ph[4], gong_e[4], gong_inc;
+    static uint32_t gong_seen;
     static uint8_t stopping, rising;
     static float smp_pos, smp_g;
     static uint8_t smp_run, smp_stop;
@@ -301,6 +305,13 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         bass_age = 0.0f;
         bass_inc = eo_note_inc(eo_bass_note);
         bass_v = eo_bass_vel;
+    }
+    if (gong_seen != eo_gong_trig) {     /* the gong: struck once, then left to ring */
+        gong_seen = eo_gong_trig;
+        gong_age = 0.0f;
+        gong_ph[0] = gong_ph[1] = gong_ph[2] = gong_ph[3] = 0.0f;
+        gong_e[0] = gong_e[1] = gong_e[2] = gong_e[3] = 1.0f;
+        gong_inc = eo_note_inc(eo_gong_note);
     }
     if (blub_seen != eo_blub_trig) {
         blub_seen = eo_blub_trig;
@@ -503,6 +514,20 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     }
                     bs = (bass_lp * 0.9f + fm_sinf(6.2831853f * bass_ph) * 0.55f) * env * bass_v * BASS_GAIN;
                     bass_age += 1.0f / 44100.0f;
+                }
+                if (gong_age < 2.6f) {           /* a low gong: inharmonic partials, each dying at its own rate (the high ones first), a soft strike */
+                    static const float ratio[4] = {1.0f, 2.012f, 2.76f, 5.40f}, dec[4] = {0.999970f, 0.999950f, 0.999897f, 0.999676f}, amp[4] = {1.0f, 0.6f, 0.45f, 0.3f};   /* (decay per sample: 0.75, 0.45, 0.22 and 0.07 s) */
+                    float g = 0.0f, up = gong_age < 0.008f ? gong_age * 125.0f : 1.0f;
+                    uint32_t q;
+                    for (q = 0; q < 4u; q++) {
+                        gong_ph[q] += gong_inc * ratio[q];
+                        if (gong_ph[q] >= 1.0f)
+                            gong_ph[q] -= 1.0f;
+                        gong_e[q] *= dec[q];
+                        g += amp[q] * fm_sinf(6.2831853f * gong_ph[q]) * gong_e[q];
+                    }
+                    bs += g * up * GONG_GAIN;
+                    gong_age += 1.0f / 44100.0f;
                 }
                 if (blub_age < 0.07f) {          /* a bubble: a quick sine chirping up */
                     blub_ph += blub_inc * (1.0f + 0.9f * blub_age * (1.0f / 0.07f));
@@ -1169,12 +1194,14 @@ static void eo_win_begin(void)           /* NICE! at once; the success sound onc
 static void eo_play_gong(void)           /* Simone's success: one low gong, left to ring */
 {
     seq_at[0] = 0;
-    seq_len[0] = 220;                            /* (the key lets go early; the gong's own slow release is the ring) */
-    seq_key[0] = (uint8_t)(SIMON_BASE - 7u);     /* F3: the lowest key there is */
+    seq_len[0] = 220;                            /* (a silent note: it only keeps the round's timing) */
+    seq_key[0] = (uint8_t)(SIMON_BASE - 7u);
     seq_vo_stage[0] = V_GONG;
     seq_n = 1;
     seq_end = 280;
     eo_seq_start(0, 0);
+    eo_gong_note = 48;                           /* C3 */
+    eo_gong_trig++;
 }
 
 static void eo_win_sound(void)
