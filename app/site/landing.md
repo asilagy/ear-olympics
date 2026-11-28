@@ -1,23 +1,39 @@
 # Ear Olympics
 
-Ear Olympics turns the M-VAVE FM-1 into an ear-training arcade, run by a cat called Meow who has perfect pitch and
-is not shy about it. In **Copycat**, you hear a root note and a short melody over it, then play the melody back by ear.
-Levels rise as you get things right, and every mistake plays the right answer, so you learn from it.
+An ear-training arcade for the M-VAVE FM-1, run by a cast of strange animals and objects who are excellent at music and
+merely okay at people. Short challenges, one skill each, everything relative to a root note that sounds first. You
+learn to hear how notes relate, not what they are called. Levels rise by themselves, one new trick at a time, and a
+wrong answer always plays the right one. Nobody shouts at you. The cat comes close.
 
 ![Ear Olympics ready to start: the cat at left, PRESS PLAY TO START. Meow.](img/screen.png "The ready screen")
 
-Everything is relative to a root note that sounds first, so Copycat trains relative pitch, never perfect pitch. It
-climbs 34 levels, one new idea at a time: steps, thirds, leaps, the whole scale, semitones, a moving root. When a new
-pitch arrives the lights come back for a level to introduce it, then go out again.
+## Copycat, with Meow
+
+Meow is an orange tabby in headphones with perfect pitch, and mentions it. You hear a root note and a short melody over
+it, then play the melody back by ear. It climbs 34 levels: steps, thirds, leaps, the whole scale, semitones, a root
+that moves. When a new pitch arrives the lights come back for a level, then go out. The cat dances, sings along,
+droops when you miss, and wears sunglasses when you level up.
 
 ![The cat on your turn: one dash for each note](img/round.png "A round: your turn")
 
 ![The cat celebrating a level up in sunglasses](img/celebrate.png "A level up")
 
+## Chord Dogtor, with Dr. Diggie
+
+Dr. Diggie is a very serious dog in a white coat who feels every wrong chord personally. He plays a chord over a quiet
+machine hum and a heart-monitor beep, and you press the key that names it: major, minor, then diminished, augmented,
+sevenths and suspended. He speaks in silent-film title cards. A right answer earns a soft bell and a happy howl.
+
+![Dr. Diggie, in his white coat, with the keys for major and minor](img/dogtor.png "Chord Dogtor")
+
+![Dr. Diggie introducing himself on a title card](img/dogtor_card.png "A silent-film title card")
+
 ## Name That Interval, with Van
 
-Van is an alien surveyor who is only here for the snacks. His game is mostly a conversation, with the interval training
-tucked in between the jokes: which note is higher, then which interval it was. Now and then he stops and shows you something.
+Van is an alien surveyor who is only here for the snacks. His game is about 90% hanging out on his couch and 10% ear
+training: which note is higher, then which interval it was. Now and then he stops and shows you something: a long look
+at Simoné the goldfish, the fridge hum, the TV static, and 10-ISH, a game of Pong on his TV that you play with knob 4
+while he keeps talking.
 
 ![Van on his couch: Okay, I have to ask. What do you do all day?](img/van_room.png "Van's room")
 
@@ -26,6 +42,14 @@ tucked in between the jokes: which note is higher, then which interval it was. N
 ![The TV static gag: Van, very close to the glass](img/van_static.png "The TV static gag")
 
 ![10-ISH: Pong on Van's TV, playing while he talks](img/van_tenish.png "10-ISH, Pong with knob 4")
+
+## Coming soon
+
+Eight more characters are on the way: a raccoon in a trench coat, a hedgehog inspector, a crab with a metal detector, a
+bear who apologizes to the tuna, a yodeling goat, a snail in a racing helmet and others. A few of them are already
+suspicious of each other.
+
+## Try it
 
 This is version {{VERSION}}. Installing on a real FM-1 isn't open yet, so for now you can play it in your browser.
 
