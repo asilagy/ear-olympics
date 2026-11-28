@@ -51,6 +51,13 @@ while he keeps talking.
 
 ![10-ISH: Pong on Van's TV, playing while he talks](img/van_tenish.png "10-ISH, Pong with knob 4")
 
+## Simoné Says, with Simoné
+
+Simoné is a goldfish clairvoyant with a three-second memory, which makes her an excellent teacher of the one thing she
+cannot do. She plays a growing sequence on four keys and you play it back. Each note has a word (DRIP, WATER, SPLASH,
+SPLISH) that floats above her bowl as a bubble, and the bubbles pop while you think. She rhymes, she calls you darling,
+and she knows, a little, that she lives in a box.
+
 ## Coming soon
 
 Eight more characters are on the way: a raccoon in a trench coat, a hedgehog inspector, a crab with a metal detector, a
