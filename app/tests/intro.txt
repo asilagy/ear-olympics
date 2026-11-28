@@ -62,12 +62,12 @@ expect sel 0
 shot select.png
 wait 100
 expect smp 0
-# the select's pulse is a plucked bass on its own channel, not the melody sequencer: G1 (MIDI 31) eight eighths, D#1 (27) four, F1 (29) four
-expect bass 31
+# the select's pulse is a plucked bass on its own channel, not the melody sequencer: G2 (MIDI 43) eight eighths, D#2 (39) four, F2 (41) four
+expect bass 43
 wait 3000
-expect bass 27
+expect bass 39
 wait 1000
-expect bass 29
+expect bass 41
 expect padon 0
 # from the second time round: a pad swells over the bass, a major triad on each bass note (G here)
 wait 3300
